@@ -6,8 +6,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Core\RentalManager.Modules.TenantManagement.Core.csproj" />
-  </ItemGroup>
-
 </Project>
