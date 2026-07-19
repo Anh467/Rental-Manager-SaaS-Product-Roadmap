@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.Identity.Application\RentalManager.Modules.Identity.Application.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.Identity.Infrastructure\RentalManager.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Core\RentalManager.Modules.TenantManagement.Core.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Infrastructure\RentalManager.Modules.TenantManagement.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

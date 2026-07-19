@@ -1,0 +1,22 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RentalManager.BuildingBlocks.Tenancy/RentalManager.BuildingBlocks.Tenancy.csproj" />
+  </Folder>
+  <Folder Name="/Src/Database/">
+    <Project Path="src/RentalManager.Database.SQLServer/RentalManager.Database.SQLServer.sqlproj" Id="7874bda0-1a8e-4e3d-bdf7-9388b230a258">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/src/modules/" />
+  <Folder Name="/src/modules/identity/">
+    <Project Path="src/RentalManager.Modules.Identity.Application/RentalManager.Modules.Identity.Application.csproj" />
+    <Project Path="src/RentalManager.Modules.Identity.Infrastructure/RentalManager.Modules.Identity.Infrastructure.csproj" Id="b06dae16-06df-421f-8af5-5fae99d7309a" />
+  </Folder>
+  <Folder Name="/Src/Modules/TenantManagement/">
+    <Project Path="src/RentalManager.Modules.TenantManagement.Application/RentalManager.Modules.TenantManagement.Application.csproj" Id="233b2282-e7a2-40c3-8008-aa2ddb67b6bd" />
+    <Project Path="src/RentalManager.Modules.TenantManagement.Core/RentalManager.Modules.TenantManagement.Core.csproj" />
+    <Project Path="src/RentalManager.Modules.TenantManagement.Infrastructure/RentalManager.Modules.TenantManagement.Infrastructure.csproj" Id="ec59a7d5-0b6c-41bf-80f0-a51474232eb9" />
+  </Folder>
+  <Project Path="src/RentalManager.Api/RentalManager.Api.csproj" />
+</Solution>
