@@ -7,7 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Domain\RentalManager.Modules.TenantManagement.Domain.csproj" />
+    <Folder Include="Persistence\Connections\" />
+    <Folder Include="Persistence\Repositories\" />
+    <Folder Include="Persistence\SqlServer\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Core\RentalManager.Modules.TenantManagement.Core.csproj" />
   </ItemGroup>
 
 </Project>

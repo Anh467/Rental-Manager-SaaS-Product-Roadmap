@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Core\RentalManager.Modules.TenantManagement.Core.csproj" />
+    <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
   </ItemGroup>
 
 </Project>
