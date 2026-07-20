@@ -13,7 +13,13 @@ public abstract class ValueObject
 
     public override int GetHashCode()
     {
-        return GetEqualityComponents()
-            .Aggregate(0, HashCode.Combine);
+        var hashCode = new HashCode();
+
+        foreach (object? component in GetEqualityComponents())
+        {
+            hashCode.Add(component);
+        }
+
+        return hashCode.ToHashCode();
     }
 }
