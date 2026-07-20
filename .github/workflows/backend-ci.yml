@@ -33,9 +33,34 @@ jobs:
         run: dotnet restore src/RentalManager.Api/RentalManager.Api.csproj
 
       - name: Build API dependency graph
-        run: >-
-          dotnet build
-          src/RentalManager.Api/RentalManager.Api.csproj
-          --configuration Release
-          --no-restore
-          --warnaserror
+        id: build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet build \
+            src/RentalManager.Api/RentalManager.Api.csproj \
+            --configuration Release \
+            --no-restore \
+            --warnaserror \
+            --nologo 2>&1 | tee build.log
+
+      - name: Extract build errors
+        if: steps.build.outcome == 'failure'
+        shell: bash
+        run: |
+          grep -E "error [A-Z]+[0-9]+|Build FAILED|error:" build.log > build-errors.txt || true
+          if [ ! -s build-errors.txt ]; then
+            tail -n 150 build.log > build-errors.txt
+          fi
+
+      - name: Upload build errors
+        if: steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build-errors
+          path: server/Rental-Manager-Web-App/build-errors.txt
+
+      - name: Fail workflow when build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
