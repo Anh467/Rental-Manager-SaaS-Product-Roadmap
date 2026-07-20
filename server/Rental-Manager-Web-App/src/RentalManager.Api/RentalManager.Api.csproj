@@ -12,7 +12,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.Identity.Application\RentalManager.Modules.Identity.Application.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.Identity.Infrastructure\RentalManager.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Infrastructure\RentalManager.Modules.TenantManagement.Infrastructure.csproj" />
   </ItemGroup>
 
