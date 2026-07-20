@@ -14,5 +14,5 @@ CREATE TABLE [org].[Tenant]
         UNIQUE ([Code]),
 
     CONSTRAINT [CK_Tenant_Status]
-        CHECK ([Status] IN (1, 2))
+        CHECK ([Status] IN (1, 2, 3, 4))
 );
