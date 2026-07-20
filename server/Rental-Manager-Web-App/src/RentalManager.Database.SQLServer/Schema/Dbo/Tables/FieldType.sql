@@ -1,0 +1,9 @@
+﻿CREATE TABLE [dbo].[FieldType]
+(
+	[Id] INT NOT NULL,
+	[Name] NVARCHAR(256) NOT NULL,
+	[key] NVARCHAR(256) NOT NULL,
+	[Description] NVARCHAR(1028) NULL,
+
+	CONSTRAINT [PK_FieldType] PRIMARY KEY CLUSTERED ([Id] ASC)
+)

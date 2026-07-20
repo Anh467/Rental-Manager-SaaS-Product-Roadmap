@@ -56,5 +56,31 @@
   <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
   <ItemGroup>
     <Folder Include="Properties" />
+    <Folder Include="Scripts" />
+    <Folder Include="Scripts\PreDeployment" />
+    <Folder Include="Scripts\PostDeployment" />
+    <Folder Include="PublishProfiles" />
+    <Folder Include="Schema" />
+    <Folder Include="Schema\Dbo" />
+    <Folder Include="Schema\Dbo\Functions" />
+    <Folder Include="Schema\Dbo\SecurityPolicies" />
+    <Folder Include="Schema\Dbo\StoredProcedures" />
+    <Folder Include="Schema\Dbo\Tables" />
+    <Folder Include="Schema\Dbo\Views" />
+    <Folder Include="Schema\Org" />
+    <Folder Include="Schema\Org\Functions" />
+    <Folder Include="Schema\Org\SecurityPolicies" />
+    <Folder Include="Schema\Org\StoredProcedures" />
+    <Folder Include="Schema\Org\Tables" />
+    <Folder Include="Schema\Org\Views" />
+    <Folder Include="Scripts\PostDeployment\DataFixes" />
+    <Folder Include="Scripts\PostDeployment\Releases" />
+    <Folder Include="Scripts\PostDeployment\SeedDatas" />
+    <Folder Include="Schemas" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="Schemas\org.sql" />
+    <Build Include="Schema\Dbo\Tables\Field.sql" />
+    <Build Include="Schema\Dbo\Tables\FieldType.sql" />
   </ItemGroup>
 </Project>

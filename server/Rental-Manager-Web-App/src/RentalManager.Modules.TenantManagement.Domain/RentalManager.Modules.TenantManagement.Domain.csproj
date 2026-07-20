@@ -6,4 +6,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Folder Include="Entities\Org\" />
+    <Folder Include="Models\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Core\RentalManager.Modules.TenantManagement.Core.csproj" />
+  </ItemGroup>
+
 </Project>
