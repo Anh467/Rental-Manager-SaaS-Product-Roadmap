@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.Identity.Application\RentalManager.Modules.Identity.Application.csproj" />
   </ItemGroup>
 
