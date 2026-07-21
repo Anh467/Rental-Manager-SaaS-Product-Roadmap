@@ -29,12 +29,13 @@ const columns: ColumnDef<Property>[] = [
 ];
 
 export function PropertyListPage() {
-  const search = useSearch({ from: "/properties" });
-  const navigate = useNavigate({ from: "/properties" });
+  const search = useSearch({ from: "/properties/" });
+  const navigate = useNavigate({ from: "/properties/" });
   const query = usePropertiesQuery({
     page: search.page,
     pageSize: search.pageSize,
     search: search.search || undefined,
+    propertyTypeId: search.propertyTypeId || undefined,
   });
   const pagination: PaginationState = {
     pageIndex: search.page - 1,
