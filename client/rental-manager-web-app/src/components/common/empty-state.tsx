@@ -14,11 +14,11 @@ export type EmptyStateProps = {
 
 export function EmptyState({ title, description, action, icon: Icon = Inbox, className }: EmptyStateProps) {
   return (
-    <div className={cn("flex min-h-56 flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center", className)}>
+    <div className={cn("flex min-h-44 min-w-0 flex-col items-center justify-center rounded-lg border border-dashed p-5 text-center sm:min-h-56 sm:p-8", className)}>
       <div className="mb-4 rounded-full bg-muted p-3"><Icon className="h-5 w-5 text-muted-foreground" /></div>
-      <h3 className="font-semibold">{title}</h3>
-      {description ? <p className="mt-1 max-w-md text-sm text-muted-foreground">{description}</p> : null}
-      {action ? <div className="mt-4">{action}</div> : null}
+      <h3 className="max-w-full break-words font-semibold">{title}</h3>
+      {description ? <p className="mt-1 max-w-md break-words text-sm leading-6 text-muted-foreground">{description}</p> : null}
+      {action ? <div className="mt-4 w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">{action}</div> : null}
     </div>
   );
 }
