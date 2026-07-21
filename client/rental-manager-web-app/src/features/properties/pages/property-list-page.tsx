@@ -1,11 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Link, getRouteApi } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
+import { useTranslation } from "react-i18next";
 
-import {
-  usePropertiesQuery,
-  type Property,
-} from "@/api/routes/properties";
+import { usePropertiesQuery, type Property } from "@/api/routes/properties";
 import { DataTable } from "@/components/common/data-table";
 import { ErrorState, PageContent, PageHeader } from "@/components/common/page";
 import { PermissionGuard } from "@/components/common/permission-guard";
@@ -14,23 +12,9 @@ import { Button } from "@/components/ui/button";
 
 const routeApi = getRouteApi("/_authenticated/_standard/(tenant)/properties/");
 
-const columns: ColumnDef<Property>[] = [
-  { accessorKey: "name", header: "Tên khu nhà" },
-  { accessorKey: "code", header: "Mã" },
-  { accessorKey: "address", header: "Địa chỉ" },
-  { accessorKey: "totalFloors", header: "Số tầng" },
-  {
-    id: "actions",
-    header: "",
-    cell: ({ row }) => (
-      <Button asChild variant="ghost" size="sm">
-        <Link to="/properties/$propertyId" params={{ propertyId: row.original.id }}>Xem</Link>
-      </Button>
-    ),
-  },
-];
-
 export function PropertyListPage() {
+  const { t } = useTranslation("property");
+  const { t: commonT } = useTranslation("common");
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
   const query = usePropertiesQuery({
@@ -44,6 +28,27 @@ export function PropertyListPage() {
     pageSize: search.pageSize,
   };
 
+  const columns = useMemo<ColumnDef<Property>[]>(
+    () => [
+      { accessorKey: "name", header: t("columns.name") },
+      { accessorKey: "code", header: t("columns.code") },
+      { accessorKey: "address", header: t("columns.address") },
+      { accessorKey: "totalFloors", header: t("columns.totalFloors") },
+      {
+        id: "actions",
+        header: t("columns.actions"),
+        cell: ({ row }) => (
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/properties/$propertyId" params={{ propertyId: row.original.id }}>
+              {commonT("actions.view")}
+            </Link>
+          </Button>
+        ),
+      },
+    ],
+    [commonT, t],
+  );
+
   const handleSearch = useCallback(
     (value: string) => {
       void navigate({ search: (old) => ({ ...old, page: 1, search: value }) });
@@ -52,28 +57,26 @@ export function PropertyListPage() {
   );
 
   if (query.isError) {
-    return <ErrorState description="Không thể tải danh sách khu nhà." onRetry={() => void query.refetch()} />;
+    return <ErrorState description={t("page.error")} onRetry={() => void query.refetch()} />;
   }
 
   return (
     <PageContent className="p-6">
       <PageHeader
-        title="Khu nhà"
-        description="URL giữ filter/pagination; TanStack Query giữ server cache."
+        title={t("page.title")}
+        description={t("page.description")}
         actions={(
           <PermissionGuard required="property.create">
-            <Button>Thêm khu nhà</Button>
+            <Button>{t("page.add")}</Button>
           </PermissionGuard>
         )}
       />
-
       <SearchInput
         value={search.search}
         onSearch={handleSearch}
-        placeholder="Tìm tên, mã hoặc địa chỉ khu nhà..."
+        placeholder={t("page.searchPlaceholder")}
         className="w-full sm:max-w-sm"
       />
-
       <DataTable
         data={query.data?.items ?? []}
         columns={columns}
@@ -91,7 +94,7 @@ export function PropertyListPage() {
           });
         }}
         getRowId={(property) => property.id}
-        emptyTitle="Chưa có khu nhà"
+        emptyTitle={t("page.empty")}
       />
     </PageContent>
   );

@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
 import type { CreateRoomRequest, RoomStatus } from "@/api/routes/rooms";
@@ -19,18 +21,7 @@ import {
 } from "@/components/form";
 import { Button } from "@/components/ui/button";
 
-const roomSchema = z.object({
-  propertyId: requiredText("Khu nhà", 50),
-  code: requiredText("Mã phòng", 50),
-  floor: requiredNumber("Tầng", 0),
-  capacity: requiredNumber("Sức chứa", 1),
-  monthlyRent: requiredNumber("Giá thuê", 0),
-  status: z.enum(["vacant", "occupied", "maintenance", "inactive"]),
-  description: optionalText(1000),
-  isActive: optionalBoolean,
-});
-
-export type RoomFormValues = z.infer<typeof roomSchema>;
+export type RoomFormValues = CreateRoomRequest;
 
 export type RoomFormProps = {
   propertyOptions: Array<{ value: string; label: string }>;
@@ -50,17 +41,37 @@ const defaultValues: RoomFormValues = {
   isActive: true,
 };
 
-const statusOptions: Array<{ value: RoomStatus; label: string }> = [
-  { value: "vacant", label: "Phòng trống" },
-  { value: "occupied", label: "Đang thuê" },
-  { value: "maintenance", label: "Đang bảo trì" },
-  { value: "inactive", label: "Tạm ngưng" },
-];
-
 export function RoomForm({ propertyOptions, initialValues, onSubmit, onCancel }: RoomFormProps) {
+  const { t } = useTranslation("room");
+  const { t: commonT } = useTranslation("common");
+
+  const schema = useMemo(
+    () => z.object({
+      propertyId: requiredText(t("form.fields.propertyId.label"), 50),
+      code: requiredText(t("form.fields.code.label"), 50),
+      floor: requiredNumber(t("form.fields.floor.label"), 0),
+      capacity: requiredNumber(t("form.fields.capacity.label"), 1),
+      monthlyRent: requiredNumber(t("form.fields.monthlyRent.label"), 0),
+      status: z.enum(["vacant", "occupied", "maintenance", "inactive"]),
+      description: optionalText(t("form.fields.description.label"), 1000),
+      isActive: optionalBoolean,
+    }),
+    [t],
+  );
+
+  const statusOptions = useMemo<Array<{ value: RoomStatus; label: string }>>(
+    () => [
+      { value: "vacant", label: t("status.vacant") },
+      { value: "occupied", label: t("status.occupied") },
+      { value: "maintenance", label: t("status.maintenance") },
+      { value: "inactive", label: t("status.inactive") },
+    ],
+    [t],
+  );
+
   return (
     <AppForm<RoomFormValues>
-      schema={roomSchema}
+      schema={schema}
       defaultValues={{ ...defaultValues, ...initialValues }}
       onSubmit={(values) => onSubmit(values)}
       serverErrorOptions={{
@@ -73,51 +84,48 @@ export function RoomForm({ propertyOptions, initialValues, onSubmit, onCancel }:
     >
       {(form) => (
         <>
-          <FormSection
-            title="Thông tin phòng"
-            description="Baseline nghiệp vụ Room sử dụng toàn bộ field wrapper chung."
-          >
+          <FormSection title={t("form.sectionTitle")} description={t("form.sectionDescription")}>
             <FormGrid>
               <SelectFormField
                 control={form.control}
                 name="propertyId"
-                label="Khu nhà"
+                label={t("form.fields.propertyId.label")}
                 options={propertyOptions}
-                placeholder="Chọn khu nhà"
+                placeholder={t("form.fields.propertyId.placeholder")}
                 required
               />
               <TextFormField
                 control={form.control}
                 name="code"
-                label="Mã phòng"
-                placeholder="Ví dụ: P.201"
+                label={t("form.fields.code.label")}
+                placeholder={t("form.fields.code.placeholder")}
                 required
               />
               <NumberFormField
                 control={form.control}
                 name="floor"
-                label="Tầng"
+                label={t("form.fields.floor.label")}
                 min={0}
                 required
               />
               <NumberFormField
                 control={form.control}
                 name="capacity"
-                label="Sức chứa"
+                label={t("form.fields.capacity.label")}
                 min={1}
                 required
               />
               <NumberFormField
                 control={form.control}
                 name="monthlyRent"
-                label="Giá thuê hàng tháng"
+                label={t("form.fields.monthlyRent.label")}
                 min={0}
                 required
               />
               <SelectFormField
                 control={form.control}
                 name="status"
-                label="Trạng thái"
+                label={t("form.fields.status.label")}
                 options={statusOptions}
                 required
               />
@@ -126,24 +134,25 @@ export function RoomForm({ propertyOptions, initialValues, onSubmit, onCancel }:
             <TextareaFormField
               control={form.control}
               name="description"
-              label="Mô tả"
-              placeholder="Ghi chú về phòng, nội thất hoặc tình trạng hiện tại"
+              label={t("form.fields.description.label")}
+              placeholder={t("form.fields.description.placeholder")}
               rows={4}
             />
-
             <SwitchFormField
               control={form.control}
               name="isActive"
-              label="Đang sử dụng"
-              description="Tắt để ngừng sử dụng phòng nhưng vẫn giữ lịch sử hợp đồng và hóa đơn."
+              label={t("form.fields.isActive.label")}
+              description={t("form.fields.isActive.description")}
             />
           </FormSection>
 
           <FormActions>
             {onCancel ? (
-              <Button type="button" variant="outline" onClick={onCancel}>Hủy</Button>
+              <Button type="button" variant="outline" onClick={onCancel}>
+                {commonT("actions.cancel")}
+              </Button>
             ) : null}
-            <FormSubmitButton>Lưu phòng</FormSubmitButton>
+            <FormSubmitButton>{t("form.save")}</FormSubmitButton>
           </FormActions>
         </>
       )}

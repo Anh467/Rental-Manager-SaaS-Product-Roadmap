@@ -15,6 +15,16 @@
     "totalFloors": "Số tầng",
     "actions": "Thao tác"
   },
+  "detail": {
+    "code": "Mã",
+    "type": "Loại",
+    "totalFloors": "Số tầng",
+    "status": "Trạng thái",
+    "address": "Địa chỉ",
+    "description": "Mô tả",
+    "active": "Đang hoạt động",
+    "inactive": "Ngừng hoạt động"
+  },
   "form": {
     "sectionTitle": "Thông tin khu nhà",
     "sectionDescription": "Feature chỉ ghép các field dùng chung; schema chịu trách nhiệm validation.",

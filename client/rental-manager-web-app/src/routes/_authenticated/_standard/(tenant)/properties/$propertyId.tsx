@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
 import { propertyQueries } from "@/api/routes/properties";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +13,13 @@ export const Route = createFileRoute(
 });
 
 function PropertyDetailPage() {
+  const { t } = useTranslation("property");
   const property = Route.useLoaderData();
+  const propertyTypeKey = {
+    "boarding-house": "form.types.boardingHouse",
+    apartment: "form.types.apartment",
+    "shared-house": "form.types.sharedHouse",
+  }[property.propertyTypeId];
 
   return (
     <div className="p-6">
@@ -21,26 +28,22 @@ function PropertyDetailPage() {
           <CardTitle>{property.name}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+          <p><span className="text-muted-foreground">{t("detail.code")}:</span> {property.code}</p>
           <p>
-            <span className="text-muted-foreground">Mã:</span> {property.code}
+            <span className="text-muted-foreground">{t("detail.type")}:</span>{" "}
+            {propertyTypeKey ? t(propertyTypeKey) : property.propertyTypeName ?? property.propertyTypeId}
           </p>
+          <p><span className="text-muted-foreground">{t("detail.totalFloors")}:</span> {property.totalFloors}</p>
           <p>
-            <span className="text-muted-foreground">Loại:</span>{" "}
-            {property.propertyTypeName ?? property.propertyTypeId}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Số tầng:</span> {property.totalFloors}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Trạng thái:</span>{" "}
-            {property.isActive ? "Đang hoạt động" : "Ngừng hoạt động"}
+            <span className="text-muted-foreground">{t("detail.status")}:</span>{" "}
+            {property.isActive ? t("detail.active") : t("detail.inactive")}
           </p>
           <p className="sm:col-span-2">
-            <span className="text-muted-foreground">Địa chỉ:</span> {property.address}
+            <span className="text-muted-foreground">{t("detail.address")}:</span> {property.address}
           </p>
           {property.description ? (
             <p className="sm:col-span-2">
-              <span className="text-muted-foreground">Mô tả:</span> {property.description}
+              <span className="text-muted-foreground">{t("detail.description")}:</span> {property.description}
             </p>
           ) : null}
         </CardContent>

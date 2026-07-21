@@ -15,6 +15,16 @@
     "totalFloors": "Floors",
     "actions": "Actions"
   },
+  "detail": {
+    "code": "Code",
+    "type": "Type",
+    "totalFloors": "Number of floors",
+    "status": "Status",
+    "address": "Address",
+    "description": "Description",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
   "form": {
     "sectionTitle": "Property information",
     "sectionDescription": "The feature composes common fields while the schema owns validation.",
