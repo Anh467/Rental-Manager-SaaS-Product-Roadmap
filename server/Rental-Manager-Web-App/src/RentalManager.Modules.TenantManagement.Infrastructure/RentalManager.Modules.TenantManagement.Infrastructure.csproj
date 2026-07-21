@@ -7,15 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Persistence\Connections\**" />
-    <Compile Remove="Persistence\SqlServer\**" />
-    <EmbeddedResource Remove="Persistence\Connections\**" />
-    <EmbeddedResource Remove="Persistence\SqlServer\**" />
-    <None Remove="Persistence\Connections\**" />
-    <None Remove="Persistence\SqlServer\**" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
   </ItemGroup>
 
