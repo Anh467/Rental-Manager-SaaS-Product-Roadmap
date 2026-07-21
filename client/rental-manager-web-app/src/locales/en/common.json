@@ -1,0 +1,112 @@
+{
+  "brand": {
+    "name": "Rental Manager",
+    "organization": "Minh Anh Boarding House",
+    "organizationContext": "Organization context"
+  },
+  "navigation": {
+    "baseline": "Baseline",
+    "properties": "Properties",
+    "rooms": "Rooms"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "vi": "Vietnamese"
+  },
+  "actions": {
+    "add": "add",
+    "create": "create",
+    "edit": "edit",
+    "delete": "delete",
+    "deactivate": "deactivate",
+    "reactivate": "reactivate",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "retry": "Try again",
+    "view": "View",
+    "assign": "assign",
+    "unassign": "unassign",
+    "publish": "publish",
+    "archive": "archive",
+    "upload": "upload",
+    "link": "link",
+    "unlink": "unlink",
+    "override": "override",
+    "preview": "preview",
+    "download": "download"
+  },
+  "state": {
+    "loading": "Loading data...",
+    "loadingPage": "Loading page...",
+    "loadError": "Unable to load data",
+    "pageLoadError": "Unable to load page",
+    "unknownError": "An unknown error occurred.",
+    "notFound": "Page not found",
+    "notFoundDescription": "The requested path does not exist.",
+    "noData": "No data available",
+    "page": "Page {{current}} / {{total}}",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "accessDenied": {
+    "title": "You do not have access",
+    "description": "Contact your Organization administrator to request the required permission."
+  },
+  "validation": {
+    "required": "{{field}} is required.",
+    "invalidEmail": "Email format is invalid.",
+    "invalidNumber": "{{field}} must be a valid number.",
+    "minLength": "{{field}} must contain at least {{min}} characters.",
+    "maxLength": "{{field}} must not exceed {{max}} characters.",
+    "minNumber": "{{field}} must be greater than or equal to {{min}}.",
+    "invalidDate": "{{field}} must be a valid date."
+  },
+  "objects": {
+    "property": "property",
+    "room": "room",
+    "renter": "renter",
+    "renterStay": "renter stay",
+    "contract": "contract",
+    "invoice": "invoice",
+    "payment": "payment",
+    "document": "document",
+    "field": "field",
+    "fieldOption": "field option",
+    "permission": "permission",
+    "user": "user",
+    "staffMembership": "staff membership",
+    "organization": "organization",
+    "template": "template",
+    "configuration": "configuration"
+  },
+  "fields": {
+    "name": "name",
+    "code": "code",
+    "propertyId": "property",
+    "monthlyRent": "monthly rent",
+    "maxOccupants": "maximum occupants",
+    "value": "value",
+    "startDate": "start date",
+    "endDate": "end date",
+    "slotKey": "slot key",
+    "permissionScope": "permission scope"
+  },
+  "services": {
+    "api": "API",
+    "objectStorage": "object storage",
+    "scanProvider": "file scanning"
+  },
+  "states": {
+    "active": "active",
+    "inactive": "inactive",
+    "published": "published",
+    "archived": "archived",
+    "vacant": "vacant",
+    "occupied": "occupied",
+    "maintenance": "maintenance",
+    "pendingScan": "pending scan",
+    "quarantined": "quarantined"
+  }
+}

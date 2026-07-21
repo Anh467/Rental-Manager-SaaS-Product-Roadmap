@@ -1,0 +1,46 @@
+{
+  "objectName": "room",
+  "page": {
+    "title": "Rooms",
+    "description": "URL parameters preserve filters and pagination while TanStack Query manages the server cache.",
+    "searchPlaceholder": "Search by room code or property...",
+    "empty": "No rooms yet",
+    "error": "Unable to load the room list.",
+    "add": "Add room"
+  },
+  "columns": {
+    "code": "Room",
+    "propertyName": "Property",
+    "floor": "Floor",
+    "capacity": "Capacity",
+    "monthlyRent": "Monthly rent",
+    "status": "Status"
+  },
+  "status": {
+    "vacant": "Vacant",
+    "occupied": "Occupied",
+    "maintenance": "Maintenance",
+    "inactive": "Inactive"
+  },
+  "form": {
+    "sectionTitle": "Room information",
+    "sectionDescription": "The Room baseline composes the shared field wrappers.",
+    "fields": {
+      "propertyId": { "label": "Property", "placeholder": "Select a property" },
+      "code": { "label": "Room code", "placeholder": "Example: R.201" },
+      "floor": { "label": "Floor" },
+      "capacity": { "label": "Capacity" },
+      "monthlyRent": { "label": "Monthly rent" },
+      "status": { "label": "Status" },
+      "description": {
+        "label": "Description",
+        "placeholder": "Notes about the room, furniture, or current condition"
+      },
+      "isActive": {
+        "label": "In use",
+        "description": "Turn this off to stop using the room while retaining contract and invoice history."
+      }
+    },
+    "save": "Save room"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "objectName": "khu nhà",
+  "page": {
+    "title": "Khu nhà",
+    "description": "URL lưu filter và phân trang; TanStack Query quản lý server cache.",
+    "searchPlaceholder": "Tìm tên, mã hoặc địa chỉ khu nhà...",
+    "empty": "Chưa có khu nhà",
+    "error": "Không thể tải danh sách khu nhà.",
+    "add": "Thêm khu nhà"
+  },
+  "columns": {
+    "name": "Tên khu nhà",
+    "code": "Mã",
+    "address": "Địa chỉ",
+    "totalFloors": "Số tầng",
+    "actions": "Thao tác"
+  },
+  "detail": {
+    "code": "Mã",
+    "type": "Loại",
+    "totalFloors": "Số tầng",
+    "status": "Trạng thái",
+    "address": "Địa chỉ",
+    "description": "Mô tả",
+    "active": "Đang hoạt động",
+    "inactive": "Ngừng hoạt động"
+  },
+  "form": {
+    "sectionTitle": "Thông tin khu nhà",
+    "sectionDescription": "Feature chỉ ghép các field dùng chung; schema chịu trách nhiệm validation.",
+    "fields": {
+      "name": { "label": "Tên khu nhà", "placeholder": "Ví dụ: Nhà trọ Minh Anh" },
+      "code": { "label": "Mã khu nhà", "placeholder": "Ví dụ: NHA-A" },
+      "propertyTypeId": { "label": "Loại khu nhà", "placeholder": "Chọn loại khu nhà" },
+      "address": { "label": "Địa chỉ", "placeholder": "Nhập địa chỉ đầy đủ" },
+      "totalFloors": { "label": "Số tầng" },
+      "description": { "label": "Mô tả", "placeholder": "Thông tin bổ sung" },
+      "isActive": {
+        "label": "Đang hoạt động",
+        "description": "Tắt trạng thái này để ngừng sử dụng khu nhà nhưng vẫn giữ dữ liệu lịch sử."
+      }
+    },
+    "types": {
+      "boardingHouse": "Nhà trọ",
+      "apartment": "Căn hộ",
+      "sharedHouse": "Nhà nguyên căn"
+    },
+    "save": "Lưu khu nhà"
+  }
+}

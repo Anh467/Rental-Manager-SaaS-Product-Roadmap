@@ -1,0 +1,22 @@
+{
+  "SCS-001": "Đã tạo {{object}} thành công.",
+  "SCS-002": "Đã cập nhật {{object}} thành công.",
+  "SCS-003": "Đã ngừng kích hoạt {{object}} thành công.",
+  "SCS-004": "Đã kích hoạt lại {{object}} thành công.",
+  "SCS-005": "Đã lấy dữ liệu {{object}} thành công.",
+  "SCS-006": "Yêu cầu đã được tiếp nhận và đưa vào hàng đợi.",
+  "SCS-007": "Đã publish {{object}} thành công.",
+  "SCS-008": "Đã lưu trữ {{object}} thành công.",
+  "SCS-009": "Đã gán {{object}} thành công.",
+  "SCS-010": "Đã gỡ gán {{object}} thành công.",
+  "SCS-011": "Đã tiếp nhận file tải lên và đang chờ quét an toàn.",
+  "SCS-012": "Đã liên kết {{object}} thành công.",
+  "SCS-013": "Đã gỡ liên kết {{object}} thành công.",
+  "SCS-014": "Đã chuyển trạng thái {{object}} thành công.",
+  "SCS-015": "Đã đưa yêu cầu retry vào hàng đợi.",
+  "SCS-016": "Yêu cầu idempotent này đã được xử lý trước đó.",
+  "SCS-017": "Đăng nhập thành công.",
+  "SCS-018": "Đăng xuất thành công.",
+  "SCS-019": "Override cấu hình thành công.",
+  "SCS-020": "Provisioning Organization hoàn thành."
+}

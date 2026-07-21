@@ -1,0 +1,50 @@
+{
+  "objectName": "property",
+  "page": {
+    "title": "Properties",
+    "description": "URL parameters preserve filters and pagination while TanStack Query manages the server cache.",
+    "searchPlaceholder": "Search by property name, code, or address...",
+    "empty": "No properties yet",
+    "error": "Unable to load the property list.",
+    "add": "Add property"
+  },
+  "columns": {
+    "name": "Property name",
+    "code": "Code",
+    "address": "Address",
+    "totalFloors": "Floors",
+    "actions": "Actions"
+  },
+  "detail": {
+    "code": "Code",
+    "type": "Type",
+    "totalFloors": "Number of floors",
+    "status": "Status",
+    "address": "Address",
+    "description": "Description",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "form": {
+    "sectionTitle": "Property information",
+    "sectionDescription": "The feature composes common fields while the schema owns validation.",
+    "fields": {
+      "name": { "label": "Property name", "placeholder": "Example: Minh Anh Boarding House" },
+      "code": { "label": "Property code", "placeholder": "Example: HOUSE-A" },
+      "propertyTypeId": { "label": "Property type", "placeholder": "Select a property type" },
+      "address": { "label": "Address", "placeholder": "Enter the full address" },
+      "totalFloors": { "label": "Number of floors" },
+      "description": { "label": "Description", "placeholder": "Additional information" },
+      "isActive": {
+        "label": "Active",
+        "description": "Turn this off to stop using the property while retaining historical data."
+      }
+    },
+    "types": {
+      "boardingHouse": "Boarding house",
+      "apartment": "Apartment",
+      "sharedHouse": "Shared house"
+    },
+    "save": "Save property"
+  }
+}

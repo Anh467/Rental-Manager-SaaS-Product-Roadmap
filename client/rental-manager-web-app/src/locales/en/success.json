@@ -1,0 +1,22 @@
+{
+  "SCS-001": "This {{object}} was created successfully.",
+  "SCS-002": "This {{object}} was updated successfully.",
+  "SCS-003": "This {{object}} was deactivated successfully.",
+  "SCS-004": "This {{object}} was reactivated successfully.",
+  "SCS-005": "The {{object}} data was retrieved successfully.",
+  "SCS-006": "The request was accepted and queued successfully.",
+  "SCS-007": "This {{object}} was published successfully.",
+  "SCS-008": "This {{object}} was archived successfully.",
+  "SCS-009": "The {{object}} was assigned successfully.",
+  "SCS-010": "The {{object}} was unassigned successfully.",
+  "SCS-011": "The upload was accepted and is waiting for a security scan.",
+  "SCS-012": "The {{object}} was linked successfully.",
+  "SCS-013": "The {{object}} was unlinked successfully.",
+  "SCS-014": "The {{object}} state was changed successfully.",
+  "SCS-015": "The retry request was queued successfully.",
+  "SCS-016": "This idempotent request was processed previously.",
+  "SCS-017": "Signed in successfully.",
+  "SCS-018": "Signed out successfully.",
+  "SCS-019": "The configuration override was applied successfully.",
+  "SCS-020": "Organization provisioning completed successfully."
+}
