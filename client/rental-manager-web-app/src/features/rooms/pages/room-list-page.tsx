@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { getRouteApi } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 
 import {
@@ -12,6 +12,8 @@ import { PageContent, PageHeader } from "@/components/common/page";
 import { SearchInput } from "@/components/common/search-input";
 import { StatusBadge, type StatusDefinition } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
+
+const routeApi = getRouteApi("/_authenticated/_standard/(tenant)/rooms/");
 
 const roomStatusDefinitions: Record<RoomStatus, StatusDefinition> = {
   vacant: { label: "Phòng trống", variant: "success" },
@@ -46,8 +48,8 @@ const columns: ColumnDef<Room>[] = [
 ];
 
 export function RoomListPage() {
-  const search = useSearch({ from: "/rooms/" });
-  const navigate = useNavigate({ from: "/rooms/" });
+  const search = routeApi.useSearch();
+  const navigate = routeApi.useNavigate();
   const query = useRoomsQuery({
     page: search.page,
     pageSize: search.pageSize,
