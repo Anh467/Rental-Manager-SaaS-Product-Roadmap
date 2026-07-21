@@ -1,0 +1,46 @@
+{
+  "objectName": "phòng",
+  "page": {
+    "title": "Phòng",
+    "description": "URL lưu filter và phân trang; TanStack Query quản lý server cache.",
+    "searchPlaceholder": "Tìm mã phòng hoặc khu nhà...",
+    "empty": "Chưa có phòng",
+    "error": "Không thể tải danh sách phòng.",
+    "add": "Thêm phòng"
+  },
+  "columns": {
+    "code": "Phòng",
+    "propertyName": "Khu nhà",
+    "floor": "Tầng",
+    "capacity": "Sức chứa",
+    "monthlyRent": "Giá thuê",
+    "status": "Trạng thái"
+  },
+  "status": {
+    "vacant": "Phòng trống",
+    "occupied": "Đang thuê",
+    "maintenance": "Bảo trì",
+    "inactive": "Tạm ngưng"
+  },
+  "form": {
+    "sectionTitle": "Thông tin phòng",
+    "sectionDescription": "Baseline nghiệp vụ Room sử dụng toàn bộ field wrapper chung.",
+    "fields": {
+      "propertyId": { "label": "Khu nhà", "placeholder": "Chọn khu nhà" },
+      "code": { "label": "Mã phòng", "placeholder": "Ví dụ: P.201" },
+      "floor": { "label": "Tầng" },
+      "capacity": { "label": "Sức chứa" },
+      "monthlyRent": { "label": "Giá thuê hàng tháng" },
+      "status": { "label": "Trạng thái" },
+      "description": {
+        "label": "Mô tả",
+        "placeholder": "Ghi chú về phòng, nội thất hoặc tình trạng hiện tại"
+      },
+      "isActive": {
+        "label": "Đang sử dụng",
+        "description": "Tắt để ngừng sử dụng phòng nhưng vẫn giữ lịch sử hợp đồng và hóa đơn."
+      }
+    },
+    "save": "Lưu phòng"
+  }
+}

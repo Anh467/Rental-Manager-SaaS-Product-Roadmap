@@ -1,0 +1,107 @@
+{
+  "brand": {
+    "name": "Rental Manager",
+    "organization": "Nhà trọ Minh Anh",
+    "organizationContext": "Ngữ cảnh Organization"
+  },
+  "navigation": {
+    "baseline": "Baseline",
+    "properties": "Khu nhà",
+    "rooms": "Phòng"
+  },
+  "language": {
+    "label": "Ngôn ngữ",
+    "en": "Tiếng Anh",
+    "vi": "Tiếng Việt"
+  },
+  "actions": {
+    "add": "thêm",
+    "create": "tạo",
+    "edit": "chỉnh sửa",
+    "delete": "xóa",
+    "deactivate": "ngừng kích hoạt",
+    "reactivate": "kích hoạt lại",
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "retry": "Thử lại",
+    "view": "Xem",
+    "assign": "gán",
+    "unassign": "gỡ gán",
+    "publish": "publish",
+    "archive": "lưu trữ",
+    "upload": "tải lên",
+    "link": "liên kết",
+    "unlink": "gỡ liên kết",
+    "override": "ghi đè cấu hình",
+    "preview": "xem trước",
+    "download": "tải xuống"
+  },
+  "state": {
+    "loading": "Đang tải dữ liệu...",
+    "loadingPage": "Đang tải trang...",
+    "loadError": "Không thể tải dữ liệu",
+    "pageLoadError": "Không thể tải trang",
+    "unknownError": "Đã xảy ra lỗi không xác định.",
+    "notFound": "Không tìm thấy trang",
+    "notFoundDescription": "Đường dẫn bạn truy cập không tồn tại.",
+    "noData": "Chưa có dữ liệu",
+    "page": "Trang {{current}} / {{total}}",
+    "previous": "Trước",
+    "next": "Sau"
+  },
+  "validation": {
+    "required": "{{field}} là bắt buộc.",
+    "invalidEmail": "Email không đúng định dạng.",
+    "invalidNumber": "{{field}} phải là số hợp lệ.",
+    "minLength": "{{field}} phải có ít nhất {{min}} ký tự.",
+    "maxLength": "{{field}} không được vượt quá {{max}} ký tự.",
+    "minNumber": "{{field}} phải lớn hơn hoặc bằng {{min}}.",
+    "invalidDate": "{{field}} không phải ngày hợp lệ."
+  },
+  "objects": {
+    "property": "khu nhà",
+    "room": "phòng",
+    "renter": "người thuê",
+    "renterStay": "lịch sử ở phòng",
+    "contract": "hợp đồng",
+    "invoice": "hóa đơn",
+    "payment": "thanh toán",
+    "document": "tài liệu",
+    "field": "field",
+    "fieldOption": "tùy chọn field",
+    "permission": "quyền",
+    "user": "người dùng",
+    "staffMembership": "thành viên nhân sự",
+    "organization": "Organization",
+    "template": "mẫu",
+    "configuration": "cấu hình"
+  },
+  "fields": {
+    "name": "tên",
+    "code": "mã",
+    "propertyId": "khu nhà",
+    "monthlyRent": "giá thuê hàng tháng",
+    "maxOccupants": "số người tối đa",
+    "value": "giá trị",
+    "startDate": "ngày bắt đầu",
+    "endDate": "ngày kết thúc",
+    "slotKey": "slot key",
+    "permissionScope": "phạm vi quyền"
+  },
+  "services": {
+    "api": "API",
+    "objectStorage": "lưu trữ đối tượng",
+    "scanProvider": "quét file"
+  },
+  "states": {
+    "active": "đang hoạt động",
+    "inactive": "ngừng hoạt động",
+    "published": "đã publish",
+    "archived": "đã lưu trữ",
+    "vacant": "phòng trống",
+    "occupied": "đang thuê",
+    "maintenance": "bảo trì",
+    "pendingScan": "đang chờ quét",
+    "quarantined": "bị cách ly"
+  }
+}

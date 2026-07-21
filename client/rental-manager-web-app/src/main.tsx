@@ -9,6 +9,7 @@ import { Toaster } from "sonner";
 import { queryClient } from "@/api/query-client";
 import { PermissionProvider } from "@/components/common/permission-guard";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { initializeI18n } from "@/i18n";
 import { router } from "@/router";
 import "@/index.css";
 
@@ -23,16 +24,16 @@ const baselinePermissions = [
 
 function shouldEnableMockApi() {
   const configured = import.meta.env.VITE_ENABLE_MOCK_API;
-
   if (configured === "true") return true;
   if (configured === "false") return false;
-
   return import.meta.env.DEV;
 }
 
 async function bootstrap() {
-  // Route loaders run as soon as RouterProvider mounts. The mock adapter must be
-  // registered first, otherwise the initial loader attempts the real backend.
+  await initializeI18n();
+
+  // Route loaders run as soon as RouterProvider mounts. Register the mock
+  // adapter first so the initial loader never falls through to the real API.
   if (shouldEnableMockApi()) {
     const { startMockApi } = await import("@/api/mocks");
     startMockApi();
