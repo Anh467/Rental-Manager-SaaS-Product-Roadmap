@@ -5,7 +5,7 @@ using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Reposito
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repositories;
 
-internal sealed class FieldRepository(
+public sealed class FieldRepository(
     ISqlConnectionFactory connectionFactory)
     : BaseEntityAuditRepository<Field, Guid>(connectionFactory),
       IFieldRepository
