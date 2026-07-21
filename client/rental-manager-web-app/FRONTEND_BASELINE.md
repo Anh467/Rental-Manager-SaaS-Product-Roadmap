@@ -1,97 +1,139 @@
 # Frontend baseline
 
-## Layers
+This document is the copy/reference checklist for every new Rental Manager feature.
+
+## Required resource structure
 
 ```text
-src/
-├── api/
-│   ├── client.ts            # Axios, auth header, organization header, error normalization
-│   ├── query-client.ts      # global cache policy and query key factory
-│   └── types.ts             # ProblemDetails, pagination and API contracts
-├── components/
-│   ├── ui/                  # shadcn primitives only
-│   ├── form/                # AppForm and typed field wrappers
-│   └── common/              # DataTable, page states, permission guard
-├── features/
-│   └── properties/
-│       ├── api.ts           # queryOptions, mutationOptions and cache invalidation
-│       ├── components/      # feature forms
-│       └── pages/           # route pages
-└── router.tsx               # typed URL, loaders and route prefetch
+src/api/routes/<resource>/
+├── types.ts       # API request and response contracts
+├── requests.ts    # Axios calls only
+├── queries.ts     # query keys and queryOptions
+├── hooks.ts       # useQuery/useMutation and cache invalidation
+└── index.ts       # public exports
+
+src/features/<resource>/
+├── components/    # form, status widget, business-specific UI
+└── pages/         # page composition only
 ```
 
-## Rules for every feature
+## Responsibilities
 
-1. Put HTTP requests and TanStack Query hooks in `features/<feature>/api.ts`.
-2. Use a query-key factory. Do not write ad-hoc string query keys in pages.
-3. List filters, pagination and sorting belong in the URL search params.
-4. Route loaders call `queryClient.ensureQueryData` so hover/navigation can prefetch.
-5. Mutations update detail cache and invalidate list caches in one shared hook.
-6. Pages compose common components and do not implement loading, empty or error markup again.
-7. Forms own only schema, defaults and submit payload. Common form behavior stays in `components/form`.
-8. `components/ui` must remain replaceable shadcn primitives without business rules.
+| Layer | Allowed responsibility |
+| --- | --- |
+| `components/ui` | shadcn primitives |
+| `components/form` | React Hook Form wiring, labels, validation rendering |
+| `components/common` | generic application patterns |
+| `api/client.ts` | HTTP transport and headers |
+| `api/routes/*/requests.ts` | endpoint calls |
+| `api/routes/*/queries.ts` | query keys and cache definitions |
+| `api/routes/*/hooks.ts` | mutations, invalidation and cache updates |
+| `features/*` | rental business composition |
+| `router.tsx` | URL schema, route loader and navigation |
 
-## API route baseline
+## List page flow
 
-```ts
-export const roomQueries = {
-  list: (params: PageRequest) =>
-    queryOptions({
-      queryKey: queryKeys.rooms.list(params),
-      queryFn: () => apiRequest<PageResult<Room>>({
-        url: "/api/rooms",
-        method: "GET",
-        params,
-      }),
-      placeholderData: (previous) => previous,
-    }),
-};
-
-export function useCreateRoom() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: RoomFormValues) =>
-      apiRequest<Room>({ url: "/api/rooms", method: "POST", data: payload }),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.rooms.all() }),
-  });
-}
+```text
+URL search params
+      ↓
+TanStack Router validateSearch
+      ↓
+route loader ensureQueryData
+      ↓
+resource queryOptions
+      ↓
+request function
+      ↓
+Axios client
+      ↓
+.NET API
 ```
 
-## URL state baseline
+The page consumes a resource hook and common components. It must not call Axios directly.
 
-```ts
-const searchSchema = z.object({
-  page: z.coerce.number().int().positive().catch(1),
-  pageSize: z.coerce.number().int().min(10).max(100).catch(20),
-  search: z.string().catch(""),
-});
+## Mutation flow
+
+```text
+Feature form
+   ↓ mutateAsync(values)
+resource mutation hook
+   ↓
+request function
+   ↓
+update detail cache + invalidate list cache
 ```
 
-The URL becomes the source of truth for list state. Refreshing, bookmarking and browser back/forward retain the same filters and page.
+## New feature checklist
+
+For a new resource such as `contracts`:
+
+1. Copy `api/routes/rooms` to `api/routes/contracts`.
+2. Replace contracts in `types.ts`.
+3. Replace URLs in `requests.ts`.
+4. Keep the query key factory pattern in `queries.ts`.
+5. Configure invalidation in `hooks.ts`.
+6. Create `ContractForm` using fields from `components/form`.
+7. Create the page using `PageHeader`, `SearchInput`, `DataTable` and page states.
+8. Add a TanStack Router search schema and route loader.
+9. Add required permission keys to `PermissionGuard`.
+10. Run `npm run type-check` and `npm run build`.
+
+## Common components
+
+### Form
+
+- `AppForm`
+- `TextFormField`
+- `NumberFormField`
+- `DateFormField`
+- `TextareaFormField`
+- `SelectFormField`
+- `SwitchFormField`
+- `EmailFormField`
+- `PhoneFormField`
+- `PasswordFormField`
+- `MoneyFormField`
+- `CheckboxFormField`
+- `FormGrid`, `FormSection`, `FormActions`, `FormSubmitButton`
+
+### Application
+
+- `AppShell`
+- `PageHeader`, `PageContent`
+- `LoadingState`, `EmptyState`, `ErrorState`, `AsyncState`
+- `SearchInput`
+- `DataTable`
+- `ConfirmDialog`
+- `StatusBadge`
+- `PermissionProvider`, `PermissionGuard`
+
+### shadcn primitives
+
+- Alert and AlertDialog
+- Badge and Button
+- Card
+- Checkbox
+- Dialog
+- DropdownMenu
+- Form, Input, Label, Select, Switch and Textarea
+- Separator, Skeleton, Table, Tabs and Tooltip
 
 ## Multi-tenant rule
 
-`apiClient` automatically sends `X-Organization-Id`. When organization changes:
+Never reuse cached data after an organization switch.
 
 ```ts
-localStorage.setItem("organization_id", organizationId);
-queryClient.clear();
-router.invalidate();
+await setOrganizationId(nextOrganizationId);
 ```
 
-Clearing the client cache prevents data from the previous organization appearing in the new organization context.
+The helper clears Query cache and invalidates the Router before the new organization view is rendered.
 
-## Common components included
+## Permission rule
 
-- `AppForm`
-- typed text, number, date, textarea, select and switch fields
-- common Zod schema helpers
-- .NET `ProblemDetails` field mapping
-- `PageHeader` and `PageContent`
-- `LoadingState`, `EmptyState`, `ErrorState`
-- generic server-side `DataTable`
-- `PermissionGuard`
-- TanStack Query client and key factory
-- TanStack Router typed search params and loaders
-- property list/form/API examples as the feature baseline
+`PermissionGuard` only controls visibility and UX. Every API endpoint must independently enforce its permission.
+
+## Validation rule
+
+Feature schemas own validation. Components render errors but do not duplicate business validation rules.
+
+Server validation follows `.NET ProblemDetails` and is mapped centrally by `AppForm`.
