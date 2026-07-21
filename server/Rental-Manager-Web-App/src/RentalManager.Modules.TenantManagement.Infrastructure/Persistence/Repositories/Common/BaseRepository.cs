@@ -7,8 +7,7 @@ using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Connecti
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repositories.Common;
 
 internal class BaseRepository<TEntity, TPrimaryKey> :
-    IRepository<TEntity, TPrimaryKey>,
-    IGetAllRepository<TEntity, TPrimaryKey>
+    IBaseRepository<TEntity, TPrimaryKey>
     where TEntity : class, IEntity<TPrimaryKey>
     where TPrimaryKey : notnull
 {
