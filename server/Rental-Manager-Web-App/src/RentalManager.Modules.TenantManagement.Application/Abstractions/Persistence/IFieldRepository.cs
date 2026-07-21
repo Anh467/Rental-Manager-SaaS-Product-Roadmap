@@ -4,6 +4,6 @@ using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
 namespace RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence;
 
 public interface IFieldRepository :
-    IEntityAuditRepository<Field, Guid>
+    IBaseEntityAuditRepository<Field, Guid>
 {
 }
