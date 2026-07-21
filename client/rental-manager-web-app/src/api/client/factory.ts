@@ -67,7 +67,10 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   >(
     path: string,
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
-  ) => execute<ResponseBody, QueryParams, RequestPayload>(options?.method ?? "GET", path, options);
+  ) => {
+    const method = (options?.method ?? "GET") as Method;
+    return execute<ResponseBody, QueryParams, RequestPayload>(method, path, options);
+  };
 
   const get = <ResponseBody, QueryParams = ApiEmptyObject>(
     path: string,
