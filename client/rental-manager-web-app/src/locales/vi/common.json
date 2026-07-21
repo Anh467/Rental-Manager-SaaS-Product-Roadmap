@@ -7,7 +7,9 @@
   "navigation": {
     "baseline": "Baseline",
     "properties": "Khu nhà",
-    "rooms": "Phòng"
+    "rooms": "Phòng",
+    "openMenu": "Mở menu điều hướng",
+    "menuTitle": "Điều hướng"
   },
   "language": {
     "label": "Ngôn ngữ",
@@ -22,10 +24,14 @@
     "deactivate": "ngừng kích hoạt",
     "reactivate": "kích hoạt lại",
     "save": "Lưu",
+    "saving": "Đang lưu...",
     "cancel": "Hủy",
+    "confirm": "Xác nhận",
     "close": "Đóng",
     "retry": "Thử lại",
     "view": "Xem",
+    "search": "Tìm kiếm...",
+    "clearSearch": "Xóa nội dung tìm kiếm",
     "assign": "gán",
     "unassign": "gỡ gán",
     "publish": "publish",
@@ -46,6 +52,7 @@
     "notFound": "Không tìm thấy trang",
     "notFoundDescription": "Đường dẫn bạn truy cập không tồn tại.",
     "noData": "Chưa có dữ liệu",
+    "mobileList": "Danh sách dữ liệu",
     "page": "Trang {{current}} / {{total}}",
     "previous": "Trước",
     "next": "Sau"
