@@ -2,6 +2,16 @@ import type { AxiosRequestConfig } from "axios";
 import type MockAdapter from "axios-mock-adapter";
 
 import type {
+  ApiErrorResponse,
+  ApiFieldError,
+  ApiMessageParameters,
+  ApiSuccessResponse,
+  ErrorMessageKey,
+  PageResult,
+  SuccessMessageKey,
+} from "@/api/client";
+import { mockDatabase } from "@/api/mocks/database";
+import type {
   CreatePropertyRequest,
   GetPropertiesRequest,
   Property,
@@ -13,30 +23,22 @@ import type {
   Room,
   UpdateRoomRequest,
 } from "@/api/routes/rooms";
-import type { ApiProblem, PageResult } from "@/api/types";
-import { mockDatabase } from "@/api/mocks/database";
 
 const propertyDetailPattern = /\/api\/properties\/([^/]+)$/;
 const roomDetailPattern = /\/api\/rooms\/([^/]+)$/;
 
 function readBody<T>(config: AxiosRequestConfig): T {
-  if (typeof config.data === "string") {
-    return JSON.parse(config.data) as T;
-  }
-
-  return config.data as T;
+  return (typeof config.data === "string" ? JSON.parse(config.data) : config.data) as T;
 }
 
 function getPathId(config: AxiosRequestConfig, pattern: RegExp) {
-  const match = config.url?.match(pattern);
-  return match?.[1] ?? "";
+  return config.url?.match(pattern)?.[1] ?? "";
 }
 
 function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> {
   const safePage = Math.max(page, 1);
   const safePageSize = Math.max(pageSize, 1);
   const start = (safePage - 1) * safePageSize;
-
   return {
     items: items.slice(start, start + safePageSize),
     page: safePage,
@@ -46,15 +48,31 @@ function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> 
   };
 }
 
-function problem(status: number, code: string, message: string, errors?: ApiProblem["errors"]): ApiProblem {
+function success<T>(
+  messageKey: SuccessMessageKey,
+  data: T,
+  parameters: ApiMessageParameters,
+): ApiSuccessResponse<T> {
   return {
-    status,
-    code,
-    title: message,
-    message,
-    detail: message,
-    traceId: `mock-${Date.now()}`,
-    errors,
+    success: true,
+    messageKey,
+    data,
+    parameters,
+    correlationId: `mock-${crypto.randomUUID()}`,
+  };
+}
+
+function problem(
+  messageKey: ErrorMessageKey,
+  parameters: ApiMessageParameters = {},
+  fieldErrors: ApiFieldError[] = [],
+): ApiErrorResponse {
+  return {
+    success: false,
+    messageKey,
+    parameters,
+    fieldErrors,
+    correlationId: `mock-${crypto.randomUUID()}`,
   };
 }
 
@@ -65,8 +83,6 @@ function normalizeSearch(value: unknown) {
 export function registerMockHandlers(mock: MockAdapter) {
   registerPropertyHandlers(mock);
   registerRoomHandlers(mock);
-
-  // Unknown endpoints can still reach the real backend while mock mode is enabled.
   mock.onAny().passThrough();
 }
 
@@ -76,7 +92,6 @@ function registerPropertyHandlers(mock: MockAdapter) {
     const search = normalizeSearch(params.search);
     const page = Number(params.page ?? 1);
     const pageSize = Number(params.pageSize ?? 20);
-
     const result = mockDatabase.properties.filter((property) => {
       const matchesSearch =
         !search ||
@@ -85,20 +100,21 @@ function registerPropertyHandlers(mock: MockAdapter) {
           .some((value) => normalizeSearch(value).includes(search));
       const matchesType = !params.propertyTypeId || property.propertyTypeId === params.propertyTypeId;
       const matchesActive = params.isActive == null || property.isActive === params.isActive;
-
       return matchesSearch && matchesType && matchesActive;
     });
 
-    return [200, paginate(result, page, pageSize)];
+    return [
+      200,
+      success("SCS-005", paginate(result, page, pageSize), { object: "property" }),
+    ];
   });
 
   mock.onGet(propertyDetailPattern).reply((config) => {
     const propertyId = getPathId(config, propertyDetailPattern);
     const property = mockDatabase.properties.find((item) => item.id === propertyId);
-
     return property
-      ? [200, property]
-      : [404, problem(404, "ERR-PROPERTY-404", "Không tìm thấy khu nhà.")];
+      ? [200, success("SCS-005", property, { object: "property" })]
+      : [404, problem("ERR-002", { object: "property" })];
   });
 
   mock.onPost("/api/properties").reply((config) => {
@@ -108,11 +124,12 @@ function registerPropertyHandlers(mock: MockAdapter) {
     );
 
     if (duplicated) {
+      const parameters = { object: "property", key: payload.code };
       return [
-        400,
-        problem(400, "ERR-PROPERTY-001", "Mã khu nhà đã tồn tại.", {
-          Code: ["Mã khu nhà đã tồn tại."],
-        }),
+        409,
+        problem("ERR-007", parameters, [
+          { fieldKey: "code", messageKey: "ERR-007", parameters },
+        ]),
       ];
     }
 
@@ -124,31 +141,24 @@ function registerPropertyHandlers(mock: MockAdapter) {
       createdAt: now,
       updatedAt: now,
     };
-
     mockDatabase.properties.unshift(property);
-    return [201, property];
+    return [201, success("SCS-001", property, { object: "property" })];
   });
 
   mock.onPut(propertyDetailPattern).reply((config) => {
     const propertyId = getPathId(config, propertyDetailPattern);
     const index = mockDatabase.properties.findIndex((item) => item.id === propertyId);
-
-    if (index < 0) {
-      return [404, problem(404, "ERR-PROPERTY-404", "Không tìm thấy khu nhà.")];
-    }
+    if (index < 0) return [404, problem("ERR-002", { object: "property" })];
 
     const payload = readBody<UpdatePropertyRequest>(config);
     const duplicated = mockDatabase.properties.some(
       (item) => item.id !== propertyId && item.code.toLocaleLowerCase() === payload.code.toLocaleLowerCase(),
     );
-
     if (duplicated) {
-      return [
-        400,
-        problem(400, "ERR-PROPERTY-001", "Mã khu nhà đã tồn tại.", {
-          Code: ["Mã khu nhà đã tồn tại."],
-        }),
-      ];
+      const parameters = { object: "property", key: payload.code };
+      return [409, problem("ERR-007", parameters, [
+        { fieldKey: "code", messageKey: "ERR-007", parameters },
+      ])];
     }
 
     const updated: Property = {
@@ -157,30 +167,20 @@ function registerPropertyHandlers(mock: MockAdapter) {
       propertyTypeName: getPropertyTypeName(payload.propertyTypeId),
       updatedAt: new Date().toISOString(),
     };
-
     mockDatabase.properties[index] = updated;
     mockDatabase.rooms.forEach((room) => {
       if (room.propertyId === propertyId) room.propertyName = updated.name;
     });
-
-    return [200, updated];
+    return [200, success("SCS-002", updated, { object: "property" })];
   });
 
   mock.onDelete(propertyDetailPattern).reply((config) => {
     const propertyId = getPathId(config, propertyDetailPattern);
     const index = mockDatabase.properties.findIndex((item) => item.id === propertyId);
-
-    if (index < 0) {
-      return [404, problem(404, "ERR-PROPERTY-404", "Không tìm thấy khu nhà.")];
-    }
-
+    if (index < 0) return [404, problem("ERR-002", { object: "property" })];
     if (mockDatabase.rooms.some((room) => room.propertyId === propertyId)) {
-      return [
-        409,
-        problem(409, "ERR-PROPERTY-ROOMS", "Không thể xóa khu nhà đang có phòng."),
-      ];
+      return [409, problem("ERR-017", { object: "property", dependency: "room" })];
     }
-
     mockDatabase.properties.splice(index, 1);
     return [204];
   });
@@ -192,7 +192,6 @@ function registerRoomHandlers(mock: MockAdapter) {
     const search = normalizeSearch(params.search);
     const page = Number(params.page ?? 1);
     const pageSize = Number(params.pageSize ?? 20);
-
     const result = mockDatabase.rooms.filter((room) => {
       const matchesSearch =
         !search ||
@@ -201,46 +200,35 @@ function registerRoomHandlers(mock: MockAdapter) {
           .some((value) => normalizeSearch(value).includes(search));
       const matchesProperty = !params.propertyId || room.propertyId === params.propertyId;
       const matchesStatus = !params.status || room.status === params.status;
-
       return matchesSearch && matchesProperty && matchesStatus;
     });
-
-    return [200, paginate(result, page, pageSize)];
+    return [200, success("SCS-005", paginate(result, page, pageSize), { object: "room" })];
   });
 
   mock.onGet(roomDetailPattern).reply((config) => {
     const roomId = getPathId(config, roomDetailPattern);
     const room = mockDatabase.rooms.find((item) => item.id === roomId);
-
     return room
-      ? [200, room]
-      : [404, problem(404, "ERR-ROOM-404", "Không tìm thấy phòng.")];
+      ? [200, success("SCS-005", room, { object: "room" })]
+      : [404, problem("ERR-002", { object: "room" })];
   });
 
   mock.onPost("/api/rooms").reply((config) => {
     const payload = readBody<CreateRoomRequest>(config);
     const property = mockDatabase.properties.find((item) => item.id === payload.propertyId);
-
     if (!property) {
-      return [
-        400,
-        problem(400, "ERR-ROOM-PROPERTY", "Khu nhà không tồn tại.", {
-          PropertyId: ["Khu nhà không tồn tại."],
-        }),
-      ];
+      return [422, problem("ERR-002", { object: "property" }, [
+        { fieldKey: "propertyId", messageKey: "ERR-002", parameters: { object: "property" } },
+      ])];
     }
-
     const duplicated = mockDatabase.rooms.some(
       (item) => item.propertyId === payload.propertyId && item.code.toLocaleLowerCase() === payload.code.toLocaleLowerCase(),
     );
-
     if (duplicated) {
-      return [
-        400,
-        problem(400, "ERR-ROOM-001", "Mã phòng đã tồn tại trong khu nhà.", {
-          Code: ["Mã phòng đã tồn tại trong khu nhà."],
-        }),
-      ];
+      const parameters = { object: "room", key: payload.code };
+      return [409, problem("ERR-007", parameters, [
+        { fieldKey: "code", messageKey: "ERR-007", parameters },
+      ])];
     }
 
     const now = new Date().toISOString();
@@ -251,45 +239,33 @@ function registerRoomHandlers(mock: MockAdapter) {
       createdAt: now,
       updatedAt: now,
     };
-
     mockDatabase.rooms.unshift(room);
-    return [201, room];
+    return [201, success("SCS-001", room, { object: "room" })];
   });
 
   mock.onPut(roomDetailPattern).reply((config) => {
     const roomId = getPathId(config, roomDetailPattern);
     const index = mockDatabase.rooms.findIndex((item) => item.id === roomId);
-
-    if (index < 0) {
-      return [404, problem(404, "ERR-ROOM-404", "Không tìm thấy phòng.")];
-    }
+    if (index < 0) return [404, problem("ERR-002", { object: "room" })];
 
     const payload = readBody<UpdateRoomRequest>(config);
     const property = mockDatabase.properties.find((item) => item.id === payload.propertyId);
-
     if (!property) {
-      return [
-        400,
-        problem(400, "ERR-ROOM-PROPERTY", "Khu nhà không tồn tại.", {
-          PropertyId: ["Khu nhà không tồn tại."],
-        }),
-      ];
+      return [422, problem("ERR-002", { object: "property" }, [
+        { fieldKey: "propertyId", messageKey: "ERR-002", parameters: { object: "property" } },
+      ])];
     }
-
     const duplicated = mockDatabase.rooms.some(
       (item) =>
         item.id !== roomId &&
         item.propertyId === payload.propertyId &&
         item.code.toLocaleLowerCase() === payload.code.toLocaleLowerCase(),
     );
-
     if (duplicated) {
-      return [
-        400,
-        problem(400, "ERR-ROOM-001", "Mã phòng đã tồn tại trong khu nhà.", {
-          Code: ["Mã phòng đã tồn tại trong khu nhà."],
-        }),
-      ];
+      const parameters = { object: "room", key: payload.code };
+      return [409, problem("ERR-007", parameters, [
+        { fieldKey: "code", messageKey: "ERR-007", parameters },
+      ])];
     }
 
     const updated: Room = {
@@ -298,19 +274,14 @@ function registerRoomHandlers(mock: MockAdapter) {
       propertyName: property.name,
       updatedAt: new Date().toISOString(),
     };
-
     mockDatabase.rooms[index] = updated;
-    return [200, updated];
+    return [200, success("SCS-002", updated, { object: "room" })];
   });
 
   mock.onDelete(roomDetailPattern).reply((config) => {
     const roomId = getPathId(config, roomDetailPattern);
     const index = mockDatabase.rooms.findIndex((item) => item.id === roomId);
-
-    if (index < 0) {
-      return [404, problem(404, "ERR-ROOM-404", "Không tìm thấy phòng.")];
-    }
-
+    if (index < 0) return [404, problem("ERR-002", { object: "room" })];
     mockDatabase.rooms.splice(index, 1);
     return [204];
   });
@@ -322,6 +293,5 @@ function getPropertyTypeName(propertyTypeId: string) {
     apartment: "Căn hộ",
     "shared-house": "Nhà nguyên căn",
   };
-
   return names[propertyTypeId] ?? propertyTypeId;
 }

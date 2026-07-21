@@ -1,37 +1,33 @@
-import { apiRequest } from "@/api/client";
-import type { PageResult } from "@/api/types";
+import { v1Client, type ApiRequestOptions, type PageResult } from "@/api/client";
 import type {
   CreateRoomRequest,
   GetRoomsRequest,
   Room,
+  RoomPathParams,
   UpdateRoomRequest,
-} from "@/api/routes/rooms/types";
+} from "./types";
 
-export function getRooms(params: GetRoomsRequest, signal?: AbortSignal) {
-  return apiRequest<PageResult<Room>>({
-    url: "/api/rooms",
-    method: "GET",
-    params,
-    signal,
-  });
+export function getRooms(options: ApiRequestOptions<GetRoomsRequest>) {
+  return v1Client.get<PageResult<Room>, GetRoomsRequest>("/api/rooms", options);
 }
 
-export function getRoom(roomId: string, signal?: AbortSignal) {
-  return apiRequest<Room>({
-    url: `/api/rooms/${roomId}`,
-    method: "GET",
-    signal,
-  });
+export function getRoom(path: RoomPathParams, options?: ApiRequestOptions) {
+  return v1Client.get<Room>(`/api/rooms/${path.roomId}`, options);
 }
 
-export function createRoom(payload: CreateRoomRequest) {
-  return apiRequest<Room>({ url: "/api/rooms", method: "POST", data: payload });
+export function createRoom(
+  options: ApiRequestOptions<Record<string, never>, CreateRoomRequest>,
+) {
+  return v1Client.post<Room, CreateRoomRequest>("/api/rooms", options);
 }
 
-export function updateRoom(roomId: string, payload: UpdateRoomRequest) {
-  return apiRequest<Room>({ url: `/api/rooms/${roomId}`, method: "PUT", data: payload });
+export function updateRoom(
+  path: RoomPathParams,
+  options: ApiRequestOptions<Record<string, never>, UpdateRoomRequest>,
+) {
+  return v1Client.put<Room, UpdateRoomRequest>(`/api/rooms/${path.roomId}`, options);
 }
 
-export function deleteRoom(roomId: string) {
-  return apiRequest<void>({ url: `/api/rooms/${roomId}`, method: "DELETE" });
+export function deleteRoom(path: RoomPathParams, options?: ApiRequestOptions) {
+  return v1Client.delete(`/api/rooms/${path.roomId}`, options);
 }

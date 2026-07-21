@@ -1,11 +1,9 @@
 import { QueryClient } from "@tanstack/react-query";
 
+import { isApiError } from "@/api/client";
+
 function getHttpStatus(error: unknown) {
-  if (!error || typeof error !== "object") return undefined;
-  const candidate = error as { status?: unknown; response?: { status?: unknown } };
-  if (typeof candidate.status === "number") return candidate.status;
-  if (typeof candidate.response?.status === "number") return candidate.response.status;
-  return undefined;
+  return isApiError(error) ? error.status : undefined;
 }
 
 export const queryClient = new QueryClient({

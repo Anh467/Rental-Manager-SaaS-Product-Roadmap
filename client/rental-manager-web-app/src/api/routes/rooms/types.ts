@@ -1,4 +1,4 @@
-import type { PageRequest } from "@/api/types";
+import type { ApiPathParams, PageRequest } from "@/api/client";
 
 export type RoomStatus = "vacant" | "occupied" | "maintenance" | "inactive";
 
@@ -21,6 +21,8 @@ export type GetRoomsRequest = PageRequest & {
   propertyId?: string;
   status?: RoomStatus;
 };
+
+export type RoomPathParams = ApiPathParams<"roomId">;
 
 export type CreateRoomRequest = Pick<
   Room,

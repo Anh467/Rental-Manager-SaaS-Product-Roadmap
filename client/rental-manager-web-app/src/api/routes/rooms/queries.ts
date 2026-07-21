@@ -1,22 +1,31 @@
+import { createQueryKeys, type inferQueryKeys } from "@lukemorales/query-key-factory";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
-import { createEntityQueryKeys } from "@/api/query-store";
-import { getRoom, getRooms } from "@/api/routes/rooms/requests";
-import type { GetRoomsRequest } from "@/api/routes/rooms/types";
+import { getRoom, getRooms } from "./requests";
+import type { GetRoomsRequest } from "./types";
 
-export const roomKeys = createEntityQueryKeys("rooms");
+export const roomsQueryStore = createQueryKeys("rooms", {
+  list: (query: GetRoomsRequest) => ({
+    queryKey: [{ query }],
+    queryFn: async ({ signal }) => (await getRooms({ query, signal })).data,
+  }),
+  detail: (roomId: string) => ({
+    queryKey: [roomId],
+    queryFn: async ({ signal }) => (await getRoom({ roomId }, { signal })).data,
+  }),
+});
+
+export type RoomsQueryKeys = inferQueryKeys<typeof roomsQueryStore>;
 
 export const roomQueries = {
   list: (params: GetRoomsRequest) =>
     queryOptions({
-      queryKey: roomKeys.list(params),
-      queryFn: ({ signal }) => getRooms(params, signal),
+      ...roomsQueryStore.list(params),
       placeholderData: keepPreviousData,
     }),
   detail: (roomId: string) =>
     queryOptions({
-      queryKey: roomKeys.detail(roomId),
-      queryFn: ({ signal }) => getRoom(roomId, signal),
+      ...roomsQueryStore.detail(roomId),
       enabled: Boolean(roomId),
     }),
 };

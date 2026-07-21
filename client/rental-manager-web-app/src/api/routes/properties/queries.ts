@@ -1,22 +1,31 @@
+import { createQueryKeys, type inferQueryKeys } from "@lukemorales/query-key-factory";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
-import { createEntityQueryKeys } from "@/api/query-store";
-import { getProperties, getProperty } from "@/api/routes/properties/requests";
-import type { GetPropertiesRequest } from "@/api/routes/properties/types";
+import { getProperties, getProperty } from "./requests";
+import type { GetPropertiesRequest } from "./types";
 
-export const propertyKeys = createEntityQueryKeys("properties");
+export const propertiesQueryStore = createQueryKeys("properties", {
+  list: (query: GetPropertiesRequest) => ({
+    queryKey: [{ query }],
+    queryFn: async ({ signal }) => (await getProperties({ query, signal })).data,
+  }),
+  detail: (propertyId: string) => ({
+    queryKey: [propertyId],
+    queryFn: async ({ signal }) => (await getProperty({ propertyId }, { signal })).data,
+  }),
+});
+
+export type PropertiesQueryKeys = inferQueryKeys<typeof propertiesQueryStore>;
 
 export const propertyQueries = {
   list: (params: GetPropertiesRequest) =>
     queryOptions({
-      queryKey: propertyKeys.list(params),
-      queryFn: ({ signal }) => getProperties(params, signal),
+      ...propertiesQueryStore.list(params),
       placeholderData: keepPreviousData,
     }),
   detail: (propertyId: string) =>
     queryOptions({
-      queryKey: propertyKeys.detail(propertyId),
-      queryFn: ({ signal }) => getProperty(propertyId, signal),
+      ...propertiesQueryStore.detail(propertyId),
       enabled: Boolean(propertyId),
     }),
 };
