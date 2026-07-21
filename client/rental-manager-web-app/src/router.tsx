@@ -45,7 +45,7 @@ const propertySearchSchema = z.object({
 const propertiesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/properties",
-  validateSearch: propertySearchSchema,
+  validateSearch: (search) => propertySearchSchema.parse(search),
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(
@@ -96,7 +96,7 @@ const roomSearchSchema = z.object({
 const roomsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/rooms",
-  validateSearch: roomSearchSchema,
+  validateSearch: (search) => roomSearchSchema.parse(search),
   loaderDeps: ({ search }) => search,
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(
