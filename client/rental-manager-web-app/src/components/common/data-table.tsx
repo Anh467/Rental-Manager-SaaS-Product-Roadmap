@@ -34,7 +34,7 @@ export function DataTable<TData>({
   rowSelection,
   onRowSelectionChange,
   getRowId,
-  emptyTitle,
+  emptyTitle = "Chưa có dữ liệu",
 }: DataTableProps<TData>) {
   const table = useReactTable({
     data,
