@@ -15,6 +15,8 @@ Reusable frontend baseline for the multi-tenant Rental Manager SaaS.
 
 ## Run locally
 
+After pulling this branch, install the new Router/Faker/mock dependencies once:
+
 ```bash
 cd client/rental-manager-web-app
 npm install
@@ -56,8 +58,10 @@ VITE_MOCK_API_DELAY=250
 
 Rules:
 
-- In development, mock mode defaults to enabled when `VITE_ENABLE_MOCK_API` is omitted.
+- `.env.development` enables mock mode for the local Vite server.
+- In development, mock mode also defaults to enabled when `VITE_ENABLE_MOCK_API` is omitted.
 - Set `VITE_ENABLE_MOCK_API=false` to call the real backend.
+- Restart `npm run dev` after changing environment variables.
 - Faker uses a fixed seed, so baseline data is repeatable.
 - Property and Room mock endpoints support list, detail, create, update and delete.
 - Mock validation errors use the same `.NET ProblemDetails` shape as the real API.
