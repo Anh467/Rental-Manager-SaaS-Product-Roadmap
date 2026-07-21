@@ -22,9 +22,11 @@ public sealed class FieldRepositoryCrudTests
     {
         await _fixture.ResetFieldsAsync();
         await using ServiceProvider serviceProvider = CreateServiceProvider();
+        await using AsyncServiceScope scope =
+            serviceProvider.CreateAsyncScope();
 
         IFieldRepository repository =
-            serviceProvider.GetRequiredService<IFieldRepository>();
+            scope.ServiceProvider.GetRequiredService<IFieldRepository>();
 
         DateTimeOffset createdAt = DateTimeOffset.UtcNow;
         var field = new FieldEntity
@@ -81,9 +83,11 @@ public sealed class FieldRepositoryCrudTests
     {
         await _fixture.ResetFieldsAsync();
         await using ServiceProvider serviceProvider = CreateServiceProvider();
+        await using AsyncServiceScope scope =
+            serviceProvider.CreateAsyncScope();
 
         IFieldRepository repository =
-            serviceProvider.GetRequiredService<IFieldRepository>();
+            scope.ServiceProvider.GetRequiredService<IFieldRepository>();
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var field = new FieldEntity
