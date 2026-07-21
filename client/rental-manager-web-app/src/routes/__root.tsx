@@ -3,7 +3,7 @@ import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 import { isApiError } from "@/api/client";
-import { ErrorState, LoadingState } from "@/components/common/page";
+import { ErrorState, LoadingState, PageContent } from "@/components/common/page";
 import { translateApiError } from "@/i18n/api-message";
 
 export type RouterContext = {
@@ -23,7 +23,7 @@ function RootComponent() {
 
 function RootPendingComponent() {
   const { t } = useTranslation("common");
-  return <div className="p-6"><LoadingState label={t("state.loadingPage")} /></div>;
+  return <PageContent><LoadingState label={t("state.loadingPage")} /></PageContent>;
 }
 
 function RootErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
@@ -35,17 +35,17 @@ function RootErrorComponent({ error, reset }: { error: unknown; reset: () => voi
       : t("state.unknownError");
 
   return (
-    <div className="p-6">
+    <PageContent>
       <ErrorState title={t("state.pageLoadError")} description={description} onRetry={reset} />
-    </div>
+    </PageContent>
   );
 }
 
 function RootNotFoundComponent() {
   const { t } = useTranslation("common");
   return (
-    <div className="p-6">
+    <PageContent>
       <ErrorState title={t("state.notFound")} description={t("state.notFoundDescription")} />
-    </div>
+    </PageContent>
   );
 }

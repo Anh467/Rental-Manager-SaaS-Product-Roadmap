@@ -3,6 +3,7 @@ export * from "./async-state";
 export * from "./confirm-dialog";
 export * from "./data-table";
 export * from "./language-switcher";
+export * from "./mobile-data-card";
 export * from "./page";
 export * from "./permission-guard";
 export * from "./search-input";

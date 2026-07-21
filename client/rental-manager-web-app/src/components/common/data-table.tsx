@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -9,8 +10,9 @@ import {
 } from "@tanstack/react-table";
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/components/ui/button";
 import { EmptyState, LoadingState } from "@/components/common/page";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type DataTableProps<TData> = {
   data: TData[];
@@ -23,6 +25,9 @@ export type DataTableProps<TData> = {
   onRowSelectionChange?: OnChangeFn<RowSelectionState>;
   getRowId?: (row: TData) => string;
   emptyTitle?: string;
+  renderMobileCard?: (row: TData) => ReactNode;
+  tableClassName?: string;
+  className?: string;
 };
 
 export function DataTable<TData>({
@@ -36,6 +41,9 @@ export function DataTable<TData>({
   onRowSelectionChange,
   getRowId,
   emptyTitle,
+  renderMobileCard,
+  tableClassName,
+  className,
 }: DataTableProps<TData>) {
   const { t } = useTranslation("common");
   const table = useReactTable({
@@ -55,56 +63,99 @@ export function DataTable<TData>({
 
   if (loading) return <LoadingState />;
 
+  const rows = table.getRowModel().rows;
+  const emptyState = (
+    <EmptyState
+      title={emptyTitle ?? t("state.noData")}
+      className="min-h-40 border-none sm:min-h-[200px]"
+    />
+  );
+
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-md border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50">
-            {table.getHeaderGroups().map((group) => (
-              <tr key={group.id}>
-                {group.headers.map((header) => (
-                  <th key={header.id} className="h-11 px-4 text-left font-medium text-muted-foreground">
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {data.length > 0 ? (
-              table.getRowModel().rows.map((row) => (
-                <tr key={row.id} data-state={row.getIsSelected() ? "selected" : undefined} className="border-t hover:bg-muted/40 data-[state=selected]:bg-muted">
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 align-middle">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
+    <div className={cn("min-w-0 space-y-4", className)}>
+      {renderMobileCard ? (
+        <div
+          className="grid gap-3 md:hidden"
+          aria-label={t("state.mobileList")}
+          data-testid="mobile-data-list"
+        >
+          {rows.length > 0 ? rows.map((row) => (
+            <div key={row.id} className="min-w-0">
+              {renderMobileCard(row.original)}
+            </div>
+          )) : emptyState}
+        </div>
+      ) : null}
+
+      <div
+        className={cn("min-w-0 overflow-hidden rounded-md border bg-background", renderMobileCard && "hidden md:block")}
+        data-testid="desktop-data-table"
+      >
+        <div className="w-full overflow-x-auto overscroll-x-contain">
+          <table className={cn("w-full min-w-max text-sm", tableClassName)}>
+            <thead className="bg-muted/50">
+              {table.getHeaderGroups().map((group) => (
+                <tr key={group.id}>
+                  {group.headers.map((header) => (
+                    <th
+                      key={header.id}
+                      className="h-11 whitespace-nowrap px-4 text-left font-medium text-muted-foreground"
+                    >
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
                   ))}
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={Math.max(table.getVisibleLeafColumns().length, 1)} className="p-4">
-                  <EmptyState
-                    title={emptyTitle ?? t("state.noData")}
-                    className="min-h-[200px] border-none"
-                  />
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ))}
+            </thead>
+            <tbody>
+              {rows.length > 0 ? (
+                rows.map((row) => (
+                  <tr
+                    key={row.id}
+                    data-state={row.getIsSelected() ? "selected" : undefined}
+                    className="border-t hover:bg-muted/40 data-[state=selected]:bg-muted"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="max-w-md px-4 py-3 align-middle">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={Math.max(table.getVisibleLeafColumns().length, 1)} className="p-4">
+                    {emptyState}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {pagination ? (
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-center text-sm text-muted-foreground sm:text-left">
             {t("state.page", { current: pagination.pageIndex + 1, total: Math.max(table.getPageCount(), 1) })}
           </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()}>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <Button
+              variant="outline"
+              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+              size="sm"
+              disabled={!table.getCanPreviousPage()}
+              onClick={() => table.previousPage()}
+            >
               {t("state.previous")}
             </Button>
-            <Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onClick={() => table.nextPage()}>
+            <Button
+              variant="outline"
+              className="min-h-11 w-full sm:min-h-9 sm:w-auto"
+              size="sm"
+              disabled={!table.getCanNextPage()}
+              onClick={() => table.nextPage()}
+            >
               {t("state.next")}
             </Button>
           </div>

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
 import { propertyQueries } from "@/api/routes/properties";
+import { PageContent } from "@/components/common/page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute(
@@ -22,32 +23,44 @@ function PropertyDetailPage() {
   }[property.propertyTypeId];
 
   return (
-    <div className="p-6">
+    <PageContent>
       <Card>
         <CardHeader>
           <CardTitle>{property.name}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
-          <p><span className="text-muted-foreground">{t("detail.code")}:</span> {property.code}</p>
-          <p>
-            <span className="text-muted-foreground">{t("detail.type")}:</span>{" "}
-            {propertyTypeKey ? t(propertyTypeKey) : property.propertyTypeName ?? property.propertyTypeId}
-          </p>
-          <p><span className="text-muted-foreground">{t("detail.totalFloors")}:</span> {property.totalFloors}</p>
-          <p>
-            <span className="text-muted-foreground">{t("detail.status")}:</span>{" "}
-            {property.isActive ? t("detail.active") : t("detail.inactive")}
-          </p>
-          <p className="sm:col-span-2">
-            <span className="text-muted-foreground">{t("detail.address")}:</span> {property.address}
-          </p>
-          {property.description ? (
-            <p className="sm:col-span-2">
-              <span className="text-muted-foreground">{t("detail.description")}:</span> {property.description}
-            </p>
-          ) : null}
+        <CardContent>
+          <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+            <div className="min-w-0">
+              <dt className="text-muted-foreground">{t("detail.code")}</dt>
+              <dd className="mt-1 break-words">{property.code}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-muted-foreground">{t("detail.type")}</dt>
+              <dd className="mt-1 break-words">
+                {propertyTypeKey ? t(propertyTypeKey) : property.propertyTypeName ?? property.propertyTypeId}
+              </dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-muted-foreground">{t("detail.totalFloors")}</dt>
+              <dd className="mt-1">{property.totalFloors}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-muted-foreground">{t("detail.status")}</dt>
+              <dd className="mt-1">{property.isActive ? t("detail.active") : t("detail.inactive")}</dd>
+            </div>
+            <div className="min-w-0 sm:col-span-2">
+              <dt className="text-muted-foreground">{t("detail.address")}</dt>
+              <dd className="mt-1 break-words">{property.address}</dd>
+            </div>
+            {property.description ? (
+              <div className="min-w-0 sm:col-span-2">
+                <dt className="text-muted-foreground">{t("detail.description")}</dt>
+                <dd className="mt-1 whitespace-pre-wrap break-words">{property.description}</dd>
+              </div>
+            ) : null}
+          </dl>
         </CardContent>
       </Card>
-    </div>
+    </PageContent>
   );
 }
