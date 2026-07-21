@@ -6,7 +6,7 @@ using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Connecti
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repositories.Common;
 
-internal class BaseEntityAuditRepository<TEntity, TPrimaryKey> :
+public abstract class BaseEntityAuditRepository<TEntity, TPrimaryKey> :
     BaseRepository<TEntity, TPrimaryKey>,
     IBaseEntityAuditRepository<TEntity, TPrimaryKey>
     where TEntity : class, IEntityAudit<TPrimaryKey>
