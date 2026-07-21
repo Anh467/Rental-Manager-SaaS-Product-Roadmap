@@ -2,13 +2,13 @@ using Microsoft.Data.SqlClient;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Connections;
 
-internal interface ISqlConnectionFactory
+public interface ISqlConnectionFactory
 {
     Task<SqlConnection> OpenConnectionAsync(
         CancellationToken cancellationToken = default);
 }
 
-internal sealed class SqlConnectionFactory : ISqlConnectionFactory
+public sealed class SqlConnectionFactory : ISqlConnectionFactory
 {
     private readonly string _connectionString;
 
