@@ -44,7 +44,10 @@ export function DataTable<TData>({
     getCoreRowModel: getCoreRowModel(),
     manualPagination: Boolean(pagination),
     rowCount,
-    state: { pagination, rowSelection },
+    state: {
+      ...(pagination ? { pagination } : {}),
+      ...(rowSelection ? { rowSelection } : {}),
+    },
     onPaginationChange,
     onRowSelectionChange,
     getRowId,
