@@ -1,6 +1,16 @@
 # Rental Manager Web App
 
-Frontend foundation using React, TypeScript, shadcn/ui, React Hook Form and Zod.
+Reusable frontend baseline for the multi-tenant Rental Manager SaaS.
+
+## Stack
+
+- React + TypeScript + Vite
+- shadcn/ui primitives
+- React Hook Form + Zod
+- TanStack Query for server cache
+- TanStack Router for typed URL state and route prefetch
+- TanStack Table for reusable server-side tables
+- Axios for HTTP transport
 
 ## Run locally
 
@@ -12,124 +22,206 @@ npm run type-check
 npm run build
 ```
 
+Open `http://localhost:5173`.
+
+Available baseline pages:
+
+- `/` — reusable form baseline
+- `/properties` — Property list with URL pagination/search and query cache
+- `/rooms` — Room list business baseline
+
 ## Architecture
 
 ```text
 src/
+├── api/
+│   ├── client.ts                 # Axios instance, auth and organization headers
+│   ├── query-client.ts           # global TanStack Query cache policy
+│   ├── query-store.ts            # common query-key factory
+│   ├── tenant-context.ts         # clear cache when organization changes
+│   ├── types.ts                  # ProblemDetails, pagination contracts
+│   └── routes/
+│       ├── properties/
+│       │   ├── types.ts          # request/response contracts
+│       │   ├── requests.ts       # HTTP calls only
+│       │   ├── queries.ts        # query keys and queryOptions
+│       │   ├── hooks.ts          # query/mutation hooks and invalidation
+│       │   └── index.ts          # public API
+│       └── rooms/                # same structure as properties
 ├── components/
-│   ├── ui/                 # shadcn primitives only; no business logic
-│   └── form/               # reusable form layer used by all features
-│       ├── app-form.tsx    # useForm + zodResolver + submit/error lifecycle
-│       ├── fields.tsx      # typed Text/Number/Date/Textarea/Select/Switch fields
-│       ├── layout.tsx      # FormGrid, FormSection, FormActions, submit button
-│       ├── schema.ts       # common Zod validation helpers/messages
-│       ├── server-errors.ts# maps .NET ProblemDetails errors to RHF fields
-│       └── index.ts        # public API
-└── features/
-    └── properties/
-        └── components/
-            └── property-form.tsx
+│   ├── ui/                       # shadcn primitives only
+│   ├── form/                     # common typed form system
+│   └── common/                   # app shell, table, page states, permission, dialogs
+├── features/
+│   ├── properties/               # Property forms and pages
+│   └── rooms/                    # Room forms and pages
+├── hooks/                        # generic React hooks
+├── router.tsx                    # typed routes, search params, loaders
+└── main.tsx                      # global providers
 ```
 
-## Rules
+## Layer rules
 
-1. `components/ui` stays close to shadcn and must not know rental business rules.
-2. `components/form` contains generic reusable behavior only.
-3. Every feature owns its own Zod schema, default values and submit request.
-4. Validation messages come from schema; field components only render errors.
-5. API validation errors are handled once by `AppForm` and `applyServerErrors`.
-6. Never copy label/error/loading markup into feature forms.
-7. Do not build one giant dynamic form renderer for every use case. Typed field components keep forms readable and safe while still removing repetition.
+1. `components/ui` stays close to shadcn and contains no rental business rules.
+2. `components/form` owns labels, errors, disabled states and React Hook Form wiring.
+3. `components/common` owns reusable application patterns such as tables and dialogs.
+4. `api/routes/<resource>` owns all server-state behavior for one resource.
+5. `features/<resource>` owns business forms, columns and page composition.
+6. Pages do not call Axios directly.
+7. List pagination, filters, sorting and search belong in URL search params.
+8. Mutations invalidate or update cache inside `hooks.ts`, never inside pages.
+9. Route loaders use `queryClient.ensureQueryData` to reuse cache and prefetch navigation.
+10. Changing organization must clear Query cache before rendering the new tenant context.
 
-## Creating a feature form
+## API resource baseline
+
+Every resource uses the same five files:
+
+```text
+api/routes/contracts/
+├── types.ts
+├── requests.ts
+├── queries.ts
+├── hooks.ts
+└── index.ts
+```
+
+### `types.ts`
+
+```ts
+export type Contract = {
+  id: string;
+  tenantId: string;
+  roomId: string;
+  startDate: string;
+  endDate?: string;
+};
+
+export type GetContractsRequest = PageRequest & {
+  tenantId?: string;
+  roomId?: string;
+};
+```
+
+### `requests.ts`
+
+```ts
+export function getContracts(params: GetContractsRequest, signal?: AbortSignal) {
+  return apiRequest<PageResult<Contract>>({
+    url: "/api/contracts",
+    method: "GET",
+    params,
+    signal,
+  });
+}
+```
+
+### `queries.ts`
+
+```ts
+export const contractKeys = createEntityQueryKeys("contracts");
+
+export const contractQueries = {
+  list: (params: GetContractsRequest) =>
+    queryOptions({
+      queryKey: contractKeys.list(params),
+      queryFn: ({ signal }) => getContracts(params, signal),
+      placeholderData: keepPreviousData,
+    }),
+};
+```
+
+### `hooks.ts`
+
+```ts
+export function useCreateContractMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createContract,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: contractKeys.lists() }),
+  });
+}
+```
+
+## Form baseline
+
+A feature form only defines schema, defaults, field composition and submit request:
 
 ```tsx
-const schema = z.object({
-  name: requiredText("Tên phòng", 100),
+const roomSchema = z.object({
+  propertyId: requiredText("Khu nhà"),
+  code: requiredText("Mã phòng", 50),
   monthlyRent: requiredNumber("Giá thuê", 0),
-  statusId: requiredText("Trạng thái"),
-  description: optionalText(500),
+  status: z.enum(["vacant", "occupied", "maintenance", "inactive"]),
   isActive: optionalBoolean,
 });
 
-type Values = z.infer<typeof schema>;
+type RoomValues = z.infer<typeof roomSchema>;
 
-export function RoomForm() {
-  return (
-    <AppForm<Values>
-      schema={schema}
-      defaultValues={{
-        name: "",
-        monthlyRent: 0,
-        statusId: "",
-        description: undefined,
-        isActive: true,
-      }}
-      onSubmit={(values) => roomApi.create(values)}
-    >
-      {(form) => (
-        <>
-          <FormGrid>
-            <TextFormField
-              control={form.control}
-              name="name"
-              label="Tên phòng"
-              required
-            />
-            <NumberFormField
-              control={form.control}
-              name="monthlyRent"
-              label="Giá thuê"
-              min={0}
-              required
-            />
-          </FormGrid>
-
-          <SelectFormField
-            control={form.control}
-            name="statusId"
-            label="Trạng thái"
-            options={statusOptions}
-            required
-          />
-
-          <FormActions>
-            <FormSubmitButton>Lưu phòng</FormSubmitButton>
-          </FormActions>
-        </>
-      )}
-    </AppForm>
-  );
-}
+<AppForm<RoomValues>
+  schema={roomSchema}
+  defaultValues={defaults}
+  onSubmit={(values) => createRoomMutation.mutateAsync(values)}
+>
+  {(form) => (
+    <>
+      <TextFormField control={form.control} name="code" label="Mã phòng" required />
+      <MoneyFormField control={form.control} name="monthlyRent" label="Giá thuê" required />
+      <FormSubmitButton>Lưu phòng</FormSubmitButton>
+    </>
+  )}
+</AppForm>
 ```
 
-The `name` prop is type-safe. A typo or a field absent from the schema causes a TypeScript error.
+Included common fields:
 
-## .NET API validation errors
+- Text, number, date, textarea, select and switch
+- Email, phone, password, money and checkbox
+- Common Zod schema helpers
+- `.NET ProblemDetails` mapping to exact React Hook Form fields
+- Root server error rendering
+- Loading and submit state management
 
-Supported payloads:
+## URL state baseline
 
-```json
-{
-  "code": "ERR-VALIDATION",
-  "message": "Dữ liệu không hợp lệ.",
-  "errors": {
-    "Name": ["Tên khu nhà đã tồn tại."],
-    "TotalFloors": ["Số tầng phải lớn hơn 0."]
-  }
-}
+```ts
+const searchSchema = z.object({
+  page: z.coerce.number().int().positive().catch(1),
+  pageSize: z.coerce.number().int().min(10).max(100).catch(20),
+  search: z.string().catch(""),
+});
 ```
 
-`AppForm` automatically maps `Name` to `name`. Use `fieldMap` when backend and frontend names are different:
+The URL is the source of truth for list state, so refresh, bookmark and browser back/forward preserve the same page and filters.
+
+## Multi-tenant cache safety
+
+```ts
+await setOrganizationId(nextOrganizationId);
+```
+
+`setOrganizationId` stores the organization context, clears all Query cache and invalidates the router. This prevents data from the previous organization appearing after a tenant switch.
+
+## Permission baseline
 
 ```tsx
-<AppForm
-  serverErrorOptions={{
-    fieldMap: {
-      PropertyTypeId: "propertyTypeId",
-    },
-  }}
-/>
+<PermissionGuard required="room.create">
+  <Button>Thêm phòng</Button>
+</PermissionGuard>
 ```
 
-Errors without a field are displayed once at the top of the form. This prevents each feature from implementing its own try/catch and error UI.
+The UI guard improves UX only. The backend must still enforce every permission.
+
+## Validation and CI
+
+The repository includes `.github/workflows/client-ci.yml`, which runs:
+
+```bash
+npm install
+npm run type-check
+npm run build
+```
+
+Do not merge frontend changes when Client CI is red.
