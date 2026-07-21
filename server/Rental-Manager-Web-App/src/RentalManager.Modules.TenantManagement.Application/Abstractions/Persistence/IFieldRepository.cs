@@ -1,10 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
+using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
 
-namespace RentalManager.Modules.Identity.Application.Abstractions.Persistence
+namespace RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence;
+
+public interface IFieldRepository :
+    IRepository<Field, Guid>,
+    IGetAllRepository<Field, Guid>,
+    IEntityAuditRepository<Field, Guid>
 {
-    internal interface IFieldRepository
-    {
-    }
 }
