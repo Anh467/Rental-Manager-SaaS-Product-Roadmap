@@ -7,8 +7,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Entities\Org\" />
+    <Compile Remove="Entities\Org\**" />
+    <EmbeddedResource Remove="Entities\Org\**" />
+    <None Remove="Entities\Org\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Models\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Core\RentalManager.Modules.TenantManagement.Core.csproj" />
   </ItemGroup>
 
 </Project>

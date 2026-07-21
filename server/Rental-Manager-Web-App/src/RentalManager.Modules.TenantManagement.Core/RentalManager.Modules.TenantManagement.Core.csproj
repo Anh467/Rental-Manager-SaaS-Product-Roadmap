@@ -7,12 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Helpers\" />
-    <Folder Include="Utils\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Domain\RentalManager.Modules.TenantManagement.Domain.csproj" />
+    <Compile Remove="Helpers\**" />
+    <Compile Remove="Utils\**" />
+    <EmbeddedResource Remove="Helpers\**" />
+    <EmbeddedResource Remove="Utils\**" />
+    <None Remove="Helpers\**" />
+    <None Remove="Utils\**" />
   </ItemGroup>
 
 </Project>

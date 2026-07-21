@@ -7,13 +7,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Persistence\Connections\" />
-    <Folder Include="Persistence\Repositories\" />
-    <Folder Include="Persistence\SqlServer\" />
+    <Compile Remove="Persistence\Connections\**" />
+    <Compile Remove="Persistence\SqlServer\**" />
+    <EmbeddedResource Remove="Persistence\Connections\**" />
+    <EmbeddedResource Remove="Persistence\SqlServer\**" />
+    <None Remove="Persistence\Connections\**" />
+    <None Remove="Persistence\SqlServer\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Core\RentalManager.Modules.TenantManagement.Core.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
   </ItemGroup>
 
 </Project>

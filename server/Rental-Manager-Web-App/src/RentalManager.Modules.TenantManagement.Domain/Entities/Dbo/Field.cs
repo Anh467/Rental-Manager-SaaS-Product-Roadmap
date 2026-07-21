@@ -1,4 +1,5 @@
-﻿using RentalManager.Modules.TenantManagement.Domain.Entities.Common;
+﻿using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.Modules.TenantManagement.Domain.Entities.Common;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -6,7 +7,7 @@ using System.Text;
 
 namespace RentalManager.Modules.TenantManagement.Domain.Entities.Dbo
 {
-    [Table(nameof(Field), Schema = "dbo")]
+    [Table(nameof(Field), Schema = DatabaseConstant.Schema.DBO)]
     public class Field : IDefinitionEntityAudit<Guid>
     {
         public Guid Id { get; set; }
