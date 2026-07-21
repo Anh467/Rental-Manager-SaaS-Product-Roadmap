@@ -49,6 +49,10 @@
     "previous": "Previous",
     "next": "Next"
   },
+  "accessDenied": {
+    "title": "You do not have access",
+    "description": "Contact your Organization administrator to request the required permission."
+  },
   "validation": {
     "required": "{{field}} is required.",
     "invalidEmail": "Email format is invalid.",

@@ -1,7 +1,10 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
 
+import { isApiError } from "@/api/client";
 import { ErrorState, LoadingState } from "@/components/common/page";
+import { translateApiError } from "@/i18n/api-message";
 
 export type RouterContext = {
   queryClient: QueryClient;
@@ -9,27 +12,40 @@ export type RouterContext = {
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
-  pendingComponent: () => (
-    <div className="p-6">
-      <LoadingState label="Đang tải trang..." />
-    </div>
-  ),
-  errorComponent: ({ error, reset }) => (
-    <div className="p-6">
-      <ErrorState
-        title="Không thể tải trang"
-        description={error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định."}
-        onRetry={reset}
-      />
-    </div>
-  ),
-  notFoundComponent: () => (
-    <div className="p-6">
-      <ErrorState title="Không tìm thấy trang" description="Đường dẫn bạn truy cập không tồn tại." />
-    </div>
-  ),
+  pendingComponent: RootPendingComponent,
+  errorComponent: RootErrorComponent,
+  notFoundComponent: RootNotFoundComponent,
 });
 
 function RootComponent() {
   return <Outlet />;
+}
+
+function RootPendingComponent() {
+  const { t } = useTranslation("common");
+  return <div className="p-6"><LoadingState label={t("state.loadingPage")} /></div>;
+}
+
+function RootErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
+  const { t } = useTranslation("common");
+  const description = isApiError(error)
+    ? translateApiError(error)
+    : error instanceof Error
+      ? error.message
+      : t("state.unknownError");
+
+  return (
+    <div className="p-6">
+      <ErrorState title={t("state.pageLoadError")} description={description} onRetry={reset} />
+    </div>
+  );
+}
+
+function RootNotFoundComponent() {
+  const { t } = useTranslation("common");
+  return (
+    <div className="p-6">
+      <ErrorState title={t("state.notFound")} description={t("state.notFoundDescription")} />
+    </div>
+  );
 }

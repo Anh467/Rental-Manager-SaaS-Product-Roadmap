@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,12 +12,13 @@ export function PageContent({ children, className }: { children: ReactNode; clas
   return <div className={cn("space-y-6", className)}>{children}</div>;
 }
 
-export function LoadingState({ label = "Đang tải dữ liệu..." }: { label?: string }) {
-  return <State icon={<Loader2 className="h-6 w-6 animate-spin" />} title={label} />;
+export function LoadingState({ label }: { label?: string }) {
+  const { t } = useTranslation("common");
+  return <State icon={<Loader2 className="h-6 w-6 animate-spin" />} title={label ?? t("state.loading")} />;
 }
 
 export function ErrorState({
-  title = "Không thể tải dữ liệu",
+  title,
   description,
   onRetry,
 }: {
@@ -24,12 +26,14 @@ export function ErrorState({
   description?: string;
   onRetry?: () => void;
 }) {
+  const { t } = useTranslation("common");
+
   return (
     <State
       icon={<AlertCircle className="h-6 w-6" />}
-      title={title}
+      title={title ?? t("state.loadError")}
       description={description}
-      action={onRetry ? <Button variant="outline" onClick={onRetry}>Thử lại</Button> : null}
+      action={onRetry ? <Button variant="outline" onClick={onRetry}>{t("actions.retry")}</Button> : null}
     />
   );
 }

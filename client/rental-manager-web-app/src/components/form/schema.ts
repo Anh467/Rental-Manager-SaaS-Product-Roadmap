@@ -1,16 +1,15 @@
 import { z } from "zod";
 
+import { i18n } from "@/i18n";
+
 export const validationMessages = {
-  required: (field: string) => `${field} là bắt buộc.`,
-  invalidEmail: "Email không đúng định dạng.",
-  invalidNumber: (field: string) => `${field} phải là số hợp lệ.`,
-  minLength: (field: string, min: number) =>
-    `${field} phải có ít nhất ${min} ký tự.`,
-  maxLength: (field: string, max: number) =>
-    `${field} không được vượt quá ${max} ký tự.`,
-  minNumber: (field: string, min: number) =>
-    `${field} phải lớn hơn hoặc bằng ${min}.`,
-  invalidDate: (field: string) => `${field} không phải ngày hợp lệ.`,
+  required: (field: string) => String(i18n.t("common:validation.required", { field })),
+  invalidEmail: () => String(i18n.t("common:validation.invalidEmail")),
+  invalidNumber: (field: string) => String(i18n.t("common:validation.invalidNumber", { field })),
+  minLength: (field: string, min: number) => String(i18n.t("common:validation.minLength", { field, min })),
+  maxLength: (field: string, max: number) => String(i18n.t("common:validation.maxLength", { field, max })),
+  minNumber: (field: string, min: number) => String(i18n.t("common:validation.minNumber", { field, min })),
+  invalidDate: (field: string) => String(i18n.t("common:validation.invalidDate", { field })),
 } as const;
 
 export function requiredText(field: string, max = 256) {
@@ -21,15 +20,15 @@ export function requiredText(field: string, max = 256) {
     .max(max, validationMessages.maxLength(field, max));
 }
 
-export function optionalText(max = 1000) {
+export function optionalText(field: string, max = 1000) {
   return z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-    z.string().trim().max(max).optional(),
+    z.string().trim().max(max, validationMessages.maxLength(field, max)).optional(),
   );
 }
 
 export function requiredEmail(field = "Email") {
-  return requiredText(field, 320).email(validationMessages.invalidEmail);
+  return requiredText(field, 320).email(validationMessages.invalidEmail());
 }
 
 export function requiredNumber(field: string, min?: number) {
@@ -44,15 +43,11 @@ export function requiredNumber(field: string, min?: number) {
 
   return z.preprocess(
     (value) => {
-      if (value === "" || value === null || value === undefined) {
-        return undefined;
-      }
-
+      if (value === "" || value === null || value === undefined) return undefined;
       if (typeof value === "string") {
         const parsed = Number(value);
         return Number.isNaN(parsed) ? value : parsed;
       }
-
       return value;
     },
     schema,
@@ -60,25 +55,16 @@ export function requiredNumber(field: string, min?: number) {
 }
 
 export function optionalNumber(field: string, min?: number) {
-  let schema = z.number({
-    invalid_type_error: validationMessages.invalidNumber(field),
-  });
-
-  if (min !== undefined) {
-    schema = schema.min(min, validationMessages.minNumber(field, min));
-  }
+  let schema = z.number({ invalid_type_error: validationMessages.invalidNumber(field) });
+  if (min !== undefined) schema = schema.min(min, validationMessages.minNumber(field, min));
 
   return z.preprocess(
     (value) => {
-      if (value === "" || value === null || value === undefined) {
-        return undefined;
-      }
-
+      if (value === "" || value === null || value === undefined) return undefined;
       if (typeof value === "string") {
         const parsed = Number(value);
         return Number.isNaN(parsed) ? value : parsed;
       }
-
       return value;
     },
     schema.optional(),

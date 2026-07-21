@@ -49,6 +49,10 @@
     "previous": "Trước",
     "next": "Sau"
   },
+  "accessDenied": {
+    "title": "Bạn không có quyền truy cập",
+    "description": "Hãy liên hệ quản trị viên Organization để được cấp quyền phù hợp."
+  },
   "validation": {
     "required": "{{field}} là bắt buộc.",
     "invalidEmail": "Email không đúng định dạng.",
