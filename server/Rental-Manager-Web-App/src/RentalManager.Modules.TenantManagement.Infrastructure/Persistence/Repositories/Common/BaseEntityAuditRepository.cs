@@ -8,7 +8,7 @@ namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repo
 
 internal class BaseEntityAuditRepository<TEntity, TPrimaryKey> :
     BaseRepository<TEntity, TPrimaryKey>,
-    IEntityAuditRepository<TEntity, TPrimaryKey>
+    IBaseEntityAuditRepository<TEntity, TPrimaryKey>
     where TEntity : class, IEntityAudit<TPrimaryKey>
     where TPrimaryKey : notnull
 {
