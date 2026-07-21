@@ -46,8 +46,8 @@ const columns: ColumnDef<Room>[] = [
 ];
 
 export function RoomListPage() {
-  const search = useSearch({ from: "/rooms" });
-  const navigate = useNavigate({ from: "/rooms" });
+  const search = useSearch({ from: "/rooms/" });
+  const navigate = useNavigate({ from: "/rooms/" });
   const query = useRoomsQuery({
     page: search.page,
     pageSize: search.pageSize,
