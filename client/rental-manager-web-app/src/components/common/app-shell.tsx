@@ -59,11 +59,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                 size="icon"
                 className="h-11 w-11 shrink-0 lg:hidden"
                 aria-label={t("navigation.openMenu")}
+                data-testid="mobile-menu-trigger"
               >
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="w-[min(88vw,20rem)] p-4">
+            <SheetContent side="left" className="w-[min(88vw,20rem)] p-4" data-testid="mobile-navigation-drawer">
               <SheetHeader className="mb-4">
                 <SheetTitle>{t("navigation.menuTitle")}</SheetTitle>
                 <SheetDescription>{t("brand.organization")}</SheetDescription>
@@ -92,7 +93,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="mx-auto grid min-h-[calc(100dvh-4rem)] max-w-screen-2xl lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] overflow-y-auto border-r bg-background p-3 lg:block">
+        <aside
+          className="sticky top-16 hidden h-[calc(100dvh-4rem)] overflow-y-auto border-r bg-background p-3 lg:block"
+          data-testid="desktop-sidebar"
+        >
           <NavigationLinks />
         </aside>
         <main className="min-w-0 overflow-x-hidden">{children}</main>
