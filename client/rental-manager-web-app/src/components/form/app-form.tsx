@@ -23,7 +23,7 @@ export type AppFormSubmitHandler<TValues extends FieldValues> = (
 ) => void | Promise<void>;
 
 export type AppFormProps<TValues extends FieldValues> = {
-  schema: z.ZodType<TValues, z.ZodTypeDef, TValues>;
+  schema: z.ZodType<TValues, z.ZodTypeDef, unknown>;
   defaultValues: DefaultValues<TValues>;
   onSubmit: AppFormSubmitHandler<TValues>;
   children: (form: UseFormReturn<TValues>) => React.ReactNode;
