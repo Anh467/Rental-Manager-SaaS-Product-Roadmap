@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import {
   AlertDialog,
@@ -27,12 +29,25 @@ export function ConfirmDialog({
   trigger,
   title,
   description,
-  confirmLabel = "Xác nhận",
-  cancelLabel = "Hủy",
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   disabled = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation("common");
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = async () => {
+    if (confirming) return;
+    setConfirming(true);
+    try {
+      await onConfirm();
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild disabled={disabled}>{trigger}</AlertDialogTrigger>
@@ -42,12 +57,17 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={confirming}>{cancelLabel ?? t("actions.cancel")}</AlertDialogCancel>
           <AlertDialogAction
+            disabled={confirming}
             className={destructive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : undefined}
-            onClick={() => void onConfirm()}
+            onClick={(event) => {
+              event.preventDefault();
+              void handleConfirm();
+            }}
           >
-            {confirmLabel}
+            {confirming ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {confirmLabel ?? t("actions.confirm")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
