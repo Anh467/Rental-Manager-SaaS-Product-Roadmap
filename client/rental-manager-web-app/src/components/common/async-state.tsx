@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertCircle, LoaderCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -9,25 +10,37 @@ export type AsyncStateProps = {
   error?: unknown;
   children: ReactNode;
   loadingLabel?: string;
+  errorTitle?: string;
+  fallbackErrorMessage?: string;
   onRetry?: () => void;
 };
 
-function getErrorMessage(error: unknown) {
+function getErrorMessage(error: unknown, fallback: string) {
   if (error && typeof error === "object") {
     const candidate = error as { message?: unknown; detail?: unknown; title?: unknown };
     if (typeof candidate.message === "string") return candidate.message;
     if (typeof candidate.detail === "string") return candidate.detail;
     if (typeof candidate.title === "string") return candidate.title;
   }
-  return "Không thể tải dữ liệu. Vui lòng thử lại.";
+  return fallback;
 }
 
-export function AsyncState({ isLoading, error, children, loadingLabel = "Đang tải dữ liệu...", onRetry }: AsyncStateProps) {
+export function AsyncState({
+  isLoading,
+  error,
+  children,
+  loadingLabel,
+  errorTitle,
+  fallbackErrorMessage,
+  onRetry,
+}: AsyncStateProps) {
+  const { t } = useTranslation("common");
+
   if (isLoading) {
     return (
-      <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
-        <LoaderCircle className="h-4 w-4 animate-spin" />
-        {loadingLabel}
+      <div className="flex min-h-40 flex-col items-center justify-center gap-2 px-4 text-center text-sm text-muted-foreground sm:flex-row" role="status">
+        <LoaderCircle className="h-4 w-4 shrink-0 animate-spin" />
+        <span className="break-words">{loadingLabel ?? t("state.loading")}</span>
       </div>
     );
   }
@@ -36,10 +49,10 @@ export function AsyncState({ isLoading, error, children, loadingLabel = "Đang t
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Đã xảy ra lỗi</AlertTitle>
-        <AlertDescription className="flex items-center justify-between gap-4">
-          <span>{getErrorMessage(error)}</span>
-          {onRetry ? <Button type="button" variant="outline" size="sm" onClick={onRetry}>Thử lại</Button> : null}
+        <AlertTitle>{errorTitle ?? t("state.loadError")}</AlertTitle>
+        <AlertDescription className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="min-w-0 break-words">{getErrorMessage(error, fallbackErrorMessage ?? t("state.unknownError"))}</span>
+          {onRetry ? <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onRetry}>{t("actions.retry")}</Button> : null}
         </AlertDescription>
       </Alert>
     );
