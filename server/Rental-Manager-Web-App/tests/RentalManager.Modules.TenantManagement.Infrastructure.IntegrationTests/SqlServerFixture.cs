@@ -99,6 +99,9 @@ public sealed class SqlServerFixture : IAsyncLifetime
     private async Task CreateSchemaAsync()
     {
         const string sql = """
+            DROP TABLE IF EXISTS [dbo].[Field];
+            DROP TABLE IF EXISTS [dbo].[FieldType];
+
             CREATE TABLE [dbo].[FieldType]
             (
                 [Id] INT NOT NULL,
