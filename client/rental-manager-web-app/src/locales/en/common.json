@@ -7,7 +7,9 @@
   "navigation": {
     "baseline": "Baseline",
     "properties": "Properties",
-    "rooms": "Rooms"
+    "rooms": "Rooms",
+    "openMenu": "Open navigation",
+    "menuTitle": "Navigation"
   },
   "language": {
     "label": "Language",
@@ -22,10 +24,14 @@
     "deactivate": "deactivate",
     "reactivate": "reactivate",
     "save": "Save",
+    "saving": "Saving...",
     "cancel": "Cancel",
+    "confirm": "Confirm",
     "close": "Close",
     "retry": "Try again",
     "view": "View",
+    "search": "Search...",
+    "clearSearch": "Clear search",
     "assign": "assign",
     "unassign": "unassign",
     "publish": "publish",
@@ -46,6 +52,7 @@
     "notFound": "Page not found",
     "notFoundDescription": "The requested path does not exist.",
     "noData": "No data available",
+    "mobileList": "Data list",
     "page": "Page {{current}} / {{total}}",
     "previous": "Previous",
     "next": "Next"
