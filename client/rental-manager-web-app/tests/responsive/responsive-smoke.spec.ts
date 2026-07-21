@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const viewports = [
   { name: "small-phone", width: 320, height: 640 },
@@ -9,7 +9,7 @@ const viewports = [
   { name: "wide-desktop", width: 1920, height: 1080 },
 ] as const;
 
-async function expectNoDocumentOverflow(page: Parameters<typeof test>[0] extends never ? never : import("@playwright/test").Page) {
+async function expectNoDocumentOverflow(page: Page) {
   await expect.poll(async () => page.evaluate(() => {
     const documentWidth = Math.max(
       document.documentElement.scrollWidth,
