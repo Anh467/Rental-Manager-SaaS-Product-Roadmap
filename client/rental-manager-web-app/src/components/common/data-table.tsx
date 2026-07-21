@@ -74,7 +74,11 @@ export function DataTable<TData>({
   return (
     <div className={cn("min-w-0 space-y-4", className)}>
       {renderMobileCard ? (
-        <div className="grid gap-3 md:hidden" aria-label={t("state.mobileList")}>
+        <div
+          className="grid gap-3 md:hidden"
+          aria-label={t("state.mobileList")}
+          data-testid="mobile-data-list"
+        >
           {rows.length > 0 ? rows.map((row) => (
             <div key={row.id} className="min-w-0">
               {renderMobileCard(row.original)}
@@ -83,7 +87,10 @@ export function DataTable<TData>({
         </div>
       ) : null}
 
-      <div className={cn("min-w-0 overflow-hidden rounded-md border bg-background", renderMobileCard && "hidden md:block")}>
+      <div
+        className={cn("min-w-0 overflow-hidden rounded-md border bg-background", renderMobileCard && "hidden md:block")}
+        data-testid="desktop-data-table"
+      >
         <div className="w-full overflow-x-auto overscroll-x-contain">
           <table className={cn("w-full min-w-max text-sm", tableClassName)}>
             <thead className="bg-muted/50">
