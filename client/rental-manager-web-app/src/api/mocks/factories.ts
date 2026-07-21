@@ -59,7 +59,7 @@ export function createMockProperties(count = PROPERTY_NAMES.length): Property[] 
 export function createMockRooms(properties: Property[]): Room[] {
   faker.seed(4672027);
 
-  return properties.flatMap((property, propertyIndex) => {
+  return properties.flatMap((property) => {
     const roomCount = faker.number.int({ min: 8, max: 18 });
 
     return Array.from({ length: roomCount }, (_, roomIndex) => {
