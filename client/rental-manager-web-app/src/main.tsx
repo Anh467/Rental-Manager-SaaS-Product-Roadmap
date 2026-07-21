@@ -21,21 +21,41 @@ const baselinePermissions = [
   "room.edit",
 ] as const;
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <PermissionProvider permissions={baselinePermissions}>
-        <TooltipProvider delayDuration={300}>
-          <RouterProvider router={router} context={{ queryClient }} />
-          <Toaster richColors position="top-right" />
-          {import.meta.env.DEV ? (
-            <>
-              <ReactQueryDevtools initialIsOpen={false} />
-              <TanStackRouterDevtools router={router} position="bottom-right" />
-            </>
-          ) : null}
-        </TooltipProvider>
-      </PermissionProvider>
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
+function shouldEnableMockApi() {
+  const configured = import.meta.env.VITE_ENABLE_MOCK_API;
+
+  if (configured === "true") return true;
+  if (configured === "false") return false;
+
+  return import.meta.env.DEV;
+}
+
+async function bootstrap() {
+  // Route loaders run as soon as RouterProvider mounts. The mock adapter must be
+  // registered first, otherwise the initial loader attempts the real backend.
+  if (shouldEnableMockApi()) {
+    const { startMockApi } = await import("@/api/mocks");
+    startMockApi();
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <PermissionProvider permissions={baselinePermissions}>
+          <TooltipProvider delayDuration={300}>
+            <RouterProvider router={router} context={{ queryClient }} />
+            <Toaster richColors position="top-right" />
+            {import.meta.env.DEV ? (
+              <>
+                <ReactQueryDevtools initialIsOpen={false} />
+                <TanStackRouterDevtools router={router} position="bottom-right" />
+              </>
+            ) : null}
+          </TooltipProvider>
+        </PermissionProvider>
+      </QueryClientProvider>
+    </React.StrictMode>,
+  );
+}
+
+void bootstrap();
