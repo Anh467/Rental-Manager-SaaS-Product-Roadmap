@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+namespace RentalManager.Modules.TenantManagement.Domain.Entities.Common;
 
-namespace RentalManager.Modules.TenantManagement.Domain.Entities.Common
+public interface IEntityAudit<TPrimaryKey> : IEntity<TPrimaryKey>, IAudit
+    where TPrimaryKey : notnull
 {
-    public interface IEntityAudit<TPrimaryKey> : IEntity<TPrimaryKey>, IAudit
-    {
-    }
 }
