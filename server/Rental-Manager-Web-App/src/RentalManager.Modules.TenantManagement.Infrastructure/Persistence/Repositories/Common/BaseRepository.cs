@@ -6,12 +6,12 @@ using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Connecti
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repositories.Common;
 
-internal class BaseRepository<TEntity, TPrimaryKey> :
+public abstract class BaseRepository<TEntity, TPrimaryKey> :
     IBaseRepository<TEntity, TPrimaryKey>
     where TEntity : class, IEntity<TPrimaryKey>
     where TPrimaryKey : notnull
 {
-    protected static readonly EntitySqlMetadata Metadata =
+    private protected static readonly EntitySqlMetadata Metadata =
         EntitySqlMetadata.Create<TEntity>();
 
     private readonly ISqlConnectionFactory _connectionFactory;
