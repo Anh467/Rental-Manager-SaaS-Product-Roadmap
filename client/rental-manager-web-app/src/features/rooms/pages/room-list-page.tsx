@@ -5,7 +5,8 @@ import { useTranslation } from "react-i18next";
 
 import { useRoomsQuery, type Room, type RoomStatus } from "@/api/routes/rooms";
 import { DataTable } from "@/components/common/data-table";
-import { ErrorState, PageContent, PageHeader } from "@/components/common/page";
+import { MobileDataCard } from "@/components/common/mobile-data-card";
+import { ErrorState, PageContent, PageHeader, PageToolbar } from "@/components/common/page";
 import { PermissionGuard } from "@/components/common/permission-guard";
 import { SearchInput } from "@/components/common/search-input";
 import { StatusBadge, type StatusDefinition } from "@/components/common/status-badge";
@@ -76,7 +77,7 @@ export function RoomListPage() {
   );
 
   return (
-    <PageContent className="p-6">
+    <PageContent>
       <PageHeader
         title={t("page.title")}
         description={t("page.description")}
@@ -86,14 +87,14 @@ export function RoomListPage() {
           </PermissionGuard>
         )}
       />
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <PageToolbar>
         <SearchInput
           value={search.search}
           onSearch={handleSearch}
           placeholder={t("page.searchPlaceholder")}
           className="w-full sm:max-w-sm"
         />
-      </div>
+      </PageToolbar>
       {query.isError ? (
         <ErrorState description={t("page.error")} onRetry={() => void query.refetch()} />
       ) : (
@@ -115,6 +116,19 @@ export function RoomListPage() {
           }}
           getRowId={(room) => room.id}
           emptyTitle={t("page.empty")}
+          tableClassName="min-w-[720px]"
+          renderMobileCard={(room) => (
+            <MobileDataCard
+              title={room.code}
+              subtitle={room.propertyName}
+              status={<StatusBadge status={room.status} definitions={statusDefinitions} />}
+              fields={[
+                { label: t("columns.floor"), value: room.floor },
+                { label: t("columns.capacity"), value: room.capacity },
+                { label: t("columns.monthlyRent"), value: currencyFormatter.format(room.monthlyRent), fullWidth: true },
+              ]}
+            />
+          )}
         />
       )}
     </PageContent>
