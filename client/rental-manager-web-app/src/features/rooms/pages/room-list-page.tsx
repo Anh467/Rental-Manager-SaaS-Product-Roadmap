@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useRoomsQuery, type Room, type RoomStatus } from "@/api/routes/rooms";
 import { DataTable } from "@/components/common/data-table";
 import { ErrorState, PageContent, PageHeader } from "@/components/common/page";
+import { PermissionGuard } from "@/components/common/permission-guard";
 import { SearchInput } from "@/components/common/search-input";
 import { StatusBadge, type StatusDefinition } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
@@ -61,9 +62,7 @@ export function RoomListPage() {
       {
         accessorKey: "status",
         header: t("columns.status"),
-        cell: ({ row }) => (
-          <StatusBadge status={row.original.status} definitions={statusDefinitions} />
-        ),
+        cell: ({ row }) => <StatusBadge status={row.original.status} definitions={statusDefinitions} />,
       },
     ],
     [currencyFormatter, statusDefinitions, t],
@@ -76,16 +75,16 @@ export function RoomListPage() {
     [navigate],
   );
 
-  if (query.isError) {
-    return <ErrorState description={t("page.error")} onRetry={() => void query.refetch()} />;
-  }
-
   return (
     <PageContent className="p-6">
       <PageHeader
         title={t("page.title")}
         description={t("page.description")}
-        actions={<Button>{t("page.add")}</Button>}
+        actions={(
+          <PermissionGuard required="room.create">
+            <Button>{t("page.add")}</Button>
+          </PermissionGuard>
+        )}
       />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <SearchInput
@@ -95,25 +94,29 @@ export function RoomListPage() {
           className="w-full sm:max-w-sm"
         />
       </div>
-      <DataTable
-        data={query.data?.items ?? []}
-        columns={columns}
-        loading={query.isPending}
-        rowCount={query.data?.totalItems ?? 0}
-        pagination={pagination}
-        onPaginationChange={(updater) => {
-          const next = typeof updater === "function" ? updater(pagination) : updater;
-          void navigate({
-            search: (old) => ({
-              ...old,
-              page: next.pageIndex + 1,
-              pageSize: next.pageSize,
-            }),
-          });
-        }}
-        getRowId={(room) => room.id}
-        emptyTitle={t("page.empty")}
-      />
+      {query.isError ? (
+        <ErrorState description={t("page.error")} onRetry={() => void query.refetch()} />
+      ) : (
+        <DataTable
+          data={query.data?.items ?? []}
+          columns={columns}
+          loading={query.isPending}
+          rowCount={query.data?.totalItems ?? 0}
+          pagination={pagination}
+          onPaginationChange={(updater) => {
+            const next = typeof updater === "function" ? updater(pagination) : updater;
+            void navigate({
+              search: (old) => ({
+                ...old,
+                page: next.pageIndex + 1,
+                pageSize: next.pageSize,
+              }),
+            });
+          }}
+          getRowId={(room) => room.id}
+          emptyTitle={t("page.empty")}
+        />
+      )}
     </PageContent>
   );
 }

@@ -56,10 +56,6 @@ export function PropertyListPage() {
     [navigate],
   );
 
-  if (query.isError) {
-    return <ErrorState description={t("page.error")} onRetry={() => void query.refetch()} />;
-  }
-
   return (
     <PageContent className="p-6">
       <PageHeader
@@ -77,25 +73,29 @@ export function PropertyListPage() {
         placeholder={t("page.searchPlaceholder")}
         className="w-full sm:max-w-sm"
       />
-      <DataTable
-        data={query.data?.items ?? []}
-        columns={columns}
-        loading={query.isPending}
-        rowCount={query.data?.totalItems ?? 0}
-        pagination={pagination}
-        onPaginationChange={(updater) => {
-          const next = typeof updater === "function" ? updater(pagination) : updater;
-          void navigate({
-            search: (old) => ({
-              ...old,
-              page: next.pageIndex + 1,
-              pageSize: next.pageSize,
-            }),
-          });
-        }}
-        getRowId={(property) => property.id}
-        emptyTitle={t("page.empty")}
-      />
+      {query.isError ? (
+        <ErrorState description={t("page.error")} onRetry={() => void query.refetch()} />
+      ) : (
+        <DataTable
+          data={query.data?.items ?? []}
+          columns={columns}
+          loading={query.isPending}
+          rowCount={query.data?.totalItems ?? 0}
+          pagination={pagination}
+          onPaginationChange={(updater) => {
+            const next = typeof updater === "function" ? updater(pagination) : updater;
+            void navigate({
+              search: (old) => ({
+                ...old,
+                page: next.pageIndex + 1,
+                pageSize: next.pageSize,
+              }),
+            });
+          }}
+          getRowId={(property) => property.id}
+          emptyTitle={t("page.empty")}
+        />
+      )}
     </PageContent>
   );
 }

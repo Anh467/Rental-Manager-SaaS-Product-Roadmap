@@ -48,11 +48,7 @@ function paginate<T>(items: T[], page: number, pageSize: number): PageResult<T> 
   };
 }
 
-function success<T>(
-  messageKey: SuccessMessageKey,
-  data: T,
-  parameters: ApiMessageParameters,
-): ApiSuccessResponse<T> {
+function success<T>(messageKey: SuccessMessageKey, data: T, parameters: ApiMessageParameters): ApiSuccessResponse<T> {
   return {
     success: true,
     messageKey,
@@ -102,11 +98,7 @@ function registerPropertyHandlers(mock: MockAdapter) {
       const matchesActive = params.isActive == null || property.isActive === params.isActive;
       return matchesSearch && matchesType && matchesActive;
     });
-
-    return [
-      200,
-      success("SCS-005", paginate(result, page, pageSize), { object: "property" }),
-    ];
+    return [200, success("SCS-005", paginate(result, page, pageSize), { object: "property" })];
   });
 
   mock.onGet(propertyDetailPattern).reply((config) => {
@@ -122,15 +114,11 @@ function registerPropertyHandlers(mock: MockAdapter) {
     const duplicated = mockDatabase.properties.some(
       (item) => item.code.toLocaleLowerCase() === payload.code.toLocaleLowerCase(),
     );
-
     if (duplicated) {
       const parameters = { object: "property", key: payload.code };
-      return [
-        409,
-        problem("ERR-007", parameters, [
-          { fieldKey: "code", messageKey: "ERR-007", parameters },
-        ]),
-      ];
+      return [409, problem("ERR-007", parameters, [
+        { fieldKey: "code", messageKey: "ERR-007", parameters },
+      ])];
     }
 
     const now = new Date().toISOString();
@@ -176,13 +164,15 @@ function registerPropertyHandlers(mock: MockAdapter) {
 
   mock.onDelete(propertyDetailPattern).reply((config) => {
     const propertyId = getPathId(config, propertyDetailPattern);
-    const index = mockDatabase.properties.findIndex((item) => item.id === propertyId);
-    if (index < 0) return [404, problem("ERR-002", { object: "property" })];
-    if (mockDatabase.rooms.some((room) => room.propertyId === propertyId)) {
+    const property = mockDatabase.properties.find((item) => item.id === propertyId);
+    if (!property) return [404, problem("ERR-002", { object: "property" })];
+    if (mockDatabase.rooms.some((room) => room.propertyId === propertyId && room.isActive)) {
       return [409, problem("ERR-017", { object: "property", dependency: "room" })];
     }
-    mockDatabase.properties.splice(index, 1);
-    return [204];
+
+    property.isActive = false;
+    property.updatedAt = new Date().toISOString();
+    return [200, success("SCS-003", null, { object: "property" })];
   });
 }
 
@@ -280,10 +270,13 @@ function registerRoomHandlers(mock: MockAdapter) {
 
   mock.onDelete(roomDetailPattern).reply((config) => {
     const roomId = getPathId(config, roomDetailPattern);
-    const index = mockDatabase.rooms.findIndex((item) => item.id === roomId);
-    if (index < 0) return [404, problem("ERR-002", { object: "room" })];
-    mockDatabase.rooms.splice(index, 1);
-    return [204];
+    const room = mockDatabase.rooms.find((item) => item.id === roomId);
+    if (!room) return [404, problem("ERR-002", { object: "room" })];
+
+    room.isActive = false;
+    room.status = "inactive";
+    room.updatedAt = new Date().toISOString();
+    return [200, success("SCS-003", null, { object: "room" })];
   });
 }
 

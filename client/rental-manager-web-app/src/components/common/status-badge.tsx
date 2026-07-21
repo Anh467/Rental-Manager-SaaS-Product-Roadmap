@@ -7,10 +7,13 @@ export type StatusDefinition = {
 
 export type StatusBadgeProps<TStatus extends string | number> = {
   status: TStatus;
-  definitions: Record<TStatus, StatusDefinition>;
+  definitions: Partial<Record<TStatus, StatusDefinition>>;
 };
 
 export function StatusBadge<TStatus extends string | number>({ status, definitions }: StatusBadgeProps<TStatus>) {
   const definition = definitions[status];
+  if (!definition) {
+    return <Badge variant="secondary">{String(status)}</Badge>;
+  }
   return <Badge variant={definition.variant}>{definition.label}</Badge>;
 }

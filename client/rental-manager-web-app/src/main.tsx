@@ -32,8 +32,6 @@ function shouldEnableMockApi() {
 async function bootstrap() {
   await initializeI18n();
 
-  // Route loaders run as soon as RouterProvider mounts. Register the mock
-  // adapter first so the initial loader never falls through to the real API.
   if (shouldEnableMockApi()) {
     const { startMockApi } = await import("@/api/mocks");
     startMockApi();
@@ -59,4 +57,16 @@ async function bootstrap() {
   );
 }
 
-void bootstrap();
+bootstrap().catch((error: unknown) => {
+  console.error("Failed to bootstrap application", error);
+  const root = document.getElementById("root");
+  if (root) {
+    root.innerHTML = [
+      '<main style="min-height:100vh;display:grid;place-items:center;padding:24px;font-family:system-ui,sans-serif">',
+      '<div style="max-width:560px;border:1px solid #e2e8f0;border-radius:8px;padding:24px">',
+      '<h1 style="font-size:20px;margin:0 0 8px">Unable to start the application</h1>',
+      '<p style="margin:0;color:#475569">Không thể khởi động ứng dụng. Vui lòng tải lại trang hoặc kiểm tra cấu hình môi trường.</p>',
+      "</div></main>",
+    ].join("");
+  }
+});

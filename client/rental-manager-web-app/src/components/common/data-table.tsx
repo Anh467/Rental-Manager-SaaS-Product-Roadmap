@@ -51,7 +51,6 @@ export function DataTable<TData>({
   });
 
   if (loading) return <LoadingState />;
-  if (!data.length) return <EmptyState title={emptyTitle ?? t("state.noData")} />;
 
   return (
     <div className="space-y-4">
@@ -69,15 +68,26 @@ export function DataTable<TData>({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} data-state={row.getIsSelected() ? "selected" : undefined} className="border-t hover:bg-muted/40 data-[state=selected]:bg-muted">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 align-middle">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+            {data.length > 0 ? (
+              table.getRowModel().rows.map((row) => (
+                <tr key={row.id} data-state={row.getIsSelected() ? "selected" : undefined} className="border-t hover:bg-muted/40 data-[state=selected]:bg-muted">
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3 align-middle">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={Math.max(table.getVisibleLeafColumns().length, 1)} className="p-4">
+                  <EmptyState
+                    title={emptyTitle ?? t("state.noData")}
+                    className="min-h-[200px] border-none"
+                  />
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
