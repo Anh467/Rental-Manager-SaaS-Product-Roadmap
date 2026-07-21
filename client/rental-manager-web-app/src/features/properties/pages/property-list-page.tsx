@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, getRouteApi } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
 
 import {
@@ -11,6 +11,8 @@ import { ErrorState, PageContent, PageHeader } from "@/components/common/page";
 import { PermissionGuard } from "@/components/common/permission-guard";
 import { SearchInput } from "@/components/common/search-input";
 import { Button } from "@/components/ui/button";
+
+const routeApi = getRouteApi("/_authenticated/_standard/(tenant)/properties/");
 
 const columns: ColumnDef<Property>[] = [
   { accessorKey: "name", header: "Tên khu nhà" },
@@ -29,8 +31,8 @@ const columns: ColumnDef<Property>[] = [
 ];
 
 export function PropertyListPage() {
-  const search = useSearch({ from: "/properties/" });
-  const navigate = useNavigate({ from: "/properties/" });
+  const search = routeApi.useSearch();
+  const navigate = routeApi.useNavigate();
   const query = usePropertiesQuery({
     page: search.page,
     pageSize: search.pageSize,
