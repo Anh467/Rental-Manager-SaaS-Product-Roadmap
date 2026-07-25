@@ -1,10 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace RentalManager.Modules.TenantManagement.Core.Exceptions;
 
-namespace RentalManager.Modules.TenantManagement.Core.Exceptions
+/// <summary>
+/// A business invariant was violated. Maps to HTTP 409.
+/// </summary>
+public class BusinessRuleException : DomainException
 {
-    public class BusinessRuleException : Exception
+    public BusinessRuleException(
+        string messageKey,
+        IReadOnlyDictionary<string, object?>? parameters = null,
+        Exception? innerException = null)
+        : base(messageKey, parameters, innerException)
     {
     }
 }

@@ -1,20 +1,70 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using RentalManager.Api.Authorization;
+using RentalManager.Api.Middlewares;
+using RentalManager.Api.Security;
+using RentalManager.BuildingBlocks.Tenancy;
 using RentalManager.Modules.TenantManagement.Infrastructure;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
+
+builder.Services.AddTenancy();
 builder.Services.AddTenantManagementInfrastructure(builder.Configuration);
 
-var app = builder.Build();
+builder.Services
+    .AddOptions<JwtOptions>()
+    .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
+    .Validate(
+        options =>
+            !string.IsNullOrWhiteSpace(options.Issuer) &&
+            !string.IsNullOrWhiteSpace(options.Audience) &&
+            options.SigningKey.Length >= 32,
+        "Jwt configuration requires Issuer, Audience and a SigningKey of at " +
+        "least 32 characters.")
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<JwtTokenIssuer>();
+
+JwtOptions jwtOptions = builder.Configuration
+    .GetSection(JwtOptions.SectionName)
+    .Get<JwtOptions>() ?? new JwtOptions();
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters =
+            JwtTokenIssuer.CreateValidationParameters(jwtOptions);
+    });
+
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization();
+
+WebApplication app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
+// The exception middleware wraps everything after it so every failure, including
+// one raised while binding the organization context, is returned as an envelope.
+app.UseMiddleware<ApiExceptionMiddleware>();
+
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseMiddleware<OrganizationContextMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+/// <summary>
+/// Named entry point so the integration test host can boot the real application.
+/// </summary>
+public partial class Program;

@@ -1,22 +1,26 @@
 using Dapper;
-using Microsoft.Data.SqlClient;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Common;
-using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Connections;
+using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Sessions;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repositories.Common;
 
-internal class BaseLinkRepository<TEntity> : ILinkRepository<TEntity>
+/// <summary>
+/// Persistence for join tables that have no surrogate key. Shares the ambient
+/// session so link writes participate in the caller's transaction.
+/// </summary>
+public abstract class BaseLinkRepository<TEntity> : ILinkRepository<TEntity>
     where TEntity : class, ILink
 {
     private static readonly LinkSqlMetadata Metadata =
         LinkSqlMetadata.Create<TEntity>();
 
-    private readonly ISqlConnectionFactory _connectionFactory;
+    private readonly ISqlExecutionContext _executionContext;
 
-    protected BaseLinkRepository(ISqlConnectionFactory connectionFactory)
+    protected BaseLinkRepository(ISqlExecutionContext executionContext)
     {
-        _connectionFactory = connectionFactory;
+        ArgumentNullException.ThrowIfNull(executionContext);
+        _executionContext = executionContext;
     }
 
     public async Task DeleteAsync(
@@ -25,16 +29,7 @@ internal class BaseLinkRepository<TEntity> : ILinkRepository<TEntity>
     {
         ArgumentNullException.ThrowIfNull(entity);
 
-        DynamicParameters parameters = CreateParameters(entity);
-
-        await using SqlConnection connection =
-            await _connectionFactory.OpenConnectionAsync(cancellationToken);
-
-        await connection.ExecuteAsync(
-            new CommandDefinition(
-                Metadata.DeleteSql,
-                parameters,
-                cancellationToken: cancellationToken));
+        await ExecuteAsync(Metadata.DeleteSql, entity, cancellationToken);
     }
 
     public async Task SaveAsync(
@@ -43,15 +38,23 @@ internal class BaseLinkRepository<TEntity> : ILinkRepository<TEntity>
     {
         ArgumentNullException.ThrowIfNull(entity);
 
+        await ExecuteAsync(Metadata.SaveSql, entity, cancellationToken);
+    }
+
+    private async Task ExecuteAsync(
+        string sql,
+        TEntity entity,
+        CancellationToken cancellationToken)
+    {
         DynamicParameters parameters = CreateParameters(entity);
 
-        await using SqlConnection connection =
-            await _connectionFactory.OpenConnectionAsync(cancellationToken);
+        SqlExecution execution = await _executionContext.GetAsync(cancellationToken);
 
-        await connection.ExecuteAsync(
+        await execution.Connection.ExecuteAsync(
             new CommandDefinition(
-                Metadata.SaveSql,
+                sql,
                 parameters,
+                execution.Transaction,
                 cancellationToken: cancellationToken));
     }
 

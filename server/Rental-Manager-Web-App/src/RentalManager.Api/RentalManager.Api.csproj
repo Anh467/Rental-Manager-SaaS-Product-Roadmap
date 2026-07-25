@@ -7,17 +7,19 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.Identity.Infrastructure\RentalManager.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Infrastructure\RentalManager.Modules.TenantManagement.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Middlewares\" />
+    <InternalsVisibleTo Include="RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repositories.Common;
@@ -24,34 +23,19 @@ internal sealed class LinkSqlMetadata
     public static LinkSqlMetadata Create<TEntity>()
     {
         Type entityType = typeof(TEntity);
-        TableAttribute? tableAttribute = entityType.GetCustomAttribute<TableAttribute>();
-
-        string tableName = string.IsNullOrWhiteSpace(tableAttribute?.Name)
-            ? entityType.Name
-            : tableAttribute.Name;
-
-        string schemaName = string.IsNullOrWhiteSpace(tableAttribute?.Schema)
-            ? "dbo"
-            : tableAttribute.Schema;
-
         string qualifiedTableName =
-            $"{QuoteIdentifier(schemaName)}.{QuoteIdentifier(tableName)}";
+            SqlColumnConventions.ResolveQualifiedTableName(entityType);
 
         LinkColumnMetadata[] columns = entityType
             .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-            .Where(IsMappedProperty)
+            .Where(SqlColumnConventions.IsMappedProperty)
             .Select(property =>
             {
-                ColumnAttribute? columnAttribute =
-                    property.GetCustomAttribute<ColumnAttribute>();
-
-                string columnName = string.IsNullOrWhiteSpace(columnAttribute?.Name)
-                    ? property.Name
-                    : columnAttribute.Name;
+                string columnName = SqlColumnConventions.ResolveColumnName(property);
 
                 return new LinkColumnMetadata(
                     property,
-                    QuoteIdentifier(columnName),
+                    SqlColumnConventions.QuoteIdentifier(columnName),
                     property.Name);
             })
             .ToArray();
@@ -95,38 +79,6 @@ internal sealed class LinkSqlMetadata
             """;
 
         return new LinkSqlMetadata(columns, saveSql, deleteSql);
-    }
-
-    private static bool IsMappedProperty(PropertyInfo property)
-    {
-        return property.CanRead &&
-               property.CanWrite &&
-               property.GetIndexParameters().Length == 0 &&
-               property.GetCustomAttribute<NotMappedAttribute>() is null &&
-               IsSupportedColumnType(property.PropertyType);
-    }
-
-    private static bool IsSupportedColumnType(Type propertyType)
-    {
-        Type type = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
-
-        return type.IsEnum ||
-               type.IsPrimitive ||
-               type == typeof(string) ||
-               type == typeof(decimal) ||
-               type == typeof(Guid) ||
-               type == typeof(DateTime) ||
-               type == typeof(DateTimeOffset) ||
-               type == typeof(TimeSpan) ||
-               type == typeof(DateOnly) ||
-               type == typeof(TimeOnly) ||
-               type == typeof(byte[]);
-    }
-
-    private static string QuoteIdentifier(string identifier)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
-        return $"[{identifier.Replace("]", "]]", StringComparison.Ordinal)}]";
     }
 }
 

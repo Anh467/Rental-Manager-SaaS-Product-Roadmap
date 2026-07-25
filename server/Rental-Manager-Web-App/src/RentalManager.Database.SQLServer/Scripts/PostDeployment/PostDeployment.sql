@@ -1,1 +1,2 @@
-:r .\Scripts\PostDeployment\SeedDatas\FieldType.sql
+:r .\SeedDatas\FieldType.sql
+:r .\SeedDatas\Permission.sql

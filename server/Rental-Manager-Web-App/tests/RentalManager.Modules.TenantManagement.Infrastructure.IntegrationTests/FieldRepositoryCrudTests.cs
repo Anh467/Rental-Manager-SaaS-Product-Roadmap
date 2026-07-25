@@ -1,12 +1,16 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence;
-using RentalManager.Modules.TenantManagement.Infrastructure;
 using Xunit;
 using FieldEntity = RentalManager.Modules.TenantManagement.Domain.Entities.Dbo.Field;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests;
 
+/// <summary>
+/// Smoke test for the global path. <c>[dbo].[Field]</c> is the field template
+/// catalogue: it has no <c>OrganizationId</c> and no row version, so it proves the
+/// common repository still behaves for an entity that is neither organization
+/// owned nor concurrency aware.
+/// </summary>
 [Collection(SqlServerCollection.Name)]
 public sealed class FieldRepositoryCrudTests
 {
@@ -20,10 +24,9 @@ public sealed class FieldRepositoryCrudTests
     [Fact]
     public async Task FieldRepository_CreateReadUpdateListDelete_Works()
     {
-        await _fixture.ResetFieldsAsync();
-        await using ServiceProvider serviceProvider = CreateServiceProvider();
-        await using AsyncServiceScope scope =
-            serviceProvider.CreateAsyncScope();
+        await _fixture.ResetOrgDataAsync();
+        await using TenantScope tenant = GlobalScope();
+        await using AsyncServiceScope scope = tenant.BeginUnitOfWork();
 
         IFieldRepository repository =
             scope.ServiceProvider.GetRequiredService<IFieldRepository>();
@@ -42,7 +45,8 @@ public sealed class FieldRepositoryCrudTests
 
         await repository.SaveAsync(field);
 
-        FieldEntity created = await repository.GetAsync(field.Id);
+        FieldEntity created = Assert.IsType<FieldEntity>(
+            await repository.GetAsync(field.Id));
 
         Assert.Equal(field.Id, created.Id);
         Assert.Equal("RENTER_PHONE", created.Key);
@@ -56,7 +60,8 @@ public sealed class FieldRepositoryCrudTests
 
         await repository.SaveAsync(field);
 
-        FieldEntity updated = await repository.GetAsync(field.Id);
+        FieldEntity updated = Assert.IsType<FieldEntity>(
+            await repository.GetAsync(field.Id));
 
         Assert.Equal("Tenant phone", updated.Name);
         Assert.Equal(
@@ -72,19 +77,16 @@ public sealed class FieldRepositoryCrudTests
 
         await repository.DeleteAsync(field);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => repository.GetAsync(field.Id));
-
+        Assert.Null(await repository.GetAsync(field.Id));
         Assert.Empty(await repository.GetAllAsync());
     }
 
     [Fact]
     public async Task FieldRepository_SoftDelete_HidesDeletedField()
     {
-        await _fixture.ResetFieldsAsync();
-        await using ServiceProvider serviceProvider = CreateServiceProvider();
-        await using AsyncServiceScope scope =
-            serviceProvider.CreateAsyncScope();
+        await _fixture.ResetOrgDataAsync();
+        await using TenantScope tenant = GlobalScope();
+        await using AsyncServiceScope scope = tenant.BeginUnitOfWork();
 
         IFieldRepository repository =
             scope.ServiceProvider.GetRequiredService<IFieldRepository>();
@@ -104,34 +106,19 @@ public sealed class FieldRepositoryCrudTests
         await repository.SaveAsync(field);
         await repository.SoftDeleteAsync(field.Id);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(
-            () => repository.GetAsync(field.Id));
-
+        Assert.Null(await repository.GetAsync(field.Id));
         Assert.Empty(await repository.GetAllAsync());
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(
+        await Assert.ThrowsAsync<Core.Exceptions.ResourceNotFoundException>(
             () => repository.SoftDeleteAsync(field.Id));
     }
 
-    private ServiceProvider CreateServiceProvider()
+    /// <summary>
+    /// The global catalogue is reachable without an organization, which is what
+    /// distinguishes it from <c>[org]</c> data.
+    /// </summary>
+    private TenantScope GlobalScope()
     {
-        IConfiguration configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(
-                new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:RentalManager"] =
-                        _fixture.ConnectionString
-                })
-            .Build();
-
-        var services = new ServiceCollection();
-        services.AddTenantManagementInfrastructure(configuration);
-
-        return services.BuildServiceProvider(
-            new ServiceProviderOptions
-            {
-                ValidateScopes = true,
-                ValidateOnBuild = true
-            });
+        return TenantScope.Unbound(_fixture);
     }
 }

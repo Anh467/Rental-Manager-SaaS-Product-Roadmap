@@ -14,7 +14,8 @@ VALUES
     (2, N'Number',    N'NUMBER',    N'Integer or decimal numeric value.'),
     (3, N'Date',      N'DATE',      N'Date or date-time value.'),
     (4, N'Boolean',   N'BOOLEAN',   N'True or false value.'),
-    (5, N'Selection', N'SELECTION', N'Value selected from predefined options.');
+    (5, N'Selection', N'SELECTION', N'Value selected from predefined options.'),
+    (6, N'MultiSelect', N'MULTI_SELECT', N'Multiple values selected from predefined options.');
 
 UPDATE target
 SET
