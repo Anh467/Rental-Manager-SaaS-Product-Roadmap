@@ -4,13 +4,10 @@ using RentalManager.Modules.TenantManagement.Domain.Entities.Common;
 
 namespace RentalManager.Modules.TenantManagement.Domain.Entities.Org;
 
-/// <summary>
-/// An organization's own custom field definition. Distinct from
-/// <see cref="Dbo.Field"/>, which is the global field template catalogue.
-/// </summary>
-[Table(nameof(Field), Schema = DatabaseConstant.Schema.ORG)]
-public class Field :
-    IDefinitionEntityAudit<Guid>,
+[Table(nameof(Role), Schema = DatabaseConstant.Schema.ORG)]
+public class Role :
+    IEntityAudit<Guid>,
+    IDefinition,
     IOrganizationOwned,
     IConcurrencyAware
 {
@@ -18,13 +15,13 @@ public class Field :
 
     public Guid OrganizationId { get; set; }
 
-    public required string Key { get; set; }
-
     public required string Name { get; set; }
+
+    public required string Key { get; set; }
 
     public string? Description { get; set; }
 
-    public int FieldTypeId { get; set; }
+    public bool IsSystemRole { get; set; }
 
     public bool IsActive { get; set; } = true;
 

@@ -1,6 +1,7 @@
 using RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
+using RentalManager.Modules.TenantManagement.Core.Validation;
 
 namespace RentalManager.Modules.TenantManagement.Application.Fields;
 
@@ -10,22 +11,13 @@ namespace RentalManager.Modules.TenantManagement.Application.Fields;
 /// </summary>
 public static class FieldValidator
 {
-    private const int MaxKeyLength = 256;
-    private const int MaxNameLength = 256;
-    private const int MaxDescriptionLength = 1028;
+    private static readonly DefinitionKeyAttribute DefinitionKey = new();
 
     public static void ValidateCreate(CreateFieldRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         var failures = new List<ValidationFailure>();
-
-        if (!FieldInvariants.IsSupportedTargetEntityType(request.TargetEntityType))
-        {
-            failures.Add(new ValidationFailure(
-                nameof(CreateFieldRequest.TargetEntityType),
-                MessageCode.Error.ValidationFailed));
-        }
 
         ValidateKey(request.Key, failures);
         ValidateName(request.Name, failures);
@@ -107,9 +99,9 @@ public static class FieldValidator
 
     private static void ValidateKey(string? key, List<ValidationFailure> failures)
     {
-        string trimmed = FieldKeyNormalizer.Trim(key);
-
-        if (trimmed.Length == 0 || trimmed.Length > MaxKeyLength)
+        if (string.IsNullOrEmpty(key) ||
+            key.Length > DefinitionConstants.InlineTextMaxLength ||
+            !DefinitionKey.IsValid(key))
         {
             failures.Add(new ValidationFailure(
                 nameof(CreateFieldRequest.Key),
@@ -121,7 +113,8 @@ public static class FieldValidator
     {
         string trimmed = name?.Trim() ?? string.Empty;
 
-        if (trimmed.Length == 0 || trimmed.Length > MaxNameLength)
+        if (trimmed.Length == 0 ||
+            trimmed.Length > DefinitionConstants.InlineTextMaxLength)
         {
             failures.Add(new ValidationFailure(
                 nameof(CreateFieldRequest.Name),
@@ -133,7 +126,8 @@ public static class FieldValidator
         string? description,
         List<ValidationFailure> failures)
     {
-        if (description is not null && description.Length > MaxDescriptionLength)
+        if (description is not null &&
+            description.Length > DefinitionConstants.TextAreaMaxLength)
         {
             failures.Add(new ValidationFailure(
                 nameof(CreateFieldRequest.Description),
@@ -185,16 +179,18 @@ public static class FieldValidator
 
         foreach (FieldOptionInput option in options!)
         {
-            string trimmedKey = FieldKeyNormalizer.Trim(option.Key);
-            string normalizedKey = FieldKeyNormalizer.Normalize(option.Key);
+            string key = option.Key ?? string.Empty;
             string trimmedName = option.Name?.Trim() ?? string.Empty;
 
             bool isInvalid =
-                trimmedKey.Length == 0 ||
-                trimmedKey.Length > MaxKeyLength ||
+                key.Length == 0 ||
+                key.Length > DefinitionConstants.InlineTextMaxLength ||
+                !DefinitionKey.IsValid(key) ||
                 trimmedName.Length == 0 ||
-                trimmedName.Length > MaxNameLength ||
-                !seenKeys.Add(normalizedKey);
+                trimmedName.Length > DefinitionConstants.InlineTextMaxLength ||
+                option.Description is
+                    { Length: > DefinitionConstants.TextAreaMaxLength } ||
+                !seenKeys.Add(key);
 
             if (isInvalid)
             {

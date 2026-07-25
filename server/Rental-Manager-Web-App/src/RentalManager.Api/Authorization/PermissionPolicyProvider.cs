@@ -1,14 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using RentalManager.Modules.TenantManagement.Core.Validation;
 
 namespace RentalManager.Api.Authorization;
 
 /// <summary>
-/// Turns a permission code used as a policy name into a policy, so adding a
+/// Turns a permission key used as a policy name into a policy, so adding a
 /// permission needs a seed row and an attribute rather than startup wiring.
 /// </summary>
 public sealed class PermissionPolicyProvider : IAuthorizationPolicyProvider
 {
+    private static readonly DefinitionKeyAttribute DefinitionKey = new();
     private readonly DefaultAuthorizationPolicyProvider _fallbackProvider;
 
     public PermissionPolicyProvider(IOptions<AuthorizationOptions> options)
@@ -36,9 +38,7 @@ public sealed class PermissionPolicyProvider : IAuthorizationPolicyProvider
             return explicitPolicy;
         }
 
-        // Permission codes are dotted, which is what distinguishes them from an
-        // ordinary named policy.
-        if (!policyName.Contains('.', StringComparison.Ordinal))
+        if (!DefinitionKey.IsValid(policyName))
         {
             return null;
         }

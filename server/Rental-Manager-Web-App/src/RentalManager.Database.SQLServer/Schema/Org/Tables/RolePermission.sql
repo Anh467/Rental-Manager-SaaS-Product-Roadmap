@@ -9,14 +9,10 @@ CREATE TABLE [org].[RolePermission]
         PRIMARY KEY CLUSTERED ([OrganizationId], [RoleId], [PermissionId]),
 
     CONSTRAINT [FK_RolePermission_Role]
-        FOREIGN KEY ([RoleId])
-        REFERENCES [org].[Role] ([Id]),
+        FOREIGN KEY ([OrganizationId], [RoleId])
+        REFERENCES [org].[Role] ([OrganizationId], [Id]),
 
     CONSTRAINT [FK_RolePermission_Permission]
         FOREIGN KEY ([PermissionId])
-        REFERENCES [dbo].[Permission] ([Id]),
-
-    CONSTRAINT [FK_RolePermission_Organization]
-        FOREIGN KEY ([OrganizationId])
-        REFERENCES [dbo].[Organization] ([Id])
+        REFERENCES [dbo].[Permission] ([Id])
 );

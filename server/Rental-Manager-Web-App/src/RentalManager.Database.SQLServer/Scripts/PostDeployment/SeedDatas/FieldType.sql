@@ -10,12 +10,12 @@ DECLARE @FieldTypes TABLE
 
 INSERT INTO @FieldTypes ([Id], [Name], [Key], [Description])
 VALUES
-    (1, N'Text',      N'TEXT',      N'Free-form text value.'),
-    (2, N'Number',    N'NUMBER',    N'Integer or decimal numeric value.'),
-    (3, N'Date',      N'DATE',      N'Date or date-time value.'),
-    (4, N'Boolean',   N'BOOLEAN',   N'True or false value.'),
-    (5, N'Selection', N'SELECTION', N'Value selected from predefined options.'),
-    (6, N'MultiSelect', N'MULTI_SELECT', N'Multiple values selected from predefined options.');
+    (1, N'Text',        N'text',         N'Free-form text value.'),
+    (2, N'Number',      N'number',       N'Integer or decimal numeric value.'),
+    (3, N'Date',        N'date',         N'Date or date-time value.'),
+    (4, N'Boolean',     N'boolean',      N'True or false value.'),
+    (5, N'Selection',   N'selection',    N'Value selected from predefined options.'),
+    (6, N'MultiSelect', N'multi_select', N'Multiple values selected from predefined options.');
 
 UPDATE target
 SET

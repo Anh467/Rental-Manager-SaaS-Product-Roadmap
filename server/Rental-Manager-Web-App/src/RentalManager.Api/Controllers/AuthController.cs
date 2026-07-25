@@ -45,8 +45,8 @@ public sealed class AuthController : ControllerBase
 
     /// <summary>
     /// Exchanges credentials plus a chosen organization for a token bound to that
-    /// organization. Membership is verified through row level security, so the
-    /// check can only ever succeed for an organization the user really belongs to.
+    /// organization. The user carries its organization and role assignment;
+    /// row-level security scopes the role lookup to the selected organization.
     /// </summary>
     [HttpPost("token")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> IssueTokenAsync(
@@ -76,8 +76,8 @@ public sealed class AuthController : ControllerBase
             throw new AuthenticationFailedException();
         }
 
-        // Binding the context before the membership query is what scopes it: the
-        // query returns a row only if this user is a member of this organization.
+        // Bind the context before resolving the organization role so RLS fails
+        // closed when the requested organization does not match the assignment.
         _organizationContextAccessor.SetOrganization(organizationId);
         _organizationContextAccessor.SetUser(user.Id);
 

@@ -3,8 +3,8 @@
 CREATE TABLE [dbo].[Permission]
 (
     [Id] INT NOT NULL,
-    [Code] NVARCHAR(128) NOT NULL,
     [Name] NVARCHAR(256) NOT NULL,
+    [Key] NVARCHAR(256) NOT NULL,
     [Description] NVARCHAR(1028) NULL,
     [Module] NVARCHAR(64) NOT NULL,
     [IsActive] BIT NOT NULL CONSTRAINT [DF_Permission_IsActive] DEFAULT (1),
@@ -12,6 +12,6 @@ CREATE TABLE [dbo].[Permission]
     CONSTRAINT [PK_Permission]
         PRIMARY KEY CLUSTERED ([Id]),
 
-    CONSTRAINT [UQ_Permission_Code]
-        UNIQUE ([Code])
+    CONSTRAINT [UQ_Permission_Key]
+        UNIQUE ([Key])
 );

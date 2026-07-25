@@ -36,16 +36,9 @@ CREATE SECURITY POLICY [org].[OrganizationIsolationPolicy]
         ON [org].[RolePermission] AFTER UPDATE,
 
     ADD FILTER PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
-        ON [org].[OrganizationUser],
+        ON [org].[Organization],
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
-        ON [org].[OrganizationUser] AFTER INSERT,
+        ON [org].[Organization] AFTER INSERT,
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
-        ON [org].[OrganizationUser] AFTER UPDATE,
-
-    ADD FILTER PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
-        ON [org].[AuditLog],
-    ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
-        ON [org].[AuditLog] AFTER INSERT,
-    ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
-        ON [org].[AuditLog] AFTER UPDATE
+        ON [org].[Organization] AFTER UPDATE
 WITH (STATE = ON, SCHEMABINDING = ON);

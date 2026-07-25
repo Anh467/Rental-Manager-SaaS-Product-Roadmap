@@ -1,8 +1,10 @@
--- Global identity. A user is authenticated once and can then be authorized for
--- one or more organizations through [org].[OrganizationUser].
+-- Global identity. Each user can belong to one organization and have one
+-- organization role.
 CREATE TABLE [dbo].[User]
 (
     [Id] UNIQUEIDENTIFIER NOT NULL,
+    [OrganizationId] UNIQUEIDENTIFIER NULL,
+    [RoleId] UNIQUEIDENTIFIER NULL,
     [Email] NVARCHAR(256) NOT NULL,
     [NormalizedEmail] NVARCHAR(256) NOT NULL,
     [DisplayName] NVARCHAR(256) NOT NULL,
@@ -17,5 +19,17 @@ CREATE TABLE [dbo].[User]
         PRIMARY KEY CLUSTERED ([Id]),
 
     CONSTRAINT [UQ_User_NormalizedEmail]
-        UNIQUE ([NormalizedEmail])
+        UNIQUE ([NormalizedEmail]),
+
+    CONSTRAINT [CK_User_OrganizationRole]
+        CHECK
+        (
+            ([OrganizationId] IS NULL AND [RoleId] IS NULL)
+            OR
+            ([OrganizationId] IS NOT NULL AND [RoleId] IS NOT NULL)
+        ),
+
+    CONSTRAINT [FK_User_OrganizationRole]
+        FOREIGN KEY ([OrganizationId], [RoleId])
+        REFERENCES [org].[Role] ([OrganizationId], [Id])
 );

@@ -1,14 +1,37 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using RentalManager.Api.Authorization;
+using RentalManager.Api.Contracts;
 using RentalManager.Api.Middlewares;
 using RentalManager.Api.Security;
 using RentalManager.BuildingBlocks.Tenancy;
+using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            ApiFieldError[] fieldErrors = context.ModelState
+                .Where(entry => entry.Value?.Errors.Count > 0)
+                .Select(entry => new ApiFieldError(
+                    ToFieldName(entry.Key),
+                    MessageCode.Error.ValidationFailed))
+                .ToArray();
+
+            return new BadRequestObjectResult(new ApiErrorResponse
+            {
+                MessageKey = MessageCode.Error.ValidationFailed,
+                FieldErrors = fieldErrors,
+                CorrelationId = context.HttpContext.TraceIdentifier
+            });
+        };
+    });
 builder.Services.AddOpenApi();
 
 builder.Services.AddTenancy();
@@ -63,6 +86,17 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string ToFieldName(string modelStateKey)
+{
+    string name = modelStateKey.Contains('.', StringComparison.Ordinal)
+        ? modelStateKey[(modelStateKey.LastIndexOf('.') + 1)..]
+        : modelStateKey;
+
+    return name.Length == 0
+        ? name
+        : char.ToLowerInvariant(name[0]) + name[1..];
+}
 
 /// <summary>
 /// Named entry point so the integration test host can boot the real application.

@@ -9,7 +9,7 @@ namespace RentalManager.Modules.TenantManagement.Domain.Entities.Org;
 /// </summary>
 [Table(nameof(FieldOption), Schema = DatabaseConstant.Schema.ORG)]
 public class FieldOption :
-    IEntityAudit<Guid>,
+    IDefinitionEntityAudit<Guid>,
     IOrganizationOwned,
     IConcurrencyAware
 {
@@ -21,9 +21,9 @@ public class FieldOption :
 
     public required string Key { get; set; }
 
-    public required string NormalizedKey { get; set; }
-
     public required string Name { get; set; }
+
+    public string? Description { get; set; }
 
     public int DisplayOrder { get; set; }
 

@@ -11,7 +11,7 @@ public interface IPermissionReader
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlySet<string>> GetPermissionCodesAsync(
+    Task<IReadOnlySet<string>> GetPermissionKeysAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 }

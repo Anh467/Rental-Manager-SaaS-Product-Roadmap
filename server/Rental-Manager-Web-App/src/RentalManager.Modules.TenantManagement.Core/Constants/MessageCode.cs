@@ -27,8 +27,6 @@ public static class MessageCode
         public const string ConcurrencyConflict = "ERR-010";
         public const string FieldTypeMismatch = "ERR-012";
         public const string InvalidFieldOption = "ERR-013";
-        public const string MultipleActivePrimaryFields = "ERR-015";
-        public const string LastActivePrimaryFieldRemoval = "ERR-016";
         public const string UnexpectedError = "ERR-050";
     }
 

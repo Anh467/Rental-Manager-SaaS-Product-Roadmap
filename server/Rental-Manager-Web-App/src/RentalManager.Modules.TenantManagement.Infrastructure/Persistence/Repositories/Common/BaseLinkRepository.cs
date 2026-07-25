@@ -23,11 +23,32 @@ public abstract class BaseLinkRepository<TEntity> : ILinkRepository<TEntity>
         _executionContext = executionContext;
     }
 
+    public async Task<bool> ExistsAsync(
+        TEntity entity,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+        OnBeforeOperation(entity);
+
+        DynamicParameters parameters = CreateParameters(entity);
+        SqlExecution execution = await _executionContext.GetAsync(cancellationToken);
+
+        int? found = await execution.Connection.ExecuteScalarAsync<int?>(
+            new CommandDefinition(
+                Metadata.ExistsSql,
+                parameters,
+                execution.Transaction,
+                cancellationToken: cancellationToken));
+
+        return found is not null;
+    }
+
     public async Task DeleteAsync(
         TEntity entity,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entity);
+        OnBeforeOperation(entity);
 
         await ExecuteAsync(Metadata.DeleteSql, entity, cancellationToken);
     }
@@ -37,8 +58,28 @@ public abstract class BaseLinkRepository<TEntity> : ILinkRepository<TEntity>
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(entity);
+        OnBeforeOperation(entity);
 
         await ExecuteAsync(Metadata.SaveSql, entity, cancellationToken);
+    }
+
+    protected virtual void OnBeforeOperation(TEntity entity)
+    {
+    }
+
+    protected async Task<IEnumerable<TResult>> QueryAsync<TResult>(
+        string sql,
+        DynamicParameters? parameters,
+        CancellationToken cancellationToken)
+    {
+        SqlExecution execution = await _executionContext.GetAsync(cancellationToken);
+
+        return await execution.Connection.QueryAsync<TResult>(
+            new CommandDefinition(
+                sql,
+                parameters,
+                execution.Transaction,
+                cancellationToken: cancellationToken));
     }
 
     private async Task ExecuteAsync(

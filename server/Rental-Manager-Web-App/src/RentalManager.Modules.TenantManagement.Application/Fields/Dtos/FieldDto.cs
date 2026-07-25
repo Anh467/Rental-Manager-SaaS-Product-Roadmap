@@ -9,8 +9,6 @@ public sealed record FieldDto
 {
     public required Guid Id { get; init; }
 
-    public required string TargetEntityType { get; init; }
-
     public required string Key { get; init; }
 
     public required string Name { get; init; }
@@ -19,13 +17,7 @@ public sealed record FieldDto
 
     public required int FieldTypeId { get; init; }
 
-    public required bool IsRequired { get; init; }
-
-    public required bool IsPrimaryDisplayField { get; init; }
-
     public required bool IsActive { get; init; }
-
-    public required int DisplayOrder { get; init; }
 
     public required DateTimeOffset CreatedAt { get; init; }
 
@@ -44,6 +36,8 @@ public sealed record FieldOptionDto
     public required string Key { get; init; }
 
     public required string Name { get; init; }
+
+    public string? Description { get; init; }
 
     public required int DisplayOrder { get; init; }
 

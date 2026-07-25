@@ -6,15 +6,19 @@ internal sealed class LinkSqlMetadata
 {
     private LinkSqlMetadata(
         IReadOnlyList<LinkColumnMetadata> columns,
+        string existsSql,
         string saveSql,
         string deleteSql)
     {
         Columns = columns;
+        ExistsSql = existsSql;
         SaveSql = saveSql;
         DeleteSql = deleteSql;
     }
 
     public IReadOnlyList<LinkColumnMetadata> Columns { get; }
+
+    public string ExistsSql { get; }
 
     public string SaveSql { get; }
 
@@ -60,6 +64,12 @@ internal sealed class LinkSqlMetadata
             ", ",
             columns.Select(column => $"@{column.ParameterName}"));
 
+        string existsSql = $"""
+            SELECT TOP (1) 1
+            FROM {qualifiedTableName}
+            WHERE {predicate};
+            """;
+
         string saveSql = $"""
             IF NOT EXISTS
             (
@@ -78,7 +88,7 @@ internal sealed class LinkSqlMetadata
             WHERE {predicate};
             """;
 
-        return new LinkSqlMetadata(columns, saveSql, deleteSql);
+        return new LinkSqlMetadata(columns, existsSql, saveSql, deleteSql);
     }
 }
 

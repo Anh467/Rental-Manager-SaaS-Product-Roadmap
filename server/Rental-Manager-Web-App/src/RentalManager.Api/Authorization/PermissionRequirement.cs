@@ -15,7 +15,7 @@ public sealed class PermissionRequirement : IAuthorizationRequirement
 
 /// <summary>
 /// Declares the permission an action needs. The policy name is the permission
-/// code itself, resolved dynamically by <see cref="PermissionPolicyProvider"/>.
+/// key itself, resolved dynamically by <see cref="PermissionPolicyProvider"/>.
 /// </summary>
 [AttributeUsage(
     AttributeTargets.Class | AttributeTargets.Method,

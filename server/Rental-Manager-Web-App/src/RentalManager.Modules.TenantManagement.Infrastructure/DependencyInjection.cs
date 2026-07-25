@@ -1,11 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Auditing;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Fields;
-using RentalManager.Modules.TenantManagement.Infrastructure.Auditing;
 using RentalManager.Modules.TenantManagement.Infrastructure.Authorization;
 using RentalManager.Modules.TenantManagement.Infrastructure.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Common;
@@ -40,7 +38,6 @@ public static class TenantManagementServiceCollectionExtensions
             provider.GetRequiredService<SqlSession>());
 
         services.AddScoped<ISqlApplicationLock, SqlApplicationLock>();
-        services.AddScoped<IAuditLogWriter, AuditLogWriter>();
         services.AddScoped<IPermissionReader, PermissionReader>();
 
         services.AddRepositories(

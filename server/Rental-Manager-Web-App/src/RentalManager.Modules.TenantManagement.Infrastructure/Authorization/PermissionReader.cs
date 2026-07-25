@@ -1,92 +1,95 @@
 using System.Data;
 using Dapper;
+using RentalManager.BuildingBlocks.Tenancy.Abstractions;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
+using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Org;
+using RentalManager.Modules.TenantManagement.Core.Exceptions;
 using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Sessions;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Authorization;
 
 /// <summary>
-/// Resolves membership and permissions for the organization currently bound to
-/// the session. Row level security on <c>[org].[OrganizationUser]</c> and
-/// <c>[org].[RolePermission]</c> means these queries can only ever see the
-/// caller's own organization.
+/// Resolves the role assigned directly to the global user for the organization
+/// currently bound to the session, then reads that role's global permission keys.
 /// </summary>
 public sealed class PermissionReader : IPermissionReader
 {
-    private const string MembershipSql = """
-        SELECT TOP (1) 1
-        FROM [org].[OrganizationUser] AS organizationUser
+    private const string ActiveRoleSql = """
+        SELECT TOP (1) [user].[RoleId]
+        FROM [dbo].[User] AS [user]
         INNER JOIN [org].[Role] AS role
-            ON role.[Id] = organizationUser.[RoleId]
-           AND role.[OrganizationId] = organizationUser.[OrganizationId]
-        WHERE organizationUser.[UserId] = @UserId
-          AND organizationUser.[IsActive] = 1
+            ON role.[Id] = [user].[RoleId]
+           AND role.[OrganizationId] = [user].[OrganizationId]
+        WHERE [user].[Id] = @UserId
+          AND [user].[OrganizationId] = @OrganizationId
+          AND [user].[IsActive] = 1
+          AND [user].[DeletedAt] IS NULL
           AND role.[IsActive] = 1
           AND role.[DeletedAt] IS NULL;
         """;
 
-    private const string PermissionsSql = """
-        SELECT permission.[Code]
-        FROM [org].[OrganizationUser] AS organizationUser
-        INNER JOIN [org].[Role] AS role
-            ON role.[Id] = organizationUser.[RoleId]
-           AND role.[OrganizationId] = organizationUser.[OrganizationId]
-        INNER JOIN [org].[RolePermission] AS rolePermission
-            ON rolePermission.[RoleId] = role.[Id]
-           AND rolePermission.[OrganizationId] = role.[OrganizationId]
-        INNER JOIN [dbo].[Permission] AS permission
-            ON permission.[Id] = rolePermission.[PermissionId]
-        WHERE organizationUser.[UserId] = @UserId
-          AND organizationUser.[IsActive] = 1
-          AND role.[IsActive] = 1
-          AND role.[DeletedAt] IS NULL
-          AND permission.[IsActive] = 1;
-        """;
-
     private readonly ISqlExecutionContext _executionContext;
+    private readonly IOrganizationContext _organizationContext;
+    private readonly IRolePermissionRepository _rolePermissions;
 
-    public PermissionReader(ISqlExecutionContext executionContext)
+    public PermissionReader(
+        ISqlExecutionContext executionContext,
+        IOrganizationContext organizationContext,
+        IRolePermissionRepository rolePermissions)
     {
         ArgumentNullException.ThrowIfNull(executionContext);
+        ArgumentNullException.ThrowIfNull(organizationContext);
+        ArgumentNullException.ThrowIfNull(rolePermissions);
+
         _executionContext = executionContext;
+        _organizationContext = organizationContext;
+        _rolePermissions = rolePermissions;
     }
 
     public async Task<bool> IsActiveMemberAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        SqlExecution execution = await _executionContext.GetAsync(cancellationToken);
-
-        int? found = await execution.Connection.ExecuteScalarAsync<int?>(
-            new CommandDefinition(
-                MembershipSql,
-                CreateParameters(userId),
-                execution.Transaction,
-                cancellationToken: cancellationToken));
-
-        return found is not null;
+        return await ResolveActiveRoleIdAsync(userId, cancellationToken) is not null;
     }
 
-    public async Task<IReadOnlySet<string>> GetPermissionCodesAsync(
+    public async Task<IReadOnlySet<string>> GetPermissionKeysAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        SqlExecution execution = await _executionContext.GetAsync(cancellationToken);
+        Guid? roleId = await ResolveActiveRoleIdAsync(userId, cancellationToken);
 
-        IEnumerable<string> codes = await execution.Connection.QueryAsync<string>(
-            new CommandDefinition(
-                PermissionsSql,
-                CreateParameters(userId),
-                execution.Transaction,
-                cancellationToken: cancellationToken));
+        if (roleId is null)
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
 
-        return codes.ToHashSet(StringComparer.Ordinal);
+        IReadOnlyCollection<string> keys =
+            await _rolePermissions.GetPermissionKeysByRoleAsync(
+                roleId.Value,
+                cancellationToken);
+
+        return keys.ToHashSet(StringComparer.Ordinal);
     }
 
-    private static DynamicParameters CreateParameters(Guid userId)
+    private async Task<Guid?> ResolveActiveRoleIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
     {
+        Guid organizationId = _organizationContext.OrganizationId
+            ?? throw new MissingOrganizationContextException();
+
         var parameters = new DynamicParameters();
         parameters.Add("UserId", userId, DbType.Guid);
-        return parameters;
+        parameters.Add("OrganizationId", organizationId, DbType.Guid);
+
+        SqlExecution execution = await _executionContext.GetAsync(cancellationToken);
+
+        return await execution.Connection.ExecuteScalarAsync<Guid?>(
+            new CommandDefinition(
+                ActiveRoleSql,
+                parameters,
+                execution.Transaction,
+                cancellationToken: cancellationToken));
     }
 }

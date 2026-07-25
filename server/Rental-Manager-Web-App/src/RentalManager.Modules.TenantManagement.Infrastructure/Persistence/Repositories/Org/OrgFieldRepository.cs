@@ -13,16 +13,10 @@ using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Sessions
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Repositories.Org;
 
-/// <summary>
-/// Organization-owned field persistence. Contains only the queries and writes
-/// that exist because of a field rule; get, insert, update, soft delete, SQL
-/// generation, connection handling and concurrency all come from the base types.
-/// </summary>
 public sealed class OrgFieldRepository : BaseEntityAuditRepository<Field, Guid>,
     IOrgFieldRepository
 {
-    private const string UniqueKeyIndexName = "UQ_Field_OrganizationTargetKey";
-    private const string ActivePrimaryIndexName = "UX_Field_ActivePrimary";
+    private const string UniqueKeyConstraintName = "UQ_Field_OrganizationKey";
 
     public OrgFieldRepository(
         ISqlExecutionContext executionContext,
@@ -34,7 +28,6 @@ public sealed class OrgFieldRepository : BaseEntityAuditRepository<Field, Guid>,
     protected override string ObjectName => MessageCode.ObjectName.Field;
 
     public Task<PagedResult<Field>> GetPagedAsync(
-        string? targetEntityType,
         bool? isActive,
         PagedRequest request,
         CancellationToken cancellationToken = default)
@@ -43,12 +36,6 @@ public sealed class OrgFieldRepository : BaseEntityAuditRepository<Field, Guid>,
 
         var parameters = new DynamicParameters();
         var predicate = new System.Text.StringBuilder();
-
-        if (targetEntityType is not null)
-        {
-            predicate.Append("\n  AND [TargetEntityType] = @TargetEntityType");
-            parameters.Add("TargetEntityType", targetEntityType, DbType.String, size: 64);
-        }
 
         if (isActive is not null)
         {
@@ -74,165 +61,38 @@ public sealed class OrgFieldRepository : BaseEntityAuditRepository<Field, Guid>,
             cancellationToken);
     }
 
-    public async Task<Field?> FindByNormalizedKeyAsync(
-        string targetEntityType,
-        string normalizedKey,
+    public async Task<Field?> FindByKeyAsync(
+        string key,
         CancellationToken cancellationToken = default)
     {
         DynamicParameters parameters = CreateOrganizationScopedParameters();
-        parameters.Add("TargetEntityType", targetEntityType, DbType.String, size: 64);
-        parameters.Add("NormalizedKey", normalizedKey, DbType.String, size: 256);
-
-        // Soft-deleted rows are included on purpose: a deleted field keeps its
-        // key reserved, matching the unfiltered unique constraint.
-        string sql = $"""
-            SELECT
-                {Metadata.SelectColumnList}
-            FROM {Metadata.QualifiedTableName}
-            WHERE [OrganizationId] = @OrganizationId
-              AND [TargetEntityType] = @TargetEntityType
-              AND [NormalizedKey] = @NormalizedKey;
-            """;
-
-        return await QuerySingleOrDefaultAsync<Field>(
-            sql,
-            parameters,
-            cancellationToken);
-    }
-
-    public async Task<Field?> GetActivePrimaryAsync(
-        string targetEntityType,
-        CancellationToken cancellationToken = default)
-    {
-        DynamicParameters parameters = CreateOrganizationScopedParameters();
-        parameters.Add("TargetEntityType", targetEntityType, DbType.String, size: 64);
+        parameters.Add(
+            "Key",
+            key,
+            DbType.String,
+            size: DefinitionConstants.InlineTextMaxLength);
 
         string sql = $"""
             SELECT
                 {Metadata.SelectColumnList}
             FROM {Metadata.QualifiedTableName}
             WHERE [OrganizationId] = @OrganizationId
-              AND [TargetEntityType] = @TargetEntityType
-              AND [IsPrimaryDisplayField] = 1
-              AND [IsActive] = 1
-              AND [DeletedAt] IS NULL;
+              AND [Key] = @Key;
             """;
 
         return await QuerySingleOrDefaultAsync<Field>(
             sql,
             parameters,
             cancellationToken);
-    }
-
-    public async Task<bool> HasOtherActiveFieldsAsync(
-        string targetEntityType,
-        Guid excludedFieldId,
-        CancellationToken cancellationToken = default)
-    {
-        DynamicParameters parameters = CreateOrganizationScopedParameters();
-        parameters.Add("TargetEntityType", targetEntityType, DbType.String, size: 64);
-        parameters.Add("ExcludedFieldId", excludedFieldId, DbType.Guid);
-
-        string sql = $"""
-            SELECT TOP (1) 1
-            FROM {Metadata.QualifiedTableName}
-            WHERE [OrganizationId] = @OrganizationId
-              AND [TargetEntityType] = @TargetEntityType
-              AND [Id] <> @ExcludedFieldId
-              AND [IsActive] = 1
-              AND [DeletedAt] IS NULL;
-            """;
-
-        int? found = await ExecuteScalarAsync<int?>(
-            sql,
-            parameters,
-            cancellationToken);
-
-        return found is not null;
-    }
-
-    public async Task ClearPrimaryAsync(
-        Guid fieldId,
-        CancellationToken cancellationToken = default)
-    {
-        await SetPrimaryFlagAsync(
-            fieldId,
-            isPrimary: false,
-            requireActive: false,
-            cancellationToken);
-    }
-
-    public async Task SetPrimaryAsync(
-        Guid fieldId,
-        CancellationToken cancellationToken = default)
-    {
-        int affectedRows = await SetPrimaryFlagAsync(
-            fieldId,
-            isPrimary: true,
-            requireActive: true,
-            cancellationToken);
-
-        if (affectedRows == 0)
-        {
-            throw new BusinessRuleException(
-                MessageCode.Error.LastActivePrimaryFieldRemoval,
-                new Dictionary<string, object?>
-                {
-                    [MessageCode.Parameter.Object] = MessageCode.ObjectName.Field
-                });
-        }
     }
 
     protected override Exception? TranslateSqlException(SqlException exception)
     {
-        if (SqlExceptionClassifier.IsUniqueViolation(exception, UniqueKeyIndexName))
-        {
-            return new DuplicateResourceException(ObjectName, exception);
-        }
-
-        if (SqlExceptionClassifier.IsUniqueViolation(exception, ActivePrimaryIndexName))
-        {
-            return new BusinessRuleException(
-                MessageCode.Error.MultipleActivePrimaryFields,
-                new Dictionary<string, object?>
-                {
-                    [MessageCode.Parameter.Object] = ObjectName
-                },
-                exception);
-        }
-
-        return null;
-    }
-
-    private async Task<int> SetPrimaryFlagAsync(
-        Guid fieldId,
-        bool isPrimary,
-        bool requireActive,
-        CancellationToken cancellationToken)
-    {
-        DynamicParameters parameters = CreateOrganizationScopedParameters();
-        parameters.Add("Id", fieldId, DbType.Guid);
-        parameters.Add("IsPrimaryDisplayField", isPrimary, DbType.Boolean);
-        parameters.Add("UpdatedAt", UtcNow);
-
-        string activePredicate = requireActive
-            ? "\n  AND [IsActive] = 1"
-            : string.Empty;
-
-        // Maintaining an invariant inside an already locked transaction, so this
-        // write intentionally does not take a row version from the client.
-        string sql = $"""
-            UPDATE {Metadata.QualifiedTableName}
-            SET
-                [IsPrimaryDisplayField] = @IsPrimaryDisplayField,
-                [UpdatedAt] = @UpdatedAt
-            WHERE [Id] = @Id
-              AND [OrganizationId] = @OrganizationId
-              AND [DeletedAt] IS NULL{activePredicate};
-            """;
-
-        return await WithSqlTranslationAsync(
-            () => ExecuteAsync(sql, parameters, cancellationToken));
+        return SqlExceptionClassifier.IsUniqueViolation(
+            exception,
+            UniqueKeyConstraintName)
+            ? new DuplicateResourceException(ObjectName, exception)
+            : null;
     }
 
     private static string BuildOrderByClause(PagedRequest request)
@@ -243,14 +103,11 @@ public sealed class OrgFieldRepository : BaseEntityAuditRepository<Field, Guid>,
             "key" => "[Key]",
             "createdat" => "[CreatedAt]",
             "isactive" => "[IsActive]",
-            _ => "[DisplayOrder]"
+            _ => "[Name]"
         };
 
         string direction = request.IsDescending ? "DESC" : "ASC";
-
-        // [Id] is the final tie-breaker so paging stays stable when the sort
-        // column and the name are identical across rows.
-        return $"{sortColumn} {direction}, [Name] ASC, [Id] ASC";
+        return $"{sortColumn} {direction}, [Id] ASC";
     }
 
     private static string EscapeLikePattern(string value)

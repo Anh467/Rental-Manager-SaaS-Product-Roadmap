@@ -42,7 +42,7 @@ public sealed class PermissionAuthorizationHandler :
         {
             // The handler is scoped per request, so several [RequiresPermission]
             // checks on one request share a single database round trip.
-            _cachedPermissions ??= await _permissionReader.GetPermissionCodesAsync(
+            _cachedPermissions ??= await _permissionReader.GetPermissionKeysAsync(
                 userId,
                 CancellationToken.None);
         }
