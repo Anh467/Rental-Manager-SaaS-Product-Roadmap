@@ -114,6 +114,22 @@ export function GlobalFieldForm({
               message: t("options.required"),
             });
           }
+
+          const seenKeys = new Map<string, number>();
+          values.options.forEach((option, index) => {
+            const normalizedKey = option.key.trim().toLocaleLowerCase();
+            if (!normalizedKey) return;
+            const firstIndex = seenKeys.get(normalizedKey);
+            if (firstIndex != null) {
+              context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["options", index, "key"],
+                message: t("options.validation.duplicateKey"),
+              });
+              return;
+            }
+            seenKeys.set(normalizedKey, index);
+          });
         }),
     [fieldTypeOptions, fieldTypes, t],
   );

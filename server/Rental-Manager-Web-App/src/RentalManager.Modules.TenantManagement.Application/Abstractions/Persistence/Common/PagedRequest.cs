@@ -53,5 +53,16 @@ public sealed class PagedRequest
         DescendingDirection,
         StringComparison.OrdinalIgnoreCase);
 
-    public int Offset => (Page - 1) * PageSize;
+    /// <summary>
+    /// Zero-based row offset for SQL OFFSET. Computed with <see cref="long"/>
+    /// so large page numbers cannot overflow to a negative int.
+    /// </summary>
+    public long Offset
+    {
+        get
+        {
+            long offset = (Page - 1L) * PageSize;
+            return offset < 0 ? 0 : offset;
+        }
+    }
 }

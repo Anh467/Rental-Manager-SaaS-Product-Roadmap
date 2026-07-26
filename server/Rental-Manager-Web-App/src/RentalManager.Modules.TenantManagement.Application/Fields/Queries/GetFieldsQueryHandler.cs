@@ -1,17 +1,17 @@
+using RentalManager.Modules.TenantManagement.Application.Abstractions.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Org;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
-using RentalManager.Modules.TenantManagement.Core.Exceptions;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Org;
 
 namespace RentalManager.Modules.TenantManagement.Application.Fields.Queries;
 
-public sealed class FieldQueryService : IFieldQueryService
+public sealed class GetFieldsQueryHandler : IQueryHandler<GetFieldsQuery, PagedResult<FieldDto>>
 {
     private readonly IOrgFieldRepository _fields;
     private readonly IFieldOptionRepository _fieldOptions;
 
-    public FieldQueryService(
+    public GetFieldsQueryHandler(
         IOrgFieldRepository fields,
         IFieldOptionRepository fieldOptions)
     {
@@ -22,10 +22,12 @@ public sealed class FieldQueryService : IFieldQueryService
         _fieldOptions = fieldOptions;
     }
 
-    public async Task<PagedResult<FieldDto>> GetFieldsAsync(
-        GetFieldsRequest request,
+    public async Task<PagedResult<FieldDto>> HandleAsync(
+        GetFieldsQuery query,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+        GetFieldsRequest request = query.Request;
         ArgumentNullException.ThrowIfNull(request);
 
         var pagedRequest = new PagedRequest(
@@ -54,19 +56,5 @@ public sealed class FieldQueryService : IFieldQueryService
             optionsByField.TryGetValue(field.Id, out List<FieldOption>? fieldOptions)
                 ? fieldOptions
                 : []));
-    }
-
-    public async Task<FieldDto> GetFieldAsync(
-        Guid id,
-        CancellationToken cancellationToken = default)
-    {
-        Field field = await _fields.GetAsync(id, cancellationToken)
-            ?? throw new ResourceNotFoundException(FieldInvariants.ObjectName);
-
-        IReadOnlyList<FieldOption> options = await _fieldOptions.GetByFieldIdAsync(
-            field.Id,
-            cancellationToken);
-
-        return FieldDtoMapper.ToDto(field, options);
     }
 }

@@ -1,15 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using RentalManager.Api.Security;
 using RentalManager.BuildingBlocks.Tenancy.Abstractions;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
-using RentalManager.Api.Security;
 
 namespace RentalManager.Api.Authorization;
 
 /// <summary>
 /// Resolves the caller's permissions for the organization currently bound to the
-/// request. Fails closed: without an organization context there is nothing to
-/// authorize against, so the requirement is not met.
+/// request. Missing identity or permission fails closed (403). Infrastructure
+/// failures propagate so they become 500 via the exception middleware.
 /// </summary>
 public sealed class PermissionAuthorizationHandler :
     AuthorizationHandler<PermissionRequirement>
@@ -18,7 +19,7 @@ public sealed class PermissionAuthorizationHandler :
     private readonly IOrganizationContext _organizationContext;
     private readonly IUserRepository _users;
     private readonly IRolePermissionRepository _globalRolePermissions;
-    private readonly ILogger<PermissionAuthorizationHandler> _logger;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     private IReadOnlySet<string>? _cachedPermissions;
 
@@ -27,13 +28,13 @@ public sealed class PermissionAuthorizationHandler :
         IOrganizationContext organizationContext,
         IUserRepository users,
         IRolePermissionRepository globalRolePermissions,
-        ILogger<PermissionAuthorizationHandler> logger)
+        IHttpContextAccessor httpContextAccessor)
     {
         _permissionReader = permissionReader;
         _organizationContext = organizationContext;
         _users = users;
         _globalRolePermissions = globalRolePermissions;
-        _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     protected override async Task HandleRequirementAsync(
@@ -45,37 +46,30 @@ public sealed class PermissionAuthorizationHandler :
             return;
         }
 
-        try
+        CancellationToken cancellationToken =
+            _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
+
+        // The handler is scoped per request, so several [RequiresPermission]
+        // checks on one request share a single database round trip.
+        if (_organizationContext.HasOrganization)
         {
-            // The handler is scoped per request, so several [RequiresPermission]
-            // checks on one request share a single database round trip.
-            if (_organizationContext.HasOrganization)
-            {
-                _cachedPermissions ??= await _permissionReader.GetPermissionKeysAsync(
-                    userId, CancellationToken.None);
-            }
-            else if (context.User.FindFirst(JwtClaimNames.Scope)?.Value == "global")
-            {
-                var user = await _users.GetAsync(userId, CancellationToken.None);
-                if (user?.GlobalRoleId is not Guid roleId)
-                {
-                    return;
-                }
-                _cachedPermissions ??= await _globalRolePermissions
-                    .GetPermissionKeysByRoleAsync(roleId, CancellationToken.None);
-            }
-            else
+            _cachedPermissions ??= await _permissionReader.GetPermissionKeysAsync(
+                userId,
+                cancellationToken);
+        }
+        else if (context.User.FindFirst(JwtClaimNames.Scope)?.Value == "global")
+        {
+            var user = await _users.GetAsync(userId, cancellationToken);
+            if (user?.GlobalRoleId is not Guid roleId)
             {
                 return;
             }
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(
-                exception,
-                "Failed to resolve permissions for user {UserId}.",
-                userId);
 
+            _cachedPermissions ??= await _globalRolePermissions
+                .GetPermissionKeysByRoleAsync(roleId, cancellationToken);
+        }
+        else
+        {
             return;
         }
 

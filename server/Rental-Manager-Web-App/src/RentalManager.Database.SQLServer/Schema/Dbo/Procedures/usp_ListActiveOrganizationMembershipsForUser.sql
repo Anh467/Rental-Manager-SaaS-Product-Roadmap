@@ -1,9 +1,10 @@
--- Login-time membership lookup. EXECUTE AS OWNER bypasses RLS so the API can
--- discover which organizations a user belongs to before an organization token
--- has been issued.
+-- Login-time membership lookup. Runs as OrganizationMembershipResolver so the
+-- dedicated OrganizationUser FILTER predicate can return rows before an
+-- organization SESSION_CONTEXT exists. Not EXECUTE AS OWNER — owners do not
+-- bypass RLS.
 CREATE PROCEDURE [dbo].[usp_ListActiveOrganizationMembershipsForUser]
     @UserId UNIQUEIDENTIFIER
-WITH EXECUTE AS OWNER
+WITH EXECUTE AS N'OrganizationMembershipResolver'
 AS
 BEGIN
     SET NOCOUNT ON;

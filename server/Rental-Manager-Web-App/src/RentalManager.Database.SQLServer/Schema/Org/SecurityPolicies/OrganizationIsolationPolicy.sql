@@ -6,6 +6,10 @@
 -- OrganizationId other than the one in the session context. BEFORE predicates
 -- are unnecessary because the filter already removes other organizations' rows
 -- from the update and delete targets.
+--
+-- [org].[OrganizationUser] FILTER uses a dedicated read predicate that also
+-- permits OrganizationMembershipResolver during login-time membership lookup.
+-- BLOCK predicates on that table remain the strict tenant predicate.
 CREATE SECURITY POLICY [org].[OrganizationIsolationPolicy]
     ADD FILTER PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[Field],
@@ -42,7 +46,7 @@ CREATE SECURITY POLICY [org].[OrganizationIsolationPolicy]
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[Organization] AFTER UPDATE,
 
-    ADD FILTER PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
+    ADD FILTER PREDICATE [org].[fn_OrganizationUserReadPredicate]([OrganizationId])
         ON [org].[OrganizationUser],
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[OrganizationUser] AFTER INSERT,

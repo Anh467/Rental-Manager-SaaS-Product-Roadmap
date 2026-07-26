@@ -28,7 +28,11 @@
   "options": {
     "title": "Options", "description": "Options appear in display order.", "add": "Add option", "item": "Option {{number}}",
     "moveUp": "Move option up", "moveDown": "Move option down", "remove": "Remove option", "required": "Add at least one option for a multi-select field.",
-    "fields": { "name": "Name", "key": "Key", "description": "Description" }
+    "fields": { "name": "Name", "key": "Key", "description": "Description", "isActive": "Active" },
+    "validation": { "duplicateKey": "Option key must be unique." }
+  },
+  "status": {
+    "conflictReloaded": "This field was changed elsewhere. Latest values were loaded."
   },
   "delete": { "title": "Delete global field", "description": "Delete {{name}}? This action cannot be undone." }
 }

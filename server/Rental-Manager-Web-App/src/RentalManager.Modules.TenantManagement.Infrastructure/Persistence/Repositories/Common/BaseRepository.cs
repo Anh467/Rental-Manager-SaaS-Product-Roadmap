@@ -219,7 +219,7 @@ public abstract class BaseRepository<TEntity, TPrimaryKey> :
             FETCH NEXT @PagingLimit ROWS ONLY;
             """;
 
-        parameters.Add("PagingOffset", request.Offset, DbType.Int32);
+        parameters.Add("PagingOffset", request.Offset, DbType.Int64);
         parameters.Add("PagingLimit", request.PageSize, DbType.Int32);
 
         SqlExecution execution = await _executionContext.GetAsync(cancellationToken);

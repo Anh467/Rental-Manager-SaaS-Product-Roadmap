@@ -1,7 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { getMe, login, type AuthUser, type LoginRequest } from "@/api/routes/auth";
+import { authQueries, login, useMeQuery, type AuthUser, type LoginRequest } from "@/api/routes/auth";
 import { PermissionProvider } from "@/components/common/permission-guard";
+import {
+  clearAuthSession,
+  getAccessTokenFromLoginResponse,
+  storeAuthUserContext,
+} from "@/features/auth/auth-session";
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -14,64 +20,41 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function storeUserContext(user: AuthUser) {
-  if (user.scope === "organization" && user.organizationId) {
-    localStorage.setItem("organization_id", user.organizationId);
-  } else {
-    localStorage.removeItem("organization_id");
-  }
-}
-
-function getToken(response: { accessToken?: string; access_token?: string; token?: string }) {
-  return response.accessToken ?? response.access_token ?? response.token;
-}
-
-export async function loadAuthenticatedUser() {
-  return (await getMe()).data;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(() => Boolean(localStorage.getItem("access_token")));
-
-  const logout = useCallback(() => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("organization_id");
-    setUser(null);
-  }, []);
+  const queryClient = useQueryClient();
+  const [tokenPresent, setTokenPresent] = useState(() => Boolean(localStorage.getItem("access_token")));
+  const meQuery = useMeQuery(tokenPresent);
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) return;
+    if (meQuery.data) storeAuthUserContext(meQuery.data);
+  }, [meQuery.data]);
 
-    void loadAuthenticatedUser()
-      .then((nextUser) => {
-        storeUserContext(nextUser);
-        setUser(nextUser);
-      })
-      .catch(logout)
-      .finally(() => setIsLoading(false));
-  }, [logout]);
+  const logout = useCallback(() => {
+    clearAuthSession(queryClient);
+    setTokenPresent(false);
+  }, [queryClient]);
 
   const authenticate = useCallback(async (credentials: LoginRequest) => {
     const loginResponse = await login({ payload: credentials });
-    const token = getToken(loginResponse.data);
+    const token = getAccessTokenFromLoginResponse(loginResponse.data);
     if (!token) throw new Error("The login response did not include an access token.");
 
     localStorage.setItem("access_token", token);
-    const nextUser = await loadAuthenticatedUser();
-    storeUserContext(nextUser);
-    setUser(nextUser);
+    setTokenPresent(true);
+
+    const nextUser = await queryClient.fetchQuery(authQueries.me());
+    storeAuthUserContext(nextUser);
     return nextUser;
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(() => ({
-    user,
-    permissions: user?.permissions ?? [],
-    scope: user?.scope ?? null,
-    isLoading,
+    user: meQuery.data ?? null,
+    permissions: meQuery.data?.permissions ?? [],
+    scope: meQuery.data?.scope ?? null,
+    isLoading: tokenPresent && meQuery.isPending,
     login: authenticate,
     logout,
-  }), [authenticate, isLoading, logout, user]);
+  }), [authenticate, logout, meQuery.data, meQuery.isPending, tokenPresent]);
 
   return (
     <AuthContext.Provider value={value}>

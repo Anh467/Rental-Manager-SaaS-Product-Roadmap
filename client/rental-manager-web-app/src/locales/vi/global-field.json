@@ -28,7 +28,11 @@
   "options": {
     "title": "Tùy chọn", "description": "Tùy chọn hiển thị theo thứ tự.", "add": "Thêm tùy chọn", "item": "Tùy chọn {{number}}",
     "moveUp": "Đưa lên", "moveDown": "Đưa xuống", "remove": "Xóa tùy chọn", "required": "Hãy thêm ít nhất một tùy chọn cho trường chọn nhiều.",
-    "fields": { "name": "Tên", "key": "Mã", "description": "Mô tả" }
+    "fields": { "name": "Tên", "key": "Mã", "description": "Mô tả", "isActive": "Đang hoạt động" },
+    "validation": { "duplicateKey": "Mã tùy chọn phải là duy nhất." }
+  },
+  "status": {
+    "conflictReloaded": "Trường này đã được thay đổi ở nơi khác. Đã tải lại giá trị mới nhất."
   },
   "delete": { "title": "Xóa trường toàn cục", "description": "Xóa {{name}}? Thao tác này không thể hoàn tác." }
 }

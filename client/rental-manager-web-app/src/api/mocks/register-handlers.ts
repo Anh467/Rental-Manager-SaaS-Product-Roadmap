@@ -23,6 +23,10 @@ import type {
   Room,
   UpdateRoomRequest,
 } from "@/api/routes/rooms";
+import type { LoginRequest } from "@/api/routes/auth";
+import { MOCK_ACCESS_TOKEN, mockAuthUser } from "@/api/mocks/auth-constants";
+
+export { MOCK_ACCESS_TOKEN, MOCK_ORGANIZATION_ID, mockAuthUser } from "@/api/mocks/auth-constants";
 
 const propertyDetailPattern = /\/api\/properties\/([^/]+)$/;
 const roomDetailPattern = /\/api\/rooms\/([^/]+)$/;
@@ -77,9 +81,42 @@ function normalizeSearch(value: unknown) {
 }
 
 export function registerMockHandlers(mock: MockAdapter) {
+  registerAuthHandlers(mock);
   registerPropertyHandlers(mock);
   registerRoomHandlers(mock);
   mock.onAny().passThrough();
+}
+
+function getBearerToken(config: AxiosRequestConfig) {
+  const header = config.headers?.Authorization ?? config.headers?.authorization;
+  const value = Array.isArray(header) ? header[0] : header;
+  if (typeof value !== "string") return "";
+  const match = value.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? "";
+}
+
+function registerAuthHandlers(mock: MockAdapter) {
+  mock.onPost("/api/v1/auth/login").reply((config) => {
+    const payload = readBody<LoginRequest>(config);
+    if (!payload?.email?.trim() || !payload?.password) {
+      return [400, problem("ERR-001", {}, [
+        { fieldKey: "email", messageKey: "ERR-001", parameters: { field: "email" } },
+      ])];
+    }
+
+    return [200, success("SCS-005", { accessToken: MOCK_ACCESS_TOKEN }, { object: "session" })];
+  });
+
+  mock.onGet("/api/v1/auth/me").reply((config) => {
+    const token = getBearerToken(config);
+    if (!token) {
+      return [401, problem("ERR-003")];
+    }
+    if (token !== MOCK_ACCESS_TOKEN) {
+      return [401, problem("ERR-003")];
+    }
+    return [200, success("SCS-005", mockAuthUser, { object: "user" })];
+  });
 }
 
 function registerPropertyHandlers(mock: MockAdapter) {

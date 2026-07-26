@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
 import { useAuth } from "@/features/auth/auth-provider";
+import { redirectIfAuthenticated } from "@/features/auth/auth-session";
 import {
   AppForm,
   EmailFormField,
@@ -14,8 +15,8 @@ import {
 } from "@/components/form";
 
 export const Route = createFileRoute("/login")({
-  beforeLoad: () => {
-    if (localStorage.getItem("access_token")) throw redirect({ to: "/", replace: true });
+  beforeLoad: async ({ context }) => {
+    await redirectIfAuthenticated(context.queryClient);
   },
   component: LoginPage,
 });

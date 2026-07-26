@@ -1,28 +1,39 @@
 import { useCallback, useMemo, useState } from "react";
 import { getRouteApi } from "@tanstack/react-router";
 import type { ColumnDef, PaginationState } from "@tanstack/react-table";
+import { MoreHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 import { useGlobalFieldTypesQuery } from "@/api/routes/global-field-types";
 import {
   useChangeGlobalFieldStatusMutation,
   useCreateGlobalFieldMutation,
   useDeleteGlobalFieldMutation,
+  useGlobalFieldQuery,
   useGlobalFieldsQuery,
   useUpdateGlobalFieldMutation,
   type GlobalField,
 } from "@/api/routes/global-fields";
-import { isApiError } from "@/api/client";
+import { isApiError, mergeMessageParameters } from "@/api/client";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { DataTable } from "@/components/common/data-table";
 import { MobileDataCard } from "@/components/common/mobile-data-card";
-import { ErrorState, PageContent, PageHeader, PageToolbar } from "@/components/common/page";
+import { ErrorState, LoadingState, PageContent, PageHeader, PageToolbar } from "@/components/common/page";
 import { PermissionGuard } from "@/components/common/permission-guard";
 import { SearchInput } from "@/components/common/search-input";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getApiErrorMessage } from "@/components/form/server-errors";
+import { translateApiMessage } from "@/i18n/api-message";
 import { GlobalFieldForm } from "../components/global-field-form";
 import { getFieldTypeName } from "../lib/field-type-options";
 
@@ -34,9 +45,12 @@ export function GlobalFieldListPage() {
   const { t: commonT } = useTranslation("common");
   const search = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
-  const [selected, setSelected] = useState<GlobalField | undefined>();
+  const [selectedFieldId, setSelectedFieldId] = useState<string>();
   const [mode, setMode] = useState<DialogMode>("view");
   const [hasRowVersionConflict, setHasRowVersionConflict] = useState(false);
+  const [formRemountKey, setFormRemountKey] = useState(0);
+  const [statusPendingId, setStatusPendingId] = useState<string>();
+  const [deleteTarget, setDeleteTarget] = useState<GlobalField>();
   const fieldTypesQuery = useGlobalFieldTypesQuery();
   const fieldTypes = fieldTypesQuery.data ?? [];
   const query = useGlobalFieldsQuery({
@@ -49,10 +63,11 @@ export function GlobalFieldListPage() {
     sortBy: search.sortBy || undefined,
     sortDirection: search.sortDirection || undefined,
   });
+  const detailQuery = useGlobalFieldQuery(selectedFieldId ?? "");
   const createMutation = useCreateGlobalFieldMutation();
   const statusMutation = useChangeGlobalFieldStatusMutation();
   const deleteMutation = useDeleteGlobalFieldMutation();
-  const updateMutation = useUpdateGlobalFieldMutation(selected?.id ?? "");
+  const updateMutation = useUpdateGlobalFieldMutation(selectedFieldId ?? "");
   const pagination: PaginationState = { pageIndex: search.page - 1, pageSize: search.pageSize };
   const dateFormatter = useMemo(
     () =>
@@ -62,16 +77,65 @@ export function GlobalFieldListPage() {
     [i18n.resolvedLanguage],
   );
 
-  const open = (nextMode: DialogMode, field?: GlobalField) => {
+  const open = (nextMode: DialogMode, fieldId?: string) => {
     setMode(nextMode);
-    setSelected(field);
+    setSelectedFieldId(fieldId);
     setHasRowVersionConflict(false);
+    setFormRemountKey((value) => value + 1);
   };
   const close = () => {
-    setSelected(undefined);
+    setSelectedFieldId(undefined);
     setMode("view");
     setHasRowVersionConflict(false);
   };
+
+  const reloadDetail = useCallback(async () => {
+    if (!selectedFieldId) {
+      await query.refetch();
+      setHasRowVersionConflict(false);
+      return;
+    }
+    const result = await detailQuery.refetch();
+    await query.refetch();
+    setHasRowVersionConflict(false);
+    setFormRemountKey((value) => value + 1);
+    if (result.data) {
+      toast.message(t("status.conflictReloaded"));
+    }
+  }, [detailQuery, query, selectedFieldId, t]);
+
+  const handleMutationError = useCallback(async (error: unknown, fieldId?: string) => {
+    if (isApiError(error) && error.messageKey === "ERR-010") {
+      toast.error(translateApiMessage(error.messageKey, mergeMessageParameters({ object: "field" }, error.parameters)));
+      if (fieldId && selectedFieldId === fieldId) {
+        await reloadDetail();
+        setHasRowVersionConflict(true);
+      } else {
+        await query.refetch();
+        toast.message(t("status.conflictReloaded"));
+      }
+      return;
+    }
+
+    toast.error(getApiErrorMessage(error));
+  }, [query, reloadDetail, selectedFieldId, t]);
+
+  const changeStatus = useCallback(async (field: GlobalField) => {
+    if (statusPendingId) return;
+    setStatusPendingId(field.id);
+    try {
+      await statusMutation.mutateAsync({
+        fieldId: field.id,
+        isActive: !field.isActive,
+        rowVersion: field.rowVersion,
+      });
+    } catch (error) {
+      await handleMutationError(error, field.id);
+    } finally {
+      setStatusPendingId(undefined);
+    }
+  }, [handleMutationError, statusMutation, statusPendingId]);
+
   const statusDefinitions = useMemo(
     () => ({
       active: { label: commonT("states.active"), variant: "success" as const },
@@ -84,6 +148,82 @@ export function GlobalFieldListPage() {
     (fieldTypeId: number) => getFieldTypeName(fieldTypes, fieldTypeId),
     [fieldTypes],
   );
+
+  const renderFieldActions = useCallback((field: GlobalField, variant: "desktop" | "mobile" = "desktop") => {
+    const statusPending = statusPendingId === field.id;
+
+    if (variant === "mobile") {
+      return (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => open("view", field.id)}>
+            {commonT("actions.view")}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" aria-label={t("columns.actions")}>
+                <MoreHorizontal className="mr-2 h-4 w-4" />
+                {t("columns.actions")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <PermissionGuard required="global_field_edit">
+                <DropdownMenuItem onSelect={() => open("edit", field.id)}>
+                  {commonT("actions.edit")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={statusPending}
+                  onSelect={() => {
+                    void changeStatus(field);
+                  }}
+                >
+                  {field.isActive ? commonT("actions.deactivate") : commonT("actions.reactivate")}
+                </DropdownMenuItem>
+              </PermissionGuard>
+              <PermissionGuard required="global_field_delete">
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={() => setDeleteTarget(field)}
+                >
+                  {commonT("actions.delete")}
+                </DropdownMenuItem>
+              </PermissionGuard>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        <Button variant="ghost" size="sm" onClick={() => open("view", field.id)}>
+          {commonT("actions.view")}
+        </Button>
+        <PermissionGuard required="global_field_edit">
+          <Button variant="ghost" size="sm" onClick={() => open("edit", field.id)}>
+            {commonT("actions.edit")}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={statusPending}
+            onClick={() => void changeStatus(field)}
+          >
+            {field.isActive ? commonT("actions.deactivate") : commonT("actions.reactivate")}
+          </Button>
+        </PermissionGuard>
+        <PermissionGuard required="global_field_delete">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive"
+            onClick={() => setDeleteTarget(field)}
+          >
+            {commonT("actions.delete")}
+          </Button>
+        </PermissionGuard>
+      </div>
+    );
+  }, [changeStatus, commonT, statusPendingId, t]);
 
   const columns = useMemo<ColumnDef<GlobalField>[]>(
     () => [
@@ -117,57 +257,10 @@ export function GlobalFieldListPage() {
       {
         id: "actions",
         header: t("columns.actions"),
-        cell: ({ row }) => {
-          const field = row.original;
-          return (
-            <div className="flex flex-wrap gap-1">
-              <Button variant="ghost" size="sm" onClick={() => open("view", field)}>
-                {commonT("actions.view")}
-              </Button>
-              <PermissionGuard required="global_field_edit">
-                <Button variant="ghost" size="sm" onClick={() => open("edit", field)}>
-                  {commonT("actions.edit")}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard required="global_field_edit">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    statusMutation.mutate({
-                      fieldId: field.id,
-                      isActive: !field.isActive,
-                      rowVersion: field.rowVersion,
-                    })
-                  }
-                >
-                  {field.isActive ? commonT("actions.deactivate") : commonT("actions.reactivate")}
-                </Button>
-              </PermissionGuard>
-              <PermissionGuard required="global_field_delete">
-                <ConfirmDialog
-                  trigger={
-                    <Button variant="ghost" size="sm" className="text-destructive">
-                      {commonT("actions.delete")}
-                    </Button>
-                  }
-                  title={t("delete.title")}
-                  description={t("delete.description", { name: field.name })}
-                  destructive
-                  onConfirm={async () => {
-                    await deleteMutation.mutateAsync({
-                      fieldId: field.id,
-                      rowVersion: field.rowVersion,
-                    });
-                  }}
-                />
-              </PermissionGuard>
-            </div>
-          );
-        },
+        cell: ({ row }) => renderFieldActions(row.original),
       },
     ],
-    [commonT, dateFormatter, deleteMutation, resolveFieldTypeName, statusDefinitions, statusMutation, t],
+    [dateFormatter, renderFieldActions, resolveFieldTypeName, statusDefinitions, t],
   );
 
   const updateSearch = useCallback(
@@ -178,6 +271,10 @@ export function GlobalFieldListPage() {
   );
 
   const typeFilterDisabled = fieldTypesQuery.isPending || fieldTypesQuery.isError || fieldTypes.length === 0;
+  const dialogOpen = mode === "create" || Boolean(selectedFieldId);
+  const detail = detailQuery.data;
+  const detailLoading = Boolean(selectedFieldId) && detailQuery.isPending;
+  const detailError = Boolean(selectedFieldId) && detailQuery.isError;
 
   return (
     <PageContent>
@@ -310,55 +407,87 @@ export function GlobalFieldListPage() {
                 },
                 { label: t("columns.optionCount"), value: field.options.length },
               ]}
-              actions={
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => open("view", field)}>
-                    {commonT("actions.view")}
-                  </Button>
-                  <PermissionGuard required="global_field_edit">
-                    <Button onClick={() => open("edit", field)}>{commonT("actions.edit")}</Button>
-                  </PermissionGuard>
-                </div>
-              }
+              actions={renderFieldActions(field, "mobile")}
             />
           )}
         />
       )}
-      <Dialog open={mode === "create" || Boolean(selected)} onOpenChange={(isOpen) => !isOpen && close()}>
+      <Dialog open={dialogOpen} onOpenChange={(isOpen) => !isOpen && close()}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{t(`dialog.${mode}`)}</DialogTitle>
             <DialogDescription>{t("form.description")}</DialogDescription>
           </DialogHeader>
-          <GlobalFieldForm
-            key={`${mode}-${selected?.id ?? "new"}`}
-            field={selected}
-            readOnly={mode === "view"}
-            onCancel={close}
-            hasRowVersionConflict={hasRowVersionConflict}
-            onReload={() => {
-              void query.refetch();
-              setHasRowVersionConflict(false);
-            }}
-            onSubmit={async (payload) => {
-              try {
-                if (mode === "create") await createMutation.mutateAsync(payload);
-                else if (selected) {
+          {mode === "create" ? (
+            <GlobalFieldForm
+              key={`create-${formRemountKey}`}
+              readOnly={false}
+              onCancel={close}
+              onSubmit={async (payload) => {
+                await createMutation.mutateAsync(payload);
+                close();
+              }}
+            />
+          ) : detailLoading ? (
+            <LoadingState label={commonT("state.loading")} />
+          ) : detailError ? (
+            <ErrorState
+              description={t("page.error")}
+              onRetry={() => {
+                setHasRowVersionConflict(false);
+                void detailQuery.refetch();
+              }}
+            />
+          ) : detail ? (
+            <GlobalFieldForm
+              key={`${mode}-${detail.id}-${detail.rowVersion}-${formRemountKey}`}
+              field={detail}
+              readOnly={mode === "view"}
+              onCancel={close}
+              hasRowVersionConflict={hasRowVersionConflict}
+              onReload={() => {
+                void reloadDetail();
+              }}
+              onSubmit={async (payload) => {
+                try {
                   await updateMutation.mutateAsync(
                     payload as Parameters<typeof updateMutation.mutateAsync>[0],
                   );
+                  close();
+                } catch (error) {
+                  if (isApiError(error) && error.messageKey === "ERR-010") {
+                    setHasRowVersionConflict(true);
+                  }
+                  throw error;
                 }
-                close();
-              } catch (error) {
-                if (isApiError(error) && error.messageKey === "ERR-010") {
-                  setHasRowVersionConflict(true);
-                }
-                throw error;
-              }
-            }}
-          />
+              }}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && !deleteMutation.isPending) setDeleteTarget(undefined);
+        }}
+        title={t("delete.title")}
+        description={t("delete.description", { name: deleteTarget?.name ?? "" })}
+        destructive
+        disabled={deleteMutation.isPending}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          try {
+            await deleteMutation.mutateAsync({
+              fieldId: deleteTarget.id,
+              rowVersion: deleteTarget.rowVersion,
+            });
+            setDeleteTarget(undefined);
+          } catch (error) {
+            await handleMutationError(error, deleteTarget.id);
+            throw error;
+          }
+        }}
+      />
     </PageContent>
   );
 }

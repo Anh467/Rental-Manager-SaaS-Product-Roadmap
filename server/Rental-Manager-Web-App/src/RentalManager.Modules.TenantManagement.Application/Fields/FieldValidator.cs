@@ -74,6 +74,8 @@ public static class FieldValidator
             MessageCode.Error.ValidationFailed);
     }
 
+    private const int SqlRowVersionLength = 8;
+
     private static bool TryParseRowVersion(
         string? rowVersion,
         out byte[] parsed)
@@ -85,15 +87,15 @@ public static class FieldValidator
             return false;
         }
 
-        Span<byte> buffer = stackalloc byte[16];
+        Span<byte> buffer = stackalloc byte[SqlRowVersionLength];
 
         if (!Convert.TryFromBase64String(rowVersion, buffer, out int written) ||
-            written == 0)
+            written != SqlRowVersionLength)
         {
             return false;
         }
 
-        parsed = buffer[..written].ToArray();
+        parsed = buffer.ToArray();
         return true;
     }
 

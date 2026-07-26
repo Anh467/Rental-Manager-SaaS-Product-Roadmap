@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, expectAuthenticatedUrl } from "./auth";
+import { test as bareTest, expect as bareExpect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 const viewports = [
   { name: "small-phone", width: 320, height: 640 },
@@ -26,7 +28,9 @@ for (const viewport of viewports) {
     test("Property and Room baselines do not overflow and switch layouts correctly", async ({ page }) => {
       for (const path of ["/properties", "/rooms"] as const) {
         await page.goto(path);
-        await expect(page.locator("h1")).toBeVisible();
+        await expectAuthenticatedUrl(page);
+        // Wait for authenticated route loaders (/me + page data) to finish rendering.
+        await expect(page.locator("h1")).toBeVisible({ timeout: 15_000 });
         await expectNoDocumentOverflow(page);
 
         if (viewport.width < 768) {
@@ -54,12 +58,31 @@ test.describe("mobile navigation drawer", () => {
 
   test("opens, navigates and closes without page overflow", async ({ page }) => {
     await page.goto("/properties");
+    await expectAuthenticatedUrl(page);
+    await expect(page.locator("h1")).toBeVisible({ timeout: 15_000 });
     await page.getByTestId("mobile-menu-trigger").click();
     await expect(page.getByTestId("mobile-navigation-drawer")).toBeVisible();
 
     await page.getByRole("link", { name: /phòng|rooms/i }).click();
     await expect(page).toHaveURL(/\/rooms/);
+    await expectAuthenticatedUrl(page);
     await expect(page.getByTestId("mobile-navigation-drawer")).toBeHidden();
     await expectNoDocumentOverflow(page);
+  });
+});
+
+bareTest.describe("login form", () => {
+  bareTest.use({ viewport: { width: 390, height: 844 } });
+
+  bareTest("signs in through the mock login endpoint", async ({ page }) => {
+    await page.goto("/login");
+    await bareExpect(page).toHaveURL(/\/login/);
+
+    await page.getByLabel(/email/i).fill("mock.admin@example.com");
+    await page.getByLabel(/password|mật khẩu/i).fill("Password123!");
+    await page.getByRole("button", { name: /sign in|đăng nhập/i }).click();
+
+    await bareExpect(page).not.toHaveURL(/\/login(?:\?|$)/);
+    await bareExpect(page.locator("h1")).toBeVisible();
   });
 });

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using RentalManager.Api.Contracts;
 using RentalManager.Api.Security;
 using RentalManager.BuildingBlocks.Tenancy.Services;
@@ -70,6 +71,7 @@ public sealed class AuthController : ControllerBase
     /// </summary>
     [HttpPost("token")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> IssueTokenAsync(
         [FromBody] TokenRequest request,
         CancellationToken cancellationToken)
@@ -105,6 +107,7 @@ public sealed class AuthController : ControllerBase
     /// </summary>
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> LoginAsync(
         [FromBody] TokenRequest request,
         CancellationToken cancellationToken)

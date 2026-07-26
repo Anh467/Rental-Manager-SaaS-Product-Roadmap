@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
+using RentalManager.Modules.TenantManagement.Application.Abstractions.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Fields.Commands;
@@ -8,6 +9,7 @@ using RentalManager.Modules.TenantManagement.Application.Fields.Queries;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields.Commands;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields.Queries;
 using RentalManager.Modules.TenantManagement.Application.GlobalFieldTypes.Queries;
+using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 using RentalManager.Modules.TenantManagement.Infrastructure.Authorization;
 using RentalManager.Modules.TenantManagement.Infrastructure.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Common;
@@ -57,13 +59,47 @@ public static class TenantManagementServiceCollectionExtensions
     private static IServiceCollection AddTenantManagementApplication(
         this IServiceCollection services)
     {
-        services.AddScoped<IFieldQueryService, FieldQueryService>();
-        services.AddScoped<IFieldCommandService, FieldCommandService>();
+        services.AddScoped<OrgFieldOptionSynchronizer>();
+        services.AddScoped<GlobalFieldOptionSynchronizer>();
 
-        services.AddScoped<IGlobalFieldQueryService, GlobalFieldQueryService>();
-        services.AddScoped<IGlobalFieldCommandService, GlobalFieldCommandService>();
+        services.AddScoped<
+            IQueryHandler<GetFieldsQuery, PagedResult<FieldDto>>,
+            GetFieldsQueryHandler>();
+        services.AddScoped<
+            IQueryHandler<GetFieldQuery, FieldDto>,
+            GetFieldQueryHandler>();
+        services.AddScoped<
+            ICommandHandler<CreateFieldCommand, FieldDto>,
+            CreateFieldCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<UpdateFieldCommand, FieldDto>,
+            UpdateFieldCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<DeleteFieldCommand>,
+            DeleteFieldCommandHandler>();
 
-        services.AddScoped<IGlobalFieldTypeQueryService, GlobalFieldTypeQueryService>();
+        services.AddScoped<
+            IQueryHandler<GetGlobalFieldsQuery, PagedResult<FieldDto>>,
+            GetGlobalFieldsQueryHandler>();
+        services.AddScoped<
+            IQueryHandler<GetGlobalFieldQuery, FieldDto>,
+            GetGlobalFieldQueryHandler>();
+        services.AddScoped<
+            ICommandHandler<CreateGlobalFieldCommand, FieldDto>,
+            CreateGlobalFieldCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<UpdateGlobalFieldCommand, FieldDto>,
+            UpdateGlobalFieldCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<UpdateGlobalFieldStatusCommand, FieldDto>,
+            UpdateGlobalFieldStatusCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<DeleteGlobalFieldCommand>,
+            DeleteGlobalFieldCommandHandler>();
+
+        services.AddScoped<
+            IQueryHandler<GetGlobalFieldTypesQuery, IReadOnlyList<FieldTypeDto>>,
+            GetGlobalFieldTypesQueryHandler>();
 
         return services;
     }

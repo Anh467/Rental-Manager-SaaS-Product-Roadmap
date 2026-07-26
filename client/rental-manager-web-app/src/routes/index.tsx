@@ -1,15 +1,13 @@
 import { createFileRoute, redirect, isRedirect } from "@tanstack/react-router";
-import { getMe } from "@/api/routes/auth";
+
 import { hasPermission } from "@/components/common/permission-guard";
+import { ensureAuthenticatedUser } from "@/features/auth/auth-session";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: async () => {
-    if (!localStorage.getItem("access_token")) {
-      throw redirect({ to: "/login", replace: true });
-    }
-
+  beforeLoad: async ({ context }) => {
     try {
-      const user = (await getMe()).data;
+      const user = await ensureAuthenticatedUser(context.queryClient);
+
       if (user.scope === "global") {
         if (hasPermission(user.permissions, "global_field_view")) {
           throw redirect({
@@ -34,7 +32,7 @@ export const Route = createFileRoute("/")({
       });
     } catch (error) {
       if (isRedirect(error)) throw error;
-      throw redirect({ to: "/login", replace: true });
+      throw error;
     }
   },
   component: () => null,

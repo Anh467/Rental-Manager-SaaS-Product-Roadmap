@@ -1,7 +1,10 @@
+using System.Text.Json;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using RentalManager.Api.Authorization;
 using RentalManager.Api.Contracts;
 using RentalManager.Api.Middlewares;
@@ -36,6 +39,7 @@ builder.Services
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddTenancy();
 builder.Services.AddTenantManagementInfrastructure(builder.Configuration);
@@ -53,9 +57,59 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services.AddSingleton<JwtTokenIssuer>();
-builder.Services.AddOptions<BootstrapAdminOptions>()
-    .Bind(builder.Configuration.GetSection(BootstrapAdminOptions.SectionName));
+builder.Services
+    .AddOptions<BootstrapAdminOptions>()
+    .Bind(builder.Configuration.GetSection(BootstrapAdminOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder.Services.AddHostedService<BootstrapAdminHostedService>();
+
+builder.Services
+    .AddOptions<AuthRateLimitOptions>()
+    .Bind(builder.Configuration.GetSection(AuthRateLimitOptions.SectionName));
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        HttpContext httpContext = context.HttpContext;
+        httpContext.Response.ContentType = "application/json; charset=utf-8";
+        await httpContext.Response.WriteAsync(
+            JsonSerializer.Serialize(
+                new ApiErrorResponse
+                {
+                    MessageKey = MessageCode.Error.RateLimitExceeded,
+                    CorrelationId = httpContext.TraceIdentifier
+                },
+                new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                }),
+            cancellationToken);
+    };
+
+    options.AddPolicy("auth", httpContext =>
+    {
+        AuthRateLimitOptions limits = httpContext.RequestServices
+            .GetRequiredService<IOptionsMonitor<AuthRateLimitOptions>>()
+            .CurrentValue;
+
+        string partitionKey = httpContext.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey,
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = Math.Max(1, limits.PermitLimit),
+                Window = TimeSpan.FromSeconds(Math.Max(1, limits.WindowSeconds)),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+});
+
 builder.Services.AddHealthChecks();
 builder.Services.AddCors(options => options.AddPolicy("development", policy => policy
     .WithOrigins("http://localhost:5173", "https://localhost:5173", "http://localhost:4173", "https://localhost:4173")
@@ -120,6 +174,7 @@ if (app.Environment.IsDevelopment())
     app.UseCors("development");
 }
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<OrganizationContextMiddleware>();
 app.UseAuthorization();

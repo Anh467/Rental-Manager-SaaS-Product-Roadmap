@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentalManager.Api.Authorization;
 using RentalManager.Api.Contracts;
+using RentalManager.Modules.TenantManagement.Application.Abstractions.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Fields;
 using RentalManager.Modules.TenantManagement.Application.Fields.Commands;
@@ -22,18 +23,30 @@ public sealed class FieldsController : ControllerBase
             [MessageCode.Parameter.Object] = MessageCode.ObjectName.Field
         };
 
-    private readonly IFieldQueryService _queries;
-    private readonly IFieldCommandService _commands;
+    private readonly IQueryHandler<GetFieldsQuery, PagedResult<FieldDto>> _getFields;
+    private readonly IQueryHandler<GetFieldQuery, FieldDto> _getField;
+    private readonly ICommandHandler<CreateFieldCommand, FieldDto> _createField;
+    private readonly ICommandHandler<UpdateFieldCommand, FieldDto> _updateField;
+    private readonly ICommandHandler<DeleteFieldCommand> _deleteField;
 
     public FieldsController(
-        IFieldQueryService queries,
-        IFieldCommandService commands)
+        IQueryHandler<GetFieldsQuery, PagedResult<FieldDto>> getFields,
+        IQueryHandler<GetFieldQuery, FieldDto> getField,
+        ICommandHandler<CreateFieldCommand, FieldDto> createField,
+        ICommandHandler<UpdateFieldCommand, FieldDto> updateField,
+        ICommandHandler<DeleteFieldCommand> deleteField)
     {
-        ArgumentNullException.ThrowIfNull(queries);
-        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(getFields);
+        ArgumentNullException.ThrowIfNull(getField);
+        ArgumentNullException.ThrowIfNull(createField);
+        ArgumentNullException.ThrowIfNull(updateField);
+        ArgumentNullException.ThrowIfNull(deleteField);
 
-        _queries = queries;
-        _commands = commands;
+        _getFields = getFields;
+        _getField = getField;
+        _createField = createField;
+        _updateField = updateField;
+        _deleteField = deleteField;
     }
 
     [HttpGet]
@@ -42,8 +55,8 @@ public sealed class FieldsController : ControllerBase
         [FromQuery] GetFieldsRequest request,
         CancellationToken cancellationToken)
     {
-        PagedResult<FieldDto> page = await _queries.GetFieldsAsync(
-            request,
+        PagedResult<FieldDto> page = await _getFields.HandleAsync(
+            new GetFieldsQuery(request),
             cancellationToken);
 
         return Ok(ApiResponse<ApiPageResult<FieldDto>>.Create(
@@ -58,7 +71,9 @@ public sealed class FieldsController : ControllerBase
         Guid id,
         CancellationToken cancellationToken)
     {
-        FieldDto field = await _queries.GetFieldAsync(id, cancellationToken);
+        FieldDto field = await _getField.HandleAsync(
+            new GetFieldQuery(id),
+            cancellationToken);
 
         return Ok(ApiResponse<FieldDto>.Create(
             field,
@@ -72,7 +87,9 @@ public sealed class FieldsController : ControllerBase
         [FromBody] CreateFieldRequest request,
         CancellationToken cancellationToken)
     {
-        FieldDto field = await _commands.CreateFieldAsync(request, cancellationToken);
+        FieldDto field = await _createField.HandleAsync(
+            new CreateFieldCommand(request),
+            cancellationToken);
 
         return Created(
             $"/api/v1/fields/{field.Id}",
@@ -89,9 +106,8 @@ public sealed class FieldsController : ControllerBase
         [FromBody] UpdateFieldRequest request,
         CancellationToken cancellationToken)
     {
-        FieldDto field = await _commands.UpdateFieldAsync(
-            id,
-            request,
+        FieldDto field = await _updateField.HandleAsync(
+            new UpdateFieldCommand(id, request),
             cancellationToken);
 
         return Ok(ApiResponse<FieldDto>.Create(
@@ -111,7 +127,9 @@ public sealed class FieldsController : ControllerBase
         [FromBody] DeleteFieldRequest request,
         CancellationToken cancellationToken)
     {
-        await _commands.DeleteFieldAsync(id, request, cancellationToken);
+        await _deleteField.HandleAsync(
+            new DeleteFieldCommand(id, request),
+            cancellationToken);
 
         return Ok(ApiResponse<object>.Create(
             null,
