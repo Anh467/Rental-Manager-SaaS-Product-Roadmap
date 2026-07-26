@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Validation;
 
-namespace RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
+namespace RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 
 public sealed record FieldOptionInput
 {

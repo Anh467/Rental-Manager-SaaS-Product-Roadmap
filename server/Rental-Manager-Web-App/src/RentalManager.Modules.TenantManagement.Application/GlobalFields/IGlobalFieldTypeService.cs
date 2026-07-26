@@ -1,4 +1,4 @@
-using RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
+using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 
 namespace RentalManager.Modules.TenantManagement.Application.GlobalFields;
 

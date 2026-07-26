@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using RentalManager.Api.Authorization;
 using RentalManager.Api.Contracts;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
-using RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields;
+using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 
 namespace RentalManager.Api.Controllers;

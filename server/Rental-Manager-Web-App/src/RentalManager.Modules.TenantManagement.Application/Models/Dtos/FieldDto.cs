@@ -1,4 +1,4 @@
-namespace RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
+namespace RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 
 /// <summary>
 /// Field as returned to clients. Deliberately not the domain entity, and

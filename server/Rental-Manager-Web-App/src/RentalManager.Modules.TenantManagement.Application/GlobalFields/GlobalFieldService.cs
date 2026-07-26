@@ -2,7 +2,7 @@ using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistenc
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Application.Fields;
-using RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
+using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;

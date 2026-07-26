@@ -1,4 +1,4 @@
-namespace RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
+namespace RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 
 public sealed record FieldTypeDto
 {
