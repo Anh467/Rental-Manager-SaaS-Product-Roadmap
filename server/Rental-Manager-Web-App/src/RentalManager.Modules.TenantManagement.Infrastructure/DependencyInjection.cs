@@ -24,8 +24,9 @@ public static class TenantManagementServiceCollectionExtensions
 
         string connectionString =
             configuration.GetConnectionString("RentalManager")
+            ?? configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException(
-                "Connection string 'RentalManager' is required.");
+                "Connection string 'RentalManager' (or 'DefaultConnection') is required.");
 
         services.AddSingleton<ISqlConnectionFactory>(
             new SqlConnectionFactory(connectionString));

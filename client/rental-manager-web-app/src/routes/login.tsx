@@ -2,7 +2,9 @@ import { useState } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
+import { isApiError } from "@/api/client";
 import { useAuth } from "@/features/auth/auth-provider";
+import { getApiErrorMessage } from "@/components/form/server-errors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,10 +31,14 @@ function LoginPage() {
     setError(undefined);
     setSubmitting(true);
     try {
-      await login({ email, password, organizationId: organizationId || undefined });
+      await login({ email, password, organizationId: organizationId.trim() || undefined });
       await navigate({ to: "/" });
-    } catch {
-      setError("Unable to sign in. Check your credentials and try again.");
+    } catch (error) {
+      setError(
+        isApiError(error)
+          ? getApiErrorMessage(error, "Unable to sign in. Check your credentials and try again.")
+          : "Unable to sign in. Check your credentials and try again.",
+      );
     } finally {
       setSubmitting(false);
     }
