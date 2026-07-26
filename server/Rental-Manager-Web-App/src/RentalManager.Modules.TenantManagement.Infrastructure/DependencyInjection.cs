@@ -56,6 +56,7 @@ public static class TenantManagementServiceCollectionExtensions
     {
         services.AddScoped<IFieldService, FieldService>();
         services.AddScoped<IGlobalFieldService, GlobalFieldService>();
+        services.AddScoped<IGlobalFieldTypeService, GlobalFieldTypeService>();
 
         return services;
     }

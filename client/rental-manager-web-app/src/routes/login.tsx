@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useMemo } from "react";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 
-import { isApiError } from "@/api/client";
 import { useAuth } from "@/features/auth/auth-provider";
-import { getApiErrorMessage } from "@/components/form/server-errors";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  AppForm,
+  EmailFormField,
+  FormSubmitButton,
+  PasswordFormField,
+  requiredEmail,
+  requiredText,
+} from "@/components/form";
 
 export const Route = createFileRoute("/login")({
   beforeLoad: () => {
@@ -16,77 +20,68 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+type LoginFormValues = {
+  email: string;
+  password: string;
+};
+
 function LoginPage() {
   const { t } = useTranslation("common");
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string>();
-  const [submitting, setSubmitting] = useState(false);
 
-  const submit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError(undefined);
-    setSubmitting(true);
-    try {
-      await login({ email, password });
-      await navigate({ to: "/" });
-    } catch (error) {
-      setError(
-        isApiError(error)
-          ? getApiErrorMessage(error, "Unable to sign in. Check your credentials and try again.")
-          : "Unable to sign in. Check your credentials and try again.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const schema = useMemo(
+    () =>
+      z.object({
+        email: requiredEmail(t("login.email")),
+        password: requiredText(t("login.password"), 256),
+      }),
+    [t],
+  );
 
   return (
     <main className="grid min-h-dvh place-items-center bg-muted/30 p-4">
-      <form
-        onSubmit={(event) => void submit(event)}
-        className="w-full max-w-md space-y-5 rounded-lg border bg-background p-6 shadow-sm"
-      >
+      <div className="w-full max-w-md space-y-5 rounded-lg border bg-background p-6 shadow-sm">
         <div>
-          <h1 className="text-xl font-semibold">Rental Manager</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to continue.</p>
+          <h1 className="text-xl font-semibold">{t("login.title")}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t("login.subtitle")}</p>
         </div>
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </div>
-        <Button className="w-full" type="submit" disabled={submitting}>
-          {submitting ? t("actions.saving") : "Sign in"}
-        </Button>
-      </form>
+        <AppForm<LoginFormValues>
+          schema={schema}
+          defaultValues={{ email: "", password: "" }}
+          onSubmit={async (values) => {
+            await login(values);
+            await navigate({ to: "/" });
+          }}
+          serverErrorOptions={{
+            fieldMap: { Email: "email", Password: "password" },
+            fallbackMessage: t("login.failed"),
+          }}
+          className="space-y-5"
+        >
+          {(form) => (
+            <>
+              <EmailFormField
+                control={form.control}
+                name="email"
+                label={t("login.email")}
+                required
+                autoComplete="email"
+              />
+              <PasswordFormField
+                control={form.control}
+                name="password"
+                label={t("login.password")}
+                required
+                autoComplete="current-password"
+              />
+              <FormSubmitButton className="w-full" submittingText={t("login.submitting")}>
+                {t("login.submit")}
+              </FormSubmitButton>
+            </>
+          )}
+        </AppForm>
+      </div>
     </main>
   );
 }

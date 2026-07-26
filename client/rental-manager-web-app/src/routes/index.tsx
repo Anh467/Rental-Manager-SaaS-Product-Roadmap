@@ -10,12 +10,16 @@ export const Route = createFileRoute("/")({
 
     try {
       const user = (await getMe()).data;
-      if (user.scope === "global" && hasPermission(user.permissions, "global_field_view")) {
-        throw redirect({
-          to: "/global/fields",
-          search: { page: 1, pageSize: 20, search: "", sortBy: "" },
-          replace: true,
-        });
+      if (user.scope === "global") {
+        if (hasPermission(user.permissions, "global_field_view")) {
+          throw redirect({
+            to: "/global/fields",
+            search: { page: 1, pageSize: 20, search: "", sortBy: "" },
+            replace: true,
+          });
+        }
+
+        throw redirect({ to: "/access-denied", replace: true });
       }
 
       throw redirect({

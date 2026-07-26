@@ -1,7 +1,5 @@
 import type { ApiPathParams, PageRequest } from "@/api/client";
 
-export type GlobalFieldTypeId = 1 | 2 | 4 | 6;
-
 export type FieldOption = {
   id?: string;
   key: string;
@@ -16,7 +14,7 @@ export type GlobalField = {
   key: string;
   name: string;
   description?: string;
-  fieldTypeId: GlobalFieldTypeId;
+  fieldTypeId: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -25,14 +23,17 @@ export type GlobalField = {
 };
 
 export type GetGlobalFieldsRequest = PageRequest & {
-  fieldTypeId?: GlobalFieldTypeId;
+  fieldTypeId?: number;
   isActive?: boolean;
   pageNumber?: number;
 };
 
 export type GlobalFieldPathParams = ApiPathParams<"fieldId">;
 
-export type GlobalFieldPayload = Pick<GlobalField, "key" | "name" | "description" | "fieldTypeId" | "isActive" | "options">;
+export type GlobalFieldPayload = Pick<
+  GlobalField,
+  "key" | "name" | "description" | "fieldTypeId" | "isActive" | "options"
+>;
 export type CreateGlobalFieldRequest = GlobalFieldPayload;
 export type UpdateGlobalFieldRequest = GlobalFieldPayload & { rowVersion: string };
 export type ChangeGlobalFieldStatusRequest = Pick<GlobalField, "isActive" | "rowVersion">;

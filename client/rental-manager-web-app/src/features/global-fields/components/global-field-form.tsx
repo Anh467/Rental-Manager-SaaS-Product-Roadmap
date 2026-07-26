@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
+import { useGlobalFieldTypesQuery } from "@/api/routes/global-field-types";
 import type { CreateGlobalFieldRequest, GlobalField, UpdateGlobalFieldRequest } from "@/api/routes/global-fields";
 import {
   AppForm,
@@ -17,15 +18,22 @@ import {
   optionalBoolean,
   optionalText,
   requiredText,
+  validationMessages,
 } from "@/components/form";
+import { ErrorState } from "@/components/common/page";
 import { Button } from "@/components/ui/button";
+import {
+  getMultiSelectFieldTypeId,
+  isMultiSelectFieldTypeId,
+  toFieldTypeSelectOptions,
+} from "../lib/field-type-options";
 import { FieldOptionEditor } from "./field-option-editor";
 
 export type GlobalFieldFormValues = {
   name: string;
   key: string;
   description?: string;
-  fieldTypeId: "1" | "2" | "4" | "6";
+  fieldTypeId: string;
   isActive: boolean;
   options: Array<{ key: string; name: string; description?: string; isActive: boolean }>;
 };
@@ -39,46 +47,118 @@ export type GlobalFieldFormProps = {
   onReload?: () => void;
 };
 
-export function GlobalFieldForm({ field, readOnly = false, onCancel, onSubmit, hasRowVersionConflict, onReload }: GlobalFieldFormProps) {
+export function GlobalFieldForm({
+  field,
+  readOnly = false,
+  onCancel,
+  onSubmit,
+  hasRowVersionConflict,
+  onReload,
+}: GlobalFieldFormProps) {
   const { t } = useTranslation("global-field");
   const { t: commonT } = useTranslation("common");
   const isEdit = Boolean(field);
-  const schema = useMemo(() => z.object({
-    name: requiredText(t("form.fields.name"), 256),
-    key: requiredText(t("form.fields.key"), 256).regex(/^[a-z0-9_]+$/, t("form.validation.key")),
-    description: optionalText(t("form.fields.description"), 1028),
-    fieldTypeId: z.enum(["1", "2", "4", "6"]),
-    isActive: optionalBoolean,
-    options: z.array(z.object({
-      name: requiredText(t("options.fields.name"), 256),
-      key: requiredText(t("options.fields.key"), 256).regex(/^[a-z0-9_]+$/, t("form.validation.key")),
-      description: optionalText(t("options.fields.description"), 1028),
-      isActive: optionalBoolean,
-    })),
-  }).superRefine((values, context) => {
-    if (values.fieldTypeId === "6" && values.options.length === 0) {
-      context.addIssue({ code: z.ZodIssueCode.custom, path: ["options"], message: t("options.required") });
+  const fieldTypesQuery = useGlobalFieldTypesQuery();
+  const fieldTypes = fieldTypesQuery.data ?? [];
+  const multiSelectId = getMultiSelectFieldTypeId(fieldTypes);
+  const fieldTypeOptions = useMemo(() => {
+    const options = toFieldTypeSelectOptions(fieldTypes);
+    if (
+      field &&
+      !options.some((option) => option.value === String(field.fieldTypeId))
+    ) {
+      options.push({
+        value: String(field.fieldTypeId),
+        label: String(field.fieldTypeId),
+      });
     }
-  }), [t]);
+    return options;
+  }, [field, fieldTypes]);
+
+  const schema = useMemo(
+    () =>
+      z
+        .object({
+          name: requiredText(t("form.fields.name"), 256),
+          key: requiredText(t("form.fields.key"), 256).regex(
+            /^[a-z0-9_]+$/,
+            t("form.validation.key"),
+          ),
+          description: optionalText(t("form.fields.description"), 1028),
+          fieldTypeId: z
+            .string({ required_error: validationMessages.required(t("form.fields.fieldType")) })
+            .min(1, validationMessages.required(t("form.fields.fieldType")))
+            .refine(
+              (value) => fieldTypeOptions.some((option) => option.value === value),
+              validationMessages.required(t("form.fields.fieldType")),
+            ),
+          isActive: optionalBoolean,
+          options: z.array(
+            z.object({
+              name: requiredText(t("options.fields.name"), 256),
+              key: requiredText(t("options.fields.key"), 256).regex(
+                /^[a-z0-9_]+$/,
+                t("form.validation.key"),
+              ),
+              description: optionalText(t("options.fields.description"), 1028),
+              isActive: optionalBoolean,
+            }),
+          ),
+        })
+        .superRefine((values, context) => {
+          if (
+            multiSelectId !== undefined &&
+            Number(values.fieldTypeId) === multiSelectId &&
+            values.options.length === 0
+          ) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["options"],
+              message: t("options.required"),
+            });
+          }
+        }),
+    [fieldTypeOptions, multiSelectId, t],
+  );
 
   const initialValues: GlobalFieldFormValues = {
     name: field?.name ?? "",
     key: field?.key ?? "",
     description: field?.description ?? "",
-    fieldTypeId: String(field?.fieldTypeId ?? 1) as GlobalFieldFormValues["fieldTypeId"],
+    fieldTypeId: field ? String(field.fieldTypeId) : (fieldTypeOptions[0]?.value ?? ""),
     isActive: field?.isActive ?? true,
-    options: field?.options.map(({ key, name, description, isActive }) => ({ key, name, description, isActive })) ?? [],
+    options:
+      field?.options.map(({ key, name, description, isActive }) => ({
+        key,
+        name,
+        description,
+        isActive,
+      })) ?? [],
   };
+
+  if (fieldTypesQuery.isError) {
+    return (
+      <ErrorState
+        description={t("page.fieldTypesError")}
+        onRetry={() => void fieldTypesQuery.refetch()}
+      />
+    );
+  }
+
+  const typesLoading = fieldTypesQuery.isPending;
+  const typeSelectDisabled = readOnly || isEdit || typesLoading || fieldTypeOptions.length === 0;
 
   return (
     <AppForm<GlobalFieldFormValues>
+      key={`${field?.id ?? "new"}-${fieldTypeOptions.map((option) => option.value).join(",")}`}
       schema={schema}
       defaultValues={initialValues}
       onSubmit={async (values) => {
+        const fieldTypeId = Number(values.fieldTypeId);
         const payload = {
           ...values,
-          fieldTypeId: Number(values.fieldTypeId) as 1 | 2 | 4 | 6,
-          options: values.fieldTypeId === "6"
+          fieldTypeId,
+          options: isMultiSelectFieldTypeId(fieldTypes, fieldTypeId)
             ? values.options.map((option, displayOrder) => ({ ...option, displayOrder }))
             : [],
         };
@@ -88,27 +168,67 @@ export function GlobalFieldForm({ field, readOnly = false, onCancel, onSubmit, h
     >
       {(form) => (
         <>
-          {hasRowVersionConflict && onReload ? <RowVersionConflictAlert onReload={onReload} /> : null}
+          {hasRowVersionConflict && onReload ? (
+            <RowVersionConflictAlert onReload={onReload} />
+          ) : null}
           <FormSection title={t("form.title")} description={t("form.description")}>
             <FormGrid>
-              <TextFormField control={form.control} name="name" label={t("form.fields.name")} required disabled={readOnly} maxLength={256} />
-              <TextFormField control={form.control} name="key" label={t("form.fields.key")} required disabled={readOnly || isEdit} maxLength={256} />
+              <TextFormField
+                control={form.control}
+                name="name"
+                label={t("form.fields.name")}
+                required
+                disabled={readOnly}
+                maxLength={256}
+              />
+              <TextFormField
+                control={form.control}
+                name="key"
+                label={t("form.fields.key")}
+                required
+                disabled={readOnly || isEdit}
+                maxLength={256}
+              />
               <SelectFormField
                 control={form.control}
                 name="fieldTypeId"
                 label={t("form.fields.fieldType")}
                 required
-                disabled={readOnly || isEdit}
-                options={["1", "2", "4", "6"].map((value) => ({ value, label: t(`types.${value}`) }))}
+                disabled={typeSelectDisabled}
+                options={fieldTypeOptions}
+                placeholder={typesLoading ? commonT("state.loading") : undefined}
               />
             </FormGrid>
-            <TextareaFormField control={form.control} name="description" label={t("form.fields.description")} disabled={readOnly} rows={3} maxLength={1028} />
-            {!readOnly ? <SwitchFormField control={form.control} name="isActive" label={t("form.fields.isActive")} /> : null}
-            {form.watch("fieldTypeId") === "6" ? <FieldOptionEditor control={form.control} disabled={readOnly} /> : null}
+            <TextareaFormField
+              control={form.control}
+              name="description"
+              label={t("form.fields.description")}
+              disabled={readOnly}
+              rows={3}
+              maxLength={1028}
+            />
+            {!readOnly ? (
+              <SwitchFormField
+                control={form.control}
+                name="isActive"
+                label={t("form.fields.isActive")}
+              />
+            ) : null}
+            {isMultiSelectFieldTypeId(fieldTypes, form.watch("fieldTypeId")) ? (
+              <FieldOptionEditor control={form.control} disabled={readOnly} />
+            ) : null}
           </FormSection>
           <FormActions>
-            {onCancel ? <Button type="button" variant="outline" onClick={onCancel}>{readOnly ? commonT("actions.close") : commonT("actions.cancel")}</Button> : null}
-            {!readOnly ? <FormSubmitButton>{commonT("actions.save")}</FormSubmitButton> : null}
+            {onCancel ? (
+              <Button type="button" variant="outline" onClick={onCancel}>
+                {readOnly ? commonT("actions.close") : commonT("actions.cancel")}
+              </Button>
+            ) : null}
+            {!readOnly ? (
+              <FormSubmitButton disabled={typesLoading || fieldTypeOptions.length === 0}>
+                {commonT("actions.save")}
+              </FormSubmitButton>
+            ) : null}
           </FormActions>
         </>
       )}

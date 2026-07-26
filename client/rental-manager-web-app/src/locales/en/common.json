@@ -116,5 +116,14 @@
     "maintenance": "maintenance",
     "pendingScan": "pending scan",
     "quarantined": "quarantined"
+  },
+  "login": {
+    "title": "Rental Manager",
+    "subtitle": "Sign in to continue.",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign in",
+    "submitting": "Signing in...",
+    "failed": "Unable to sign in. Check your credentials and try again."
   }
 }
