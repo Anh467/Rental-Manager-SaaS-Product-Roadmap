@@ -1,4 +1,4 @@
-namespace RentalManager.Modules.TenantManagement.Application.Abstractions.Cqrs;
+namespace RentalManager.BuildingBlocks.Tenancy.Cqrs;
 
 public interface ICommandHandler<in TCommand>
     where TCommand : ICommand
