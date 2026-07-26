@@ -74,7 +74,7 @@ test.describe("mobile navigation drawer", () => {
 bareTest.describe("login form", () => {
   bareTest.use({ viewport: { width: 390, height: 844 } });
 
-  bareTest("signs in through the mock login endpoint", async ({ page }) => {
+  bareTest("signs in through the mock login endpoint without storing access_token", async ({ page }) => {
     await page.goto("/login");
     await bareExpect(page).toHaveURL(/\/login/);
 
@@ -84,5 +84,8 @@ bareTest.describe("login form", () => {
 
     await bareExpect(page).not.toHaveURL(/\/login(?:\?|$)/);
     await bareExpect(page.locator("h1")).toBeVisible();
+    await bareExpect
+      .poll(async () => page.evaluate(() => window.localStorage.getItem("access_token")))
+      .toBeNull();
   });
 });

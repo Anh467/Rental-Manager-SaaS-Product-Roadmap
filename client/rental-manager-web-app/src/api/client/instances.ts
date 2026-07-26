@@ -1,3 +1,4 @@
+import { clearCsrfToken } from "./csrf";
 import { createApiClient } from "./factory";
 
 export const BASE_URLS = {
@@ -5,17 +6,8 @@ export const BASE_URLS = {
   bff: import.meta.env.VITE_BFF_URL ?? import.meta.env.VITE_API_URL ?? "",
 } as const;
 
-function getAccessToken() {
-  return localStorage.getItem("access_token");
-}
-
-function getOrganizationId() {
-  return localStorage.getItem("organization_id");
-}
-
 function handleUnauthorized() {
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("organization_id");
+  clearCsrfToken();
   if (window.location.pathname !== "/login") {
     window.location.assign("/login");
   }
@@ -23,8 +15,7 @@ function handleUnauthorized() {
 
 const sharedOptions = {
   timeoutMs: 30_000,
-  getAccessToken,
-  getOrganizationId,
+  withCredentials: true,
   onUnauthorized: handleUnauthorized,
 };
 

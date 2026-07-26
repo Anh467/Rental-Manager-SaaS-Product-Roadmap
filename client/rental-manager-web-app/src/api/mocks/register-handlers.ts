@@ -23,10 +23,28 @@ import type {
   Room,
   UpdateRoomRequest,
 } from "@/api/routes/rooms";
-import type { LoginRequest } from "@/api/routes/auth";
-import { MOCK_ACCESS_TOKEN, mockAuthUser } from "@/api/mocks/auth-constants";
+import type { LoginRequest, SelectOrganizationRequest } from "@/api/routes/auth";
+import {
+  MOCK_LOGIN_EMAIL,
+  MOCK_LOGIN_PASSWORD,
+  MOCK_MULTI_ORG_EMAIL,
+  MOCK_MULTI_ORG_PASSWORD,
+  MOCK_ORGANIZATION_ID,
+  MOCK_SESSION_COOKIE,
+  buildMockAuthUser,
+  mockOrganizations,
+} from "@/api/mocks/auth-constants";
 
-export { MOCK_ACCESS_TOKEN, MOCK_ORGANIZATION_ID, mockAuthUser } from "@/api/mocks/auth-constants";
+export {
+  MOCK_LOGIN_EMAIL,
+  MOCK_LOGIN_PASSWORD,
+  MOCK_MULTI_ORG_EMAIL,
+  MOCK_MULTI_ORG_PASSWORD,
+  MOCK_ORGANIZATION_ID,
+  MOCK_SESSION_COOKIE,
+  mockAuthUser,
+  mockOrganizations,
+} from "@/api/mocks/auth-constants";
 
 const propertyDetailPattern = /\/api\/properties\/([^/]+)$/;
 const roomDetailPattern = /\/api\/rooms\/([^/]+)$/;
@@ -87,16 +105,61 @@ export function registerMockHandlers(mock: MockAdapter) {
   mock.onAny().passThrough();
 }
 
-function getBearerToken(config: AxiosRequestConfig) {
-  const header = config.headers?.Authorization ?? config.headers?.authorization;
-  const value = Array.isArray(header) ? header[0] : header;
-  if (typeof value !== "string") return "";
-  const match = value.match(/^Bearer\s+(.+)$/i);
-  return match?.[1]?.trim() ?? "";
+/** Cookie-like mock session that survives full page reloads in the browser. */
+let mockCsrfToken = `mock-csrf-${crypto.randomUUID()}`;
+const mockSelectionTickets = new Map<string, { email: string; organizationIds: string[] }>();
+
+function readCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function writeSessionCookie(organizationId: string | null) {
+  if (typeof document === "undefined") return;
+  if (!organizationId) {
+    document.cookie = `${MOCK_SESSION_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+    return;
+  }
+  document.cookie = `${MOCK_SESSION_COOKIE}=${encodeURIComponent(organizationId)}; Path=/; SameSite=Lax`;
+}
+
+function getHeaderValue(config: AxiosRequestConfig, name: string) {
+  const headers = config.headers ?? {};
+  const direct = (headers as Record<string, unknown>)[name]
+    ?? (headers as Record<string, unknown>)[name.toLowerCase()];
+  if (typeof direct === "string") return direct;
+  if (typeof headers.get === "function") {
+    const value = headers.get(name);
+    return typeof value === "string" ? value : "";
+  }
+  return "";
+}
+
+function requireCsrf(config: AxiosRequestConfig): [number, ApiErrorResponse] | null {
+  const token = getHeaderValue(config, "X-CSRF-TOKEN");
+  if (!token || token !== mockCsrfToken) {
+    return [400, problem("ERR-001")];
+  }
+  return null;
+}
+
+function getSessionUser() {
+  const organizationId = readCookie(MOCK_SESSION_COOKIE);
+  if (!organizationId) return null;
+  return buildMockAuthUser(organizationId);
 }
 
 function registerAuthHandlers(mock: MockAdapter) {
+  mock.onGet("/api/v1/auth/csrf").reply(() => {
+    mockCsrfToken = `mock-csrf-${crypto.randomUUID()}`;
+    return [200, success("SCS-005", { requestToken: mockCsrfToken }, { object: "csrf" })];
+  });
+
   mock.onPost("/api/v1/auth/login").reply((config) => {
+    const csrfFailure = requireCsrf(config);
+    if (csrfFailure) return csrfFailure;
+
     const payload = readBody<LoginRequest>(config);
     if (!payload?.email?.trim() || !payload?.password) {
       return [400, problem("ERR-001", {}, [
@@ -104,18 +167,65 @@ function registerAuthHandlers(mock: MockAdapter) {
       ])];
     }
 
-    return [200, success("SCS-005", { accessToken: MOCK_ACCESS_TOKEN }, { object: "session" })];
+    const email = payload.email.trim().toLocaleLowerCase();
+    const password = payload.password;
+
+    if (email === MOCK_MULTI_ORG_EMAIL && password === MOCK_MULTI_ORG_PASSWORD) {
+      const selectionTicket = `ticket-${crypto.randomUUID()}`;
+      mockSelectionTickets.set(selectionTicket, {
+        email: MOCK_MULTI_ORG_EMAIL,
+        organizationIds: mockOrganizations.map((item) => item.id),
+      });
+      return [200, success("SCS-005", {
+        status: "organizationSelectionRequired",
+        organizations: mockOrganizations,
+        selectionTicket,
+      }, { object: "session" })];
+    }
+
+    if (email === MOCK_LOGIN_EMAIL && password === MOCK_LOGIN_PASSWORD) {
+      writeSessionCookie(MOCK_ORGANIZATION_ID);
+      return [200, success("SCS-005", buildMockAuthUser(MOCK_ORGANIZATION_ID), { object: "session" })];
+    }
+
+    return [401, problem("ERR-003")];
   });
 
-  mock.onGet("/api/v1/auth/me").reply((config) => {
-    const token = getBearerToken(config);
-    if (!token) {
+  mock.onPost("/api/v1/auth/select-organization").reply((config) => {
+    const csrfFailure = requireCsrf(config);
+    if (csrfFailure) return csrfFailure;
+
+    const payload = readBody<SelectOrganizationRequest>(config);
+    const ticket = mockSelectionTickets.get(payload?.selectionTicket ?? "");
+    if (!ticket || !payload?.organizationId || !ticket.organizationIds.includes(payload.organizationId)) {
       return [401, problem("ERR-003")];
     }
-    if (token !== MOCK_ACCESS_TOKEN) {
+
+    mockSelectionTickets.delete(payload.selectionTicket);
+    writeSessionCookie(payload.organizationId);
+    return [200, success(
+      "SCS-005",
+      buildMockAuthUser(payload.organizationId, ticket.email),
+      { object: "session" },
+    )];
+  });
+
+  mock.onPost("/api/v1/auth/logout").reply((config) => {
+    const csrfFailure = requireCsrf(config);
+    if (csrfFailure) return csrfFailure;
+
+    if (!readCookie(MOCK_SESSION_COOKIE)) {
       return [401, problem("ERR-003")];
     }
-    return [200, success("SCS-005", mockAuthUser, { object: "user" })];
+
+    writeSessionCookie(null);
+    return [200, success("SCS-005", null, { object: "session" })];
+  });
+
+  mock.onGet("/api/v1/auth/me").reply(() => {
+    const user = getSessionUser();
+    if (!user) return [401, problem("ERR-003")];
+    return [200, success("SCS-005", user, { object: "user" })];
   });
 }
 

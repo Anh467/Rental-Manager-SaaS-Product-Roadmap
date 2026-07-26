@@ -74,8 +74,6 @@ export type ApiClientOptions = {
   timeoutMs?: number;
   withCredentials?: boolean;
   defaultHeaders?: Record<string, string>;
-  getAccessToken?: () => string | null | undefined;
-  getOrganizationId?: () => string | null | undefined;
   onUnauthorized?: () => void;
 };
 

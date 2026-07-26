@@ -125,5 +125,11 @@
     "submit": "Đăng nhập",
     "submitting": "Đang đăng nhập...",
     "failed": "Không thể đăng nhập. Kiểm tra thông tin và thử lại."
+  },
+  "selectOrganization": {
+    "title": "Chọn Organization",
+    "subtitle": "Chọn Organization bạn muốn làm việc.",
+    "submitting": "Đang mở...",
+    "failed": "Không thể mở Organization này. Vui lòng thử lại."
   }
 }
