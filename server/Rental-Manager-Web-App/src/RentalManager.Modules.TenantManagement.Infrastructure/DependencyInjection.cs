@@ -3,8 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
-using RentalManager.Modules.TenantManagement.Application.Fields;
-using RentalManager.Modules.TenantManagement.Application.GlobalFields;
+using RentalManager.Modules.TenantManagement.Application.Fields.Commands;
+using RentalManager.Modules.TenantManagement.Application.Fields.Queries;
+using RentalManager.Modules.TenantManagement.Application.GlobalFields.Commands;
+using RentalManager.Modules.TenantManagement.Application.GlobalFields.Queries;
+using RentalManager.Modules.TenantManagement.Application.GlobalFieldTypes.Queries;
 using RentalManager.Modules.TenantManagement.Infrastructure.Authorization;
 using RentalManager.Modules.TenantManagement.Infrastructure.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Common;
@@ -54,9 +57,13 @@ public static class TenantManagementServiceCollectionExtensions
     private static IServiceCollection AddTenantManagementApplication(
         this IServiceCollection services)
     {
-        services.AddScoped<IFieldService, FieldService>();
-        services.AddScoped<IGlobalFieldService, GlobalFieldService>();
-        services.AddScoped<IGlobalFieldTypeService, GlobalFieldTypeService>();
+        services.AddScoped<IFieldQueryService, FieldQueryService>();
+        services.AddScoped<IFieldCommandService, FieldCommandService>();
+
+        services.AddScoped<IGlobalFieldQueryService, GlobalFieldQueryService>();
+        services.AddScoped<IGlobalFieldCommandService, GlobalFieldCommandService>();
+
+        services.AddScoped<IGlobalFieldTypeQueryService, GlobalFieldTypeQueryService>();
 
         return services;
     }

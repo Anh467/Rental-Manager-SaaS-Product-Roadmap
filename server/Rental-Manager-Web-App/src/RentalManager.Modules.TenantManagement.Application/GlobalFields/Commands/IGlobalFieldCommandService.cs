@@ -1,18 +1,10 @@
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
+using RentalManager.Modules.TenantManagement.Application.GlobalFields.Contracts;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 
-namespace RentalManager.Modules.TenantManagement.Application.Fields;
+namespace RentalManager.Modules.TenantManagement.Application.GlobalFields.Commands;
 
-public interface IFieldService
+public interface IGlobalFieldCommandService
 {
-    Task<PagedResult<FieldDto>> GetFieldsAsync(
-        GetFieldsRequest request,
-        CancellationToken cancellationToken = default);
-
-    Task<FieldDto> GetFieldAsync(
-        Guid id,
-        CancellationToken cancellationToken = default);
-
     Task<FieldDto> CreateFieldAsync(
         CreateFieldRequest request,
         CancellationToken cancellationToken = default);
@@ -20,6 +12,11 @@ public interface IFieldService
     Task<FieldDto> UpdateFieldAsync(
         Guid id,
         UpdateFieldRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<FieldDto> UpdateStatusAsync(
+        Guid id,
+        UpdateGlobalFieldStatusRequest request,
         CancellationToken cancellationToken = default);
 
     Task DeleteFieldAsync(

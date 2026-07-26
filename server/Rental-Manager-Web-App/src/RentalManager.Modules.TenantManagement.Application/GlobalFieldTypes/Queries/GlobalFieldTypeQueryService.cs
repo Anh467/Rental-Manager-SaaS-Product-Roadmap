@@ -1,9 +1,10 @@
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 
-namespace RentalManager.Modules.TenantManagement.Application.GlobalFields;
+namespace RentalManager.Modules.TenantManagement.Application.GlobalFieldTypes.Queries;
 
-public sealed class GlobalFieldTypeService(IFieldTypeRepository fieldTypes) : IGlobalFieldTypeService
+public sealed class GlobalFieldTypeQueryService(IFieldTypeRepository fieldTypes)
+    : IGlobalFieldTypeQueryService
 {
     public async Task<IReadOnlyList<FieldTypeDto>> GetFieldTypesAsync(
         CancellationToken cancellationToken = default)

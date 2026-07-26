@@ -4,6 +4,8 @@ using RentalManager.Api.Authorization;
 using RentalManager.Api.Contracts;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Fields;
+using RentalManager.Modules.TenantManagement.Application.Fields.Commands;
+using RentalManager.Modules.TenantManagement.Application.Fields.Queries;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 
@@ -20,12 +22,18 @@ public sealed class FieldsController : ControllerBase
             [MessageCode.Parameter.Object] = MessageCode.ObjectName.Field
         };
 
-    private readonly IFieldService _fieldService;
+    private readonly IFieldQueryService _queries;
+    private readonly IFieldCommandService _commands;
 
-    public FieldsController(IFieldService fieldService)
+    public FieldsController(
+        IFieldQueryService queries,
+        IFieldCommandService commands)
     {
-        ArgumentNullException.ThrowIfNull(fieldService);
-        _fieldService = fieldService;
+        ArgumentNullException.ThrowIfNull(queries);
+        ArgumentNullException.ThrowIfNull(commands);
+
+        _queries = queries;
+        _commands = commands;
     }
 
     [HttpGet]
@@ -34,7 +42,7 @@ public sealed class FieldsController : ControllerBase
         [FromQuery] GetFieldsRequest request,
         CancellationToken cancellationToken)
     {
-        PagedResult<FieldDto> page = await _fieldService.GetFieldsAsync(
+        PagedResult<FieldDto> page = await _queries.GetFieldsAsync(
             request,
             cancellationToken);
 
@@ -50,7 +58,7 @@ public sealed class FieldsController : ControllerBase
         Guid id,
         CancellationToken cancellationToken)
     {
-        FieldDto field = await _fieldService.GetFieldAsync(id, cancellationToken);
+        FieldDto field = await _queries.GetFieldAsync(id, cancellationToken);
 
         return Ok(ApiResponse<FieldDto>.Create(
             field,
@@ -64,7 +72,7 @@ public sealed class FieldsController : ControllerBase
         [FromBody] CreateFieldRequest request,
         CancellationToken cancellationToken)
     {
-        FieldDto field = await _fieldService.CreateFieldAsync(request, cancellationToken);
+        FieldDto field = await _commands.CreateFieldAsync(request, cancellationToken);
 
         return Created(
             $"/api/v1/fields/{field.Id}",
@@ -81,7 +89,7 @@ public sealed class FieldsController : ControllerBase
         [FromBody] UpdateFieldRequest request,
         CancellationToken cancellationToken)
     {
-        FieldDto field = await _fieldService.UpdateFieldAsync(
+        FieldDto field = await _commands.UpdateFieldAsync(
             id,
             request,
             cancellationToken);
@@ -103,7 +111,7 @@ public sealed class FieldsController : ControllerBase
         [FromBody] DeleteFieldRequest request,
         CancellationToken cancellationToken)
     {
-        await _fieldService.DeleteFieldAsync(id, request, cancellationToken);
+        await _commands.DeleteFieldAsync(id, request, cancellationToken);
 
         return Ok(ApiResponse<object>.Create(
             null,

@@ -6,20 +6,20 @@ using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Org;
 
-namespace RentalManager.Modules.TenantManagement.Application.Fields;
+namespace RentalManager.Modules.TenantManagement.Application.Fields.Commands;
 
 /// <summary>
-/// Orchestrates organization field catalogue use cases. Field options are
-/// persisted in the same transaction as their parent field.
+/// Organization field catalogue mutations. Field options are persisted in the
+/// same transaction as their parent field.
 /// </summary>
-public sealed class FieldService : IFieldService
+public sealed class FieldCommandService : IFieldCommandService
 {
     private readonly ISqlSession _session;
     private readonly IOrgFieldRepository _fields;
     private readonly IFieldOptionRepository _fieldOptions;
     private readonly IFieldTypeRepository _fieldTypes;
 
-    public FieldService(
+    public FieldCommandService(
         ISqlSession session,
         IOrgFieldRepository fields,
         IFieldOptionRepository fieldOptions,
@@ -34,54 +34,6 @@ public sealed class FieldService : IFieldService
         _fields = fields;
         _fieldOptions = fieldOptions;
         _fieldTypes = fieldTypes;
-    }
-
-    public async Task<PagedResult<FieldDto>> GetFieldsAsync(
-        GetFieldsRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        var pagedRequest = new PagedRequest(
-            request.Page,
-            request.PageSize,
-            request.Search,
-            request.SortBy,
-            request.SortDirection);
-
-        PagedResult<Field> page = await _fields.GetPagedAsync(
-            request.IsActive,
-            pagedRequest,
-            cancellationToken);
-
-        Guid[] fieldIds = page.Items.Select(field => field.Id).ToArray();
-        IReadOnlyList<FieldOption> options = await _fieldOptions.GetByFieldIdsAsync(
-            fieldIds,
-            cancellationToken);
-
-        Dictionary<Guid, List<FieldOption>> optionsByField = options
-            .GroupBy(option => option.FieldId)
-            .ToDictionary(group => group.Key, group => group.ToList());
-
-        return page.Map(field => MapToDto(
-            field,
-            optionsByField.TryGetValue(field.Id, out List<FieldOption>? fieldOptions)
-                ? fieldOptions
-                : []));
-    }
-
-    public async Task<FieldDto> GetFieldAsync(
-        Guid id,
-        CancellationToken cancellationToken = default)
-    {
-        Field field = await _fields.GetAsync(id, cancellationToken)
-            ?? throw new ResourceNotFoundException(FieldInvariants.ObjectName);
-
-        IReadOnlyList<FieldOption> options = await _fieldOptions.GetByFieldIdAsync(
-            field.Id,
-            cancellationToken);
-
-        return MapToDto(field, options);
     }
 
     public async Task<FieldDto> CreateFieldAsync(
@@ -114,7 +66,7 @@ public sealed class FieldService : IFieldService
             Id = Guid.CreateVersion7(),
             Key = request.Key!,
             Name = request.Name!.Trim(),
-            Description = NormalizeDescription(request.Description),
+            Description = FieldDtoMapper.NormalizeDescription(request.Description),
             FieldTypeId = request.FieldTypeId,
             IsActive = request.IsActive
         };
@@ -127,7 +79,7 @@ public sealed class FieldService : IFieldService
             cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
-        return MapToDto(field, options);
+        return FieldDtoMapper.ToDto(field, options);
     }
 
     public async Task<FieldDto> UpdateFieldAsync(
@@ -148,7 +100,7 @@ public sealed class FieldService : IFieldService
         EnsureImmutablePropertiesUnchanged(field, request);
 
         field.Name = request.Name!.Trim();
-        field.Description = NormalizeDescription(request.Description);
+        field.Description = FieldDtoMapper.NormalizeDescription(request.Description);
         field.IsActive = request.IsActive;
 
         await _fields.UpdateAsync(field, expectedRowVersion, cancellationToken);
@@ -159,7 +111,7 @@ public sealed class FieldService : IFieldService
             cancellationToken);
 
         await transaction.CommitAsync(cancellationToken);
-        return MapToDto(field, options);
+        return FieldDtoMapper.ToDto(field, options);
     }
 
     public async Task DeleteFieldAsync(
@@ -249,7 +201,7 @@ public sealed class FieldService : IFieldService
             if (storedByKey.TryGetValue(key, out FieldOption? existing))
             {
                 existing.Name = input.Name!.Trim();
-                existing.Description = NormalizeDescription(input.Description);
+                existing.Description = FieldDtoMapper.NormalizeDescription(input.Description);
                 existing.DisplayOrder = input.DisplayOrder;
                 existing.IsActive = input.IsActive;
 
@@ -268,7 +220,7 @@ public sealed class FieldService : IFieldService
                 FieldId = field.Id,
                 Key = key,
                 Name = input.Name!.Trim(),
-                Description = NormalizeDescription(input.Description),
+                Description = FieldDtoMapper.NormalizeDescription(input.Description),
                 DisplayOrder = input.DisplayOrder,
                 IsActive = input.IsActive
             };
@@ -288,41 +240,5 @@ public sealed class FieldService : IFieldService
             .ThenBy(option => option.Name, StringComparer.Ordinal)
             .ThenBy(option => option.Id)
             .ToArray();
-    }
-
-    private static string? NormalizeDescription(string? description)
-    {
-        string? trimmed = description?.Trim();
-        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
-    }
-
-    private static FieldDto MapToDto(
-        Field field,
-        IReadOnlyList<FieldOption> options)
-    {
-        return new FieldDto
-        {
-            Id = field.Id,
-            Key = field.Key,
-            Name = field.Name,
-            Description = field.Description,
-            FieldTypeId = field.FieldTypeId,
-            IsActive = field.IsActive,
-            CreatedAt = field.CreatedAt,
-            UpdatedAt = field.UpdatedAt,
-            RowVersion = Convert.ToBase64String(field.RowVersion),
-            Options = options
-                .Where(option => option.DeletedAt is null)
-                .Select(option => new FieldOptionDto
-                {
-                    Id = option.Id,
-                    Key = option.Key,
-                    Name = option.Name,
-                    Description = option.Description,
-                    DisplayOrder = option.DisplayOrder,
-                    IsActive = option.IsActive
-                })
-                .ToArray()
-        };
     }
 }
