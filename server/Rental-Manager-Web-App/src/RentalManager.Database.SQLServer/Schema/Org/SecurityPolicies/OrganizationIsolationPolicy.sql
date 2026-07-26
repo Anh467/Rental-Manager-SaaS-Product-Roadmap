@@ -40,5 +40,12 @@ CREATE SECURITY POLICY [org].[OrganizationIsolationPolicy]
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[Organization] AFTER INSERT,
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
-        ON [org].[Organization] AFTER UPDATE
+        ON [org].[Organization] AFTER UPDATE,
+
+    ADD FILTER PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
+        ON [org].[OrganizationUser],
+    ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
+        ON [org].[OrganizationUser] AFTER INSERT,
+    ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
+        ON [org].[OrganizationUser] AFTER UPDATE
 WITH (STATE = ON, SCHEMABINDING = ON);

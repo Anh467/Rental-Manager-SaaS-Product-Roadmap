@@ -45,8 +45,9 @@ public sealed class AuthController : ControllerBase
 
     /// <summary>
     /// Exchanges credentials plus a chosen organization for a token bound to that
-    /// organization. The user carries its organization and role assignment;
-    /// row-level security scopes the role lookup to the selected organization.
+    /// organization. Membership is resolved from
+    /// <c>[org].[OrganizationUser]</c>, so one user may belong to many
+    /// organizations and pick which one to enter.
     /// </summary>
     [HttpPost("token")]
     public async Task<ActionResult<ApiResponse<TokenResponse>>> IssueTokenAsync(
@@ -76,8 +77,8 @@ public sealed class AuthController : ControllerBase
             throw new AuthenticationFailedException();
         }
 
-        // Bind the context before resolving the organization role so RLS fails
-        // closed when the requested organization does not match the assignment.
+        // Bind the organization before the membership query so RLS only reveals
+        // a membership row for an organization the user actually belongs to.
         _organizationContextAccessor.SetOrganization(organizationId);
         _organizationContextAccessor.SetUser(user.Id);
 

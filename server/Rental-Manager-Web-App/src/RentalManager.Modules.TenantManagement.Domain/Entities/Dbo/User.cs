@@ -5,7 +5,8 @@ using RentalManager.Modules.TenantManagement.Domain.Entities.Common;
 namespace RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
 
 /// <summary>
-/// Global identity assigned to at most one organization and organization role.
+/// Global identity. Organization membership is stored in
+/// <c>[org].[OrganizationUser]</c>, so one user may belong to many organizations.
 /// </summary>
 [Table(nameof(User), Schema = DatabaseConstant.Schema.DBO)]
 public class User : IEntityAudit<Guid>
@@ -21,10 +22,6 @@ public class User : IEntityAudit<Guid>
     public required string PasswordHash { get; set; }
 
     public required string PasswordSalt { get; set; }
-
-    public Guid? OrganizationId { get; set; }
-
-    public Guid? RoleId { get; set; }
 
     public bool IsActive { get; set; } = true;
 
