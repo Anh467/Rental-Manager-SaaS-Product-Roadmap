@@ -4,20 +4,24 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>90a824d2-591c-4d76-b46f-32e64b3a3ea4</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.Identity.Infrastructure\RentalManager.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Infrastructure\RentalManager.Modules.TenantManagement.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Middlewares\" />
+    <InternalsVisibleTo Include="RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests" />
   </ItemGroup>
 
 </Project>

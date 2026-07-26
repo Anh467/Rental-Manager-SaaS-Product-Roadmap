@@ -8,6 +8,7 @@
     "baseline": "Baseline",
     "properties": "Khu nhà",
     "rooms": "Phòng",
+    "globalFields": "Trường toàn cục",
     "openMenu": "Mở menu điều hướng",
     "menuTitle": "Điều hướng"
   },
@@ -115,5 +116,14 @@
     "maintenance": "bảo trì",
     "pendingScan": "đang chờ quét",
     "quarantined": "bị cách ly"
+  },
+  "login": {
+    "title": "Rental Manager",
+    "subtitle": "Đăng nhập để tiếp tục.",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "submit": "Đăng nhập",
+    "submitting": "Đang đăng nhập...",
+    "failed": "Không thể đăng nhập. Kiểm tra thông tin và thử lại."
   }
 }

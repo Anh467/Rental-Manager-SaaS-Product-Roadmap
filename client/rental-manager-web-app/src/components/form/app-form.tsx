@@ -9,13 +9,16 @@ import {
   type UseFormReturn,
 } from "react-hook-form";
 import { z } from "zod";
+import { toast } from "sonner";
 
+import { isApiError } from "@/api/client";
 import { Form } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
 import {
   applyServerErrors,
   type ServerErrorOptions,
 } from "@/components/form/server-errors";
+import { FormErrorAlert } from "@/components/form/server-error-alert";
 
 export type AppFormSubmitHandler<TValues extends FieldValues> = (
   values: TValues,
@@ -47,6 +50,7 @@ export function AppForm<TValues extends FieldValues>({
   className,
   id,
 }: AppFormProps<TValues>) {
+  const [correlationId, setCorrelationId] = React.useState<string>();
   const form = useForm<TValues>({
     mode: "onTouched",
     reValidateMode: "onChange",
@@ -58,6 +62,7 @@ export function AppForm<TValues extends FieldValues>({
 
   const submit = form.handleSubmit(async (values) => {
     form.clearErrors("root.server");
+    setCorrelationId(undefined);
 
     try {
       await onSubmit(values, form);
@@ -66,7 +71,13 @@ export function AppForm<TValues extends FieldValues>({
         throw error;
       }
 
-      applyServerErrors(form, error, serverErrorOptions);
+      const mapped = applyServerErrors(form, error, serverErrorOptions);
+      if (isApiError(error)) {
+        setCorrelationId(error.correlationId);
+        if (!mapped.appliedFieldError && (error.status === 0 || error.status >= 500)) {
+          toast.error(mapped.message);
+        }
+      }
     }
   }, onInvalid);
 
@@ -81,12 +92,7 @@ export function AppForm<TValues extends FieldValues>({
         noValidate
       >
         {rootError ? (
-          <div
-            role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-          >
-            {String(rootError)}
-          </div>
+          <FormErrorAlert message={String(rootError)} correlationId={correlationId} />
         ) : null}
 
         {children(form)}

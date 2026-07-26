@@ -1,0 +1,38 @@
+{
+  "page": {
+    "title": "Global fields",
+    "description": "Manage fields available across all organizations.",
+    "add": "Add global field",
+    "searchPlaceholder": "Search fields...",
+    "empty": "No global fields found.",
+    "error": "Unable to load global fields.",
+    "fieldTypesError": "Unable to load field types."
+  },
+  "filters": { "fieldType": "Field type", "status": "Status", "sortBy": "Sort by", "ascending": "Ascending", "descending": "Descending", "allTypes": "All types", "allStatuses": "All statuses" },
+  "columns": { "name": "Name", "key": "Key", "fieldType": "Field type", "optionCount": "Options", "status": "Status", "updatedAt": "Updated", "actions": "Actions" },
+    "types": {
+    "1": "Text",
+    "2": "Number",
+    "3": "Date",
+    "4": "Yes/No",
+    "5": "Single select",
+    "6": "Multi-select"
+  },
+  "dialog": { "create": "Create global field", "view": "Global field details", "edit": "Edit global field" },
+  "form": {
+    "title": "Definition",
+    "description": "Configure the global field and its available options.",
+    "fields": { "name": "Name", "key": "Key", "description": "Description", "fieldType": "Field type", "isActive": "Active" },
+    "validation": { "key": "Key may contain only lowercase letters, numbers, and underscores." }
+  },
+  "options": {
+    "title": "Options", "description": "Options appear in display order.", "add": "Add option", "item": "Option {{number}}",
+    "moveUp": "Move option up", "moveDown": "Move option down", "remove": "Remove option", "required": "Add at least one option for a multi-select field.",
+    "fields": { "name": "Name", "key": "Key", "description": "Description", "isActive": "Active" },
+    "validation": { "duplicateKey": "Option key must be unique." }
+  },
+  "status": {
+    "conflictReloaded": "This field was changed elsewhere. Latest values were loaded."
+  },
+  "delete": { "title": "Delete global field", "description": "Delete {{name}}? This action cannot be undone." }
+}

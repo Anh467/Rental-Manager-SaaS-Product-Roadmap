@@ -4,6 +4,7 @@ namespace RentalManager.Modules.TenantManagement.Application.Abstractions.Persis
 {
     public interface ILinkRepository<in TEntity> where TEntity : ILink
     {
+        Task<bool> ExistsAsync(TEntity entity, CancellationToken cancellationToken = default);
         Task SaveAsync(TEntity entity, CancellationToken cancellationToken = default);
         Task DeleteAsync(TEntity entity, CancellationToken cancellationToken = default);
     }

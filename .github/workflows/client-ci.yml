@@ -30,13 +30,19 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Type check
         shell: bash
         run: |
           set -o pipefail
           npm run type-check 2>&1 | tee tsc.log
+
+      - name: Unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:unit 2>&1 | tee unit.log
 
       - name: Build
         shell: bash
@@ -60,6 +66,7 @@ jobs:
           name: client-diagnostics
           path: |
             client/rental-manager-web-app/tsc.log
+            client/rental-manager-web-app/unit.log
             client/rental-manager-web-app/build.log
             client/rental-manager-web-app/responsive.log
             client/rental-manager-web-app/playwright-report

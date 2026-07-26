@@ -1,0 +1,99 @@
+name: Backend Dapper CI
+
+on:
+  pull_request:
+    paths:
+      - "server/Rental-Manager-Web-App/**"
+      - ".github/workflows/backend-dapper-ci.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "server/Rental-Manager-Web-App/**"
+      - ".github/workflows/backend-dapper-ci.yml"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: RentalManager_Strong_Password_123!
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P RentalManager_Strong_Password_123! -C -Q \"SELECT 1\" || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
+
+    defaults:
+      run:
+        working-directory: server/Rental-Manager-Web-App
+
+    env:
+      RENTAL_MANAGER_TEST_CONNECTION_STRING: >-
+        Server=localhost,1433;Database=master;User Id=sa;
+        Password=RentalManager_Strong_Password_123!;
+        Encrypt=False;TrustServerCertificate=True
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore solution
+        run: dotnet restore Rental-Manager-Web-App.slnx
+
+      - name: Build solution Release
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet build Rental-Manager-Web-App.slnx \
+            --configuration Release \
+            --no-restore \
+            --nologo 2>&1 | tee backend-dapper-build.log
+
+      - name: Run application unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet test \
+            tests/RentalManager.Modules.TenantManagement.Application.UnitTests/RentalManager.Modules.TenantManagement.Application.UnitTests.csproj \
+            --configuration Release \
+            --no-build \
+            --nologo \
+            --logger "trx;LogFileName=unit-tests.trx" 2>&1 | tee unit-tests.log
+
+      - name: Run SQL integration tests
+        shell: bash
+        run: |
+          set -o pipefail
+          dotnet test \
+            tests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests.csproj \
+            --configuration Release \
+            --no-build \
+            --nologo \
+            --logger "trx;LogFileName=integration-tests.trx" 2>&1 | tee integration-tests.log
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dapper-diagnostics
+          path: |
+            server/Rental-Manager-Web-App/backend-dapper-build.log
+            server/Rental-Manager-Web-App/unit-tests.log
+            server/Rental-Manager-Web-App/integration-tests.log
+            server/Rental-Manager-Web-App/**/unit-tests.trx
+            server/Rental-Manager-Web-App/**/integration-tests.trx
+          if-no-files-found: ignore

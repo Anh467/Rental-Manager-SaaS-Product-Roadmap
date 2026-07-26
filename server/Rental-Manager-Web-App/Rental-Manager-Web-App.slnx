@@ -20,4 +20,8 @@
     <Project Path="src/RentalManager.Modules.TenantManagement.Infrastructure/RentalManager.Modules.TenantManagement.Infrastructure.csproj" Id="ec59a7d5-0b6c-41bf-80f0-a51474232eb9" />
   </Folder>
   <Project Path="src/RentalManager.Api/RentalManager.Api.csproj" />
+  <Folder Name="/tests/">
+    <Project Path="tests/RentalManager.Modules.TenantManagement.Application.UnitTests/RentalManager.Modules.TenantManagement.Application.UnitTests.csproj" />
+    <Project Path="tests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests.csproj" />
+  </Folder>
 </Solution>

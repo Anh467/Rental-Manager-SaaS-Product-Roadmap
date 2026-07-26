@@ -1,8 +1,8 @@
 import { createApiClient } from "./factory";
 
 export const BASE_URLS = {
-  v1: import.meta.env.VITE_API_URL ?? "http://localhost:5008",
-  bff: import.meta.env.VITE_BFF_URL ?? import.meta.env.VITE_API_URL ?? "http://localhost:5008",
+  v1: import.meta.env.VITE_API_URL ?? "",
+  bff: import.meta.env.VITE_BFF_URL ?? import.meta.env.VITE_API_URL ?? "",
 } as const;
 
 function getAccessToken() {
@@ -15,6 +15,10 @@ function getOrganizationId() {
 
 function handleUnauthorized() {
   localStorage.removeItem("access_token");
+  localStorage.removeItem("organization_id");
+  if (window.location.pathname !== "/login") {
+    window.location.assign("/login");
+  }
 }
 
 const sharedOptions = {

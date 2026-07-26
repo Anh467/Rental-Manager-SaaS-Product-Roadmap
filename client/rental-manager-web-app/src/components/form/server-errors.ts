@@ -72,6 +72,8 @@ export function getApiErrorPayload(error: unknown): LegacyApiErrorPayload {
   return isRecord(candidate) ? (candidate as LegacyApiErrorPayload) : {};
 }
 
+export const normalizeApiError = getApiErrorPayload;
+
 function isStructuredFieldError(value: unknown): value is ApiFieldError {
   return (
     isRecord(value) &&
@@ -109,13 +111,34 @@ export function applyServerErrors<TValues extends FieldValues>(
 ) {
   const payload = getApiErrorPayload(error);
   let appliedFieldError = false;
+  let unmappedFieldError = false;
 
-  for (const fieldError of getStructuredFieldErrors(payload)) {
-    const normalizedName = normalizeFieldName(fieldError.fieldKey);
+  const resolveField = (serverFieldName: string) => {
+    const normalizedName = normalizeFieldName(serverFieldName);
     const mappedName =
-      options.fieldMap?.[fieldError.fieldKey] ??
+      options.fieldMap?.[serverFieldName] ??
       options.fieldMap?.[normalizedName] ??
       (normalizedName as FieldPath<TValues>);
+    const hasExplicitMapping = Boolean(
+      options.fieldMap?.[serverFieldName] ?? options.fieldMap?.[normalizedName],
+    );
+    const existsInValues = normalizedName.split(".").reduce<unknown>(
+      (current, segment) => (
+        current && typeof current === "object"
+          ? (current as Record<string, unknown>)[segment]
+          : undefined
+      ),
+      form.getValues(),
+    ) !== undefined;
+    return { mappedName, isMapped: hasExplicitMapping || existsInValues };
+  };
+
+  for (const fieldError of getStructuredFieldErrors(payload)) {
+    const { mappedName, isMapped } = resolveField(fieldError.fieldKey);
+    if (!isMapped) {
+      unmappedFieldError = true;
+      continue;
+    }
 
     form.setError(mappedName, {
       type: fieldError.messageKey,
@@ -129,13 +152,13 @@ export function applyServerErrors<TValues extends FieldValues>(
 
   if (legacyFieldErrors) {
     for (const [serverFieldName, serverMessage] of Object.entries(legacyFieldErrors)) {
-      const normalizedName = normalizeFieldName(serverFieldName);
-      const mappedName =
-        options.fieldMap?.[serverFieldName] ??
-        options.fieldMap?.[normalizedName] ??
-        (normalizedName as FieldPath<TValues>);
+      const { mappedName, isMapped } = resolveField(serverFieldName);
       const message = toLegacyMessage(serverMessage);
       if (!message) continue;
+      if (!isMapped) {
+        unmappedFieldError = true;
+        continue;
+      }
 
       form.setError(mappedName, { type: "server", message });
       appliedFieldError = true;
@@ -143,7 +166,7 @@ export function applyServerErrors<TValues extends FieldValues>(
   }
 
   const rootMessage = getApiErrorMessage(error, options.fallbackMessage);
-  if (!appliedFieldError || payload.messageKey !== "ERR-001") {
+  if (!appliedFieldError || unmappedFieldError) {
     form.setError("root.server", {
       type: payload.messageKey ?? payload.code ?? payload.messageCode ?? "server",
       message: rootMessage,
@@ -154,7 +177,10 @@ export function applyServerErrors<TValues extends FieldValues>(
     code: payload.messageKey ?? payload.code ?? payload.messageCode,
     message: rootMessage,
     appliedFieldError,
+    unmappedFieldError,
   };
 }
+
+export const mapServerErrorsToForm = applyServerErrors;
 
 export type { ApiErrorResponse };

@@ -6,10 +6,10 @@ import { registerMockHandlers } from "@/api/mocks/register-handlers";
 let mockAdapter: MockAdapter | undefined;
 
 export function isMockApiEnabled() {
-  const configured = import.meta.env.VITE_ENABLE_MOCK_API;
+  const configured = import.meta.env.VITE_USE_MOCK_API ?? import.meta.env.VITE_ENABLE_MOCK_API;
   if (configured === "true") return true;
   if (configured === "false") return false;
-  return import.meta.env.DEV;
+  return false;
 }
 
 export function startMockApi() {

@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace RentalManager.Modules.TenantManagement.Core.Enums;
 
-namespace RentalManager.Modules.TenantManagement.Core.Enums
+/// <summary>
+/// Field type identifiers. <c>[dbo].[FieldType]</c> is the source of truth for
+/// these values, so the numbers must stay in step with its seed data.
+/// </summary>
+public enum EFieldType
 {
-    public enum EFieldType
-    {
-        Text = 1,
-        TextArea = 2,
-        Date = 3,
-        SingleSelect = 4,
-        MultiSelect = 5,
-        Number = 6,
-        Decimal = 7,
-        Boolean = 8,
-    }
+    Text = 1,
+    Number = 2,
+    Date = 3,
+    Boolean = 4,
+    Selection = 5,
+    MultiSelect = 6,
 }

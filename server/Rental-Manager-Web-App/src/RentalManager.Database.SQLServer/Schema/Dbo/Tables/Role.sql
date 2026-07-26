@@ -1,0 +1,17 @@
+CREATE TABLE [dbo].[Role]
+(
+    [Id] UNIQUEIDENTIFIER NOT NULL,
+    [Name] NVARCHAR(256) NOT NULL,
+    [Key] NVARCHAR(256) NOT NULL,
+    [Description] NVARCHAR(1028) NULL,
+    [Scope] INT NOT NULL,
+    [CreatedAt] DATETIMEOFFSET NOT NULL,
+    [UpdatedAt] DATETIMEOFFSET NOT NULL,
+    [DeletedAt] DATETIMEOFFSET NULL,
+
+    CONSTRAINT [PK_Role]
+        PRIMARY KEY CLUSTERED ([Id]),
+
+    CONSTRAINT [UQ_Role_Key]
+        UNIQUE ([Key])
+);

@@ -7,26 +7,17 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "sonner";
 
 import { queryClient } from "@/api/query-client";
-import { PermissionProvider } from "@/components/common/permission-guard";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/features/auth/auth-provider";
 import { initializeI18n } from "@/i18n";
 import { router } from "@/router";
 import "@/index.css";
 
-const baselinePermissions = [
-  "property.view",
-  "property.create",
-  "property.edit",
-  "room.view",
-  "room.create",
-  "room.edit",
-] as const;
-
 function shouldEnableMockApi() {
-  const configured = import.meta.env.VITE_ENABLE_MOCK_API;
+  const configured = import.meta.env.VITE_USE_MOCK_API ?? import.meta.env.VITE_ENABLE_MOCK_API;
   if (configured === "true") return true;
   if (configured === "false") return false;
-  return import.meta.env.DEV;
+  return false;
 }
 
 async function bootstrap() {
@@ -34,13 +25,13 @@ async function bootstrap() {
 
   if (shouldEnableMockApi()) {
     const { startMockApi } = await import("@/api/mocks");
-    startMockApi();
+    await startMockApi();
   }
 
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <PermissionProvider permissions={baselinePermissions}>
+        <AuthProvider>
           <TooltipProvider delayDuration={300}>
             <RouterProvider router={router} context={{ queryClient }} />
             <Toaster richColors position="top-right" />
@@ -51,7 +42,7 @@ async function bootstrap() {
               </>
             ) : null}
           </TooltipProvider>
-        </PermissionProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </React.StrictMode>,
   );

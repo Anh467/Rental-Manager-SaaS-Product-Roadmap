@@ -1,86 +1,67 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+<Project Sdk="Microsoft.Build.Sql/2.0.0">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <Name>RentalManager.Database.SQLServer</Name>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectVersion>4.1</ProjectVersion>
-    <ProjectGuid>{7874bda0-1a8e-4e3d-bdf7-9388b230a258}</ProjectGuid>
-    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql170DatabaseSchemaProvider</DSP>
-    <OutputType>Database</OutputType>
-    <RootPath>
-    </RootPath>
-    <RootNamespace>RentalManager.Database.SQLServer</RootNamespace>
-    <AssemblyName>RentalManager.Database.SQLServer</AssemblyName>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql160DatabaseSchemaProvider</DSP>
     <ModelCollation>1033, CI</ModelCollation>
-    <DefaultFileStructure>BySchemaAndSchemaType</DefaultFileStructure>
-    <DeployToDatabase>True</DeployToDatabase>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <TargetLanguage>CS</TargetLanguage>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
     <SqlServerVerification>False</SqlServerVerification>
-    <IncludeCompositeObjects>True</IncludeCompositeObjects>
+    <!-- Cross-database references are not used, so unresolved references are errors. -->
+    <SuppressTSqlWarnings>
+    </SuppressTSqlWarnings>
     <TargetDatabaseSet>True</TargetDatabaseSet>
+    <ProjectGuid>{7874bda0-1a8e-4e3d-bdf7-9388b230a258}</ProjectGuid>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <!--
+      Pin 2.0.0 for Visual Studio 2026: SDK 2.1+ passes AutomaticIndexCompaction /
+      AcceleratedDatabaseRecovery to SqlBuildTask, but VS 18 DAC does not support
+      those parameters yet (microsoft/DacFx#776).
+    -->
+    <SkipCheckForNewSDKVersion>true</SkipCheckForNewSDKVersion>
+    <!--
+      Visual Studio Solution Explorer only shows SQL files that are listed
+      explicitly in this project. Disable the SDK default glob and include
+      schema objects here so they appear in Solution Explorer and still build.
+    -->
+    <EnableDefaultSqlItems>false</EnableDefaultSqlItems>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <OutputPath>bin\Release\</OutputPath>
-    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
-    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <DefineDebug>false</DefineDebug>
-    <DefineTrace>true</DefineTrace>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <OutputPath>bin\Debug\</OutputPath>
-    <BuildScriptName>$(MSBuildProjectName).sql</BuildScriptName>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <DefineDebug>true</DefineDebug>
-    <DefineTrace>true</DefineTrace>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup>
-    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">11.0</VisualStudioVersion>
-    <!-- Default to the v11.0 targets path if the targets file for the current VS version is not found -->
-    <SSDTExists Condition="Exists('$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets')">True</SSDTExists>
-    <VisualStudioVersion Condition="'$(SSDTExists)' == ''">11.0</VisualStudioVersion>
-  </PropertyGroup>
-  <Import Condition="'$(SQLDBExtensionsRefPath)' != ''" Project="$(SQLDBExtensionsRefPath)\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
-  <Import Condition="'$(SQLDBExtensionsRefPath)' == ''" Project="$(MSBuildExtensionsPath)\Microsoft\VisualStudio\v$(VisualStudioVersion)\SSDT\Microsoft.Data.Tools.Schema.SqlTasks.targets" />
   <ItemGroup>
-    <Folder Include="Properties" />
-    <Folder Include="Scripts" />
-    <Folder Include="Scripts\PreDeployment" />
-    <Folder Include="Scripts\PostDeployment" />
-    <Folder Include="PublishProfiles" />
-    <Folder Include="Schema" />
-    <Folder Include="Schema\Dbo" />
-    <Folder Include="Schema\Dbo\Functions" />
-    <Folder Include="Schema\Dbo\SecurityPolicies" />
-    <Folder Include="Schema\Dbo\StoredProcedures" />
-    <Folder Include="Schema\Dbo\Tables" />
-    <Folder Include="Schema\Dbo\Views" />
-    <Folder Include="Schema\Org" />
-    <Folder Include="Schema\Org\Functions" />
-    <Folder Include="Schema\Org\SecurityPolicies" />
-    <Folder Include="Schema\Org\StoredProcedures" />
-    <Folder Include="Schema\Org\Tables" />
-    <Folder Include="Schema\Org\Views" />
-    <Folder Include="Scripts\PostDeployment\DataFixes" />
-    <Folder Include="Scripts\PostDeployment\Releases" />
-    <Folder Include="Scripts\PostDeployment\SeedDatas" />
-    <Folder Include="Schemas" />
+    <Build Include="Schema\**\*.sql" />
+    <Build Include="Schemas\**\*.sql" />
+    <None Include="Scripts\**\*.sql" />
+    <PostDeploy Include="Scripts\PostDeployment\PostDeployment.sql" />
+    <None Remove="Scripts\PostDeployment\PostDeployment.sql" />
   </ItemGroup>
   <ItemGroup>
-    <Build Include="Schemas\org.sql" />
-    <Build Include="Schema\Dbo\Tables\Field.sql" />
-    <Build Include="Schema\Dbo\Tables\FieldType.sql" />
+    <Folder Include="Schema\" />
+    <Folder Include="Schema\Dbo\" />
+    <Folder Include="Schema\Dbo\Tables\" />
+    <Folder Include="Schema\Dbo\Procedures\" />
+    <Folder Include="Schema\Org\" />
+    <Folder Include="Schema\Org\Tables\" />
+    <Folder Include="Schema\Org\Functions\" />
+    <Folder Include="Schema\Org\SecurityPolicies\" />
+    <Folder Include="Schema\Security\" />
+    <Folder Include="Schema\Security\Users\" />
+    <Folder Include="Schema\Security\Permissions\" />
+    <Folder Include="Schemas\" />
+    <Folder Include="Scripts\" />
+    <Folder Include="Scripts\PostDeployment\" />
+    <Folder Include="Scripts\PostDeployment\SeedDatas\" />
   </ItemGroup>
+  <!--
+    Classic SSDT/VS design-time builds often force net472 for .sqlproj, but
+    Microsoft.Build.Sql restores package assets for netstandard2.1. Align the
+    TFM before NuGet asset resolution so NETSDK1005 does not fire.
+  -->
+  <Target Name="AlignSqlSdkTargetFramework" BeforeTargets="ResolvePackageAssets;ResolvePackageAssetsDesignTime;CollectPackageReferences">
+    <PropertyGroup>
+      <TargetFramework>netstandard2.1</TargetFramework>
+      <TargetFrameworks>
+      </TargetFrameworks>
+      <TargetFrameworkIdentifier>.NETStandard</TargetFrameworkIdentifier>
+      <TargetFrameworkVersion>v2.1</TargetFrameworkVersion>
+      <TargetFrameworkMoniker>.NETStandard,Version=v2.1</TargetFrameworkMoniker>
+      <NuGetTargetMoniker>.NETStandard,Version=v2.1</NuGetTargetMoniker>
+      <NuGetTargetFramework>netstandard2.1</NuGetTargetFramework>
+    </PropertyGroup>
+  </Target>
 </Project>
