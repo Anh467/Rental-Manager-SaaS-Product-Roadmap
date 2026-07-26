@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 using RentalManager.Api.Authorization;
 using RentalManager.Api.Contracts;
 using RentalManager.Api.Middlewares;
@@ -20,7 +21,7 @@ builder.Services
             ApiFieldError[] fieldErrors = context.ModelState
                 .Where(entry => entry.Value?.Errors.Count > 0)
                 .Select(entry => new ApiFieldError(
-                    ToFieldName(entry.Key),
+                    JsonPropertyPathMapper.ToCamelCasePath(entry.Key),
                     MessageCode.Error.ValidationFailed))
                 .ToArray();
 
@@ -50,6 +51,13 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services.AddSingleton<JwtTokenIssuer>();
+builder.Services.AddOptions<BootstrapAdminOptions>()
+    .Bind(builder.Configuration.GetSection(BootstrapAdminOptions.SectionName));
+builder.Services.AddHostedService<BootstrapAdminHostedService>();
+builder.Services.AddHealthChecks();
+builder.Services.AddCors(options => options.AddPolicy("development", policy => policy
+    .WithOrigins("http://localhost:5173", "https://localhost:5173", "http://localhost:4173", "https://localhost:4173")
+    .AllowAnyHeader().AllowAnyMethod()));
 
 JwtOptions jwtOptions = builder.Configuration
     .GetSection(JwtOptions.SectionName)
@@ -62,6 +70,16 @@ builder.Services
         options.MapInboundClaims = false;
         options.TokenValidationParameters =
             JwtTokenIssuer.CreateValidationParameters(jwtOptions);
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                return WriteAuthErrorAsync(context.HttpContext, StatusCodes.Status401Unauthorized, MessageCode.Error.AuthenticationRequired);
+            },
+            OnForbidden = context =>
+                WriteAuthErrorAsync(context.HttpContext, StatusCodes.Status403Forbidden, MessageCode.Error.PermissionDenied)
+        };
     });
 
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
@@ -77,25 +95,28 @@ if (app.Environment.IsDevelopment())
 
 // The exception middleware wraps everything after it so every failure, including
 // one raised while binding the organization context, is returned as an envelope.
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ApiExceptionMiddleware>();
 
 app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment()) app.UseCors("development");
 app.UseAuthentication();
 app.UseMiddleware<OrganizationContextMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();
 
-static string ToFieldName(string modelStateKey)
+static Task WriteAuthErrorAsync(HttpContext context, int statusCode, string messageKey)
 {
-    string name = modelStateKey.Contains('.', StringComparison.Ordinal)
-        ? modelStateKey[(modelStateKey.LastIndexOf('.') + 1)..]
-        : modelStateKey;
-
-    return name.Length == 0
-        ? name
-        : char.ToLowerInvariant(name[0]) + name[1..];
+    context.Response.StatusCode = statusCode;
+    context.Response.ContentType = "application/json; charset=utf-8";
+    return context.Response.WriteAsync(JsonSerializer.Serialize(new ApiErrorResponse
+    {
+        MessageKey = messageKey,
+        CorrelationId = context.TraceIdentifier
+    }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
 }
 
 /// <summary>

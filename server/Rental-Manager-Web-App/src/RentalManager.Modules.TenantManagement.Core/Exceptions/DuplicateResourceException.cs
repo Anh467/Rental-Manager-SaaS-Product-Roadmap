@@ -8,7 +8,10 @@ namespace RentalManager.Modules.TenantManagement.Core.Exceptions;
 /// </summary>
 public sealed class DuplicateResourceException : DomainException
 {
-    public DuplicateResourceException(string objectName, Exception? innerException = null)
+    public DuplicateResourceException(
+        string objectName,
+        string? fieldKey = null,
+        Exception? innerException = null)
         : base(
             MessageCode.Error.AlreadyExists,
             new Dictionary<string, object?>
@@ -17,5 +20,8 @@ public sealed class DuplicateResourceException : DomainException
             },
             innerException)
     {
+        FieldKey = fieldKey;
     }
+
+    public string? FieldKey { get; }
 }

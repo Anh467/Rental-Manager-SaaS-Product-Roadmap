@@ -4,6 +4,7 @@ CREATE TABLE [dbo].[Role]
     [Name] NVARCHAR(256) NOT NULL,
     [Key] NVARCHAR(256) NOT NULL,
     [Description] NVARCHAR(1028) NULL,
+    [Scope] INT NOT NULL,
     [CreatedAt] DATETIMEOFFSET NOT NULL,
     [UpdatedAt] DATETIMEOFFSET NOT NULL,
     [DeletedAt] DATETIMEOFFSET NULL,

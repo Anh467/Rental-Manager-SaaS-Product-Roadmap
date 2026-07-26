@@ -5,4 +5,7 @@ namespace RentalManager.Modules.TenantManagement.Application.Abstractions.Persis
 
 public interface IRolePermissionRepository : ILinkRepository<RolePermission>
 {
+    Task<IReadOnlySet<string>> GetPermissionKeysByRoleAsync(
+        Guid roleId,
+        CancellationToken cancellationToken = default);
 }

@@ -1,0 +1,26 @@
+{
+  "page": {
+    "title": "Trường toàn cục",
+    "description": "Quản lý các trường dùng chung cho mọi Organization.",
+    "add": "Thêm trường toàn cục",
+    "searchPlaceholder": "Tìm kiếm trường...",
+    "empty": "Chưa có trường toàn cục.",
+    "error": "Không thể tải trường toàn cục."
+  },
+  "filters": { "fieldType": "Loại trường", "status": "Trạng thái", "sortBy": "Sắp xếp", "ascending": "Tăng dần", "descending": "Giảm dần", "allTypes": "Tất cả loại", "allStatuses": "Tất cả trạng thái" },
+  "columns": { "name": "Tên", "key": "Mã", "fieldType": "Loại trường", "optionCount": "Tùy chọn", "status": "Trạng thái", "updatedAt": "Cập nhật", "actions": "Thao tác" },
+  "types": { "1": "Văn bản", "2": "Số", "4": "Đúng/Sai", "6": "Chọn nhiều" },
+  "dialog": { "create": "Tạo trường toàn cục", "view": "Chi tiết trường toàn cục", "edit": "Chỉnh sửa trường toàn cục" },
+  "form": {
+    "title": "Định nghĩa",
+    "description": "Cấu hình trường toàn cục và các tùy chọn.",
+    "fields": { "name": "Tên", "key": "Mã", "description": "Mô tả", "fieldType": "Loại trường", "isActive": "Đang hoạt động" },
+    "validation": { "key": "Mã chỉ được chứa chữ thường, số và dấu gạch dưới." }
+  },
+  "options": {
+    "title": "Tùy chọn", "description": "Tùy chọn hiển thị theo thứ tự.", "add": "Thêm tùy chọn", "item": "Tùy chọn {{number}}",
+    "moveUp": "Đưa lên", "moveDown": "Đưa xuống", "remove": "Xóa tùy chọn", "required": "Hãy thêm ít nhất một tùy chọn cho trường chọn nhiều.",
+    "fields": { "name": "Tên", "key": "Mã", "description": "Mô tả" }
+  },
+  "delete": { "title": "Xóa trường toàn cục", "description": "Xóa {{name}}? Thao tác này không thể hoàn tác." }
+}

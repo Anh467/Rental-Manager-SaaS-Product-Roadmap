@@ -41,7 +41,8 @@ public sealed class JwtTokenIssuer
             Claims = new Dictionary<string, object>
             {
                 [JwtClaimNames.Subject] = userId.ToString(),
-                [JwtClaimNames.OrganizationId] = organizationId.ToString()
+                [JwtClaimNames.OrganizationId] = organizationId.ToString(),
+                [JwtClaimNames.Scope] = "organization"
             }
         };
 
@@ -51,6 +52,27 @@ public sealed class JwtTokenIssuer
         };
 
         return (handler.CreateToken(descriptor), expiresAt);
+    }
+
+    public (string Token, DateTimeOffset ExpiresAt) IssueGlobal(Guid userId)
+    {
+        DateTimeOffset expiresAt = DateTimeOffset.UtcNow.AddMinutes(_options.LifetimeMinutes);
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Issuer = _options.Issuer,
+            Audience = _options.Audience,
+            Expires = expiresAt.UtcDateTime,
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey)),
+                SecurityAlgorithms.HmacSha256),
+            Claims = new Dictionary<string, object>
+            {
+                [JwtClaimNames.Subject] = userId.ToString(),
+                [JwtClaimNames.Scope] = "global"
+            }
+        };
+        return (new JsonWebTokenHandler { SetDefaultTimesOnTokenCreation = true }
+            .CreateToken(descriptor), expiresAt);
     }
 
     public static TokenValidationParameters CreateValidationParameters(JwtOptions options)

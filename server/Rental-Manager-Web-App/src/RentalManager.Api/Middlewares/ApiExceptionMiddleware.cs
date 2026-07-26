@@ -43,7 +43,7 @@ public sealed class ApiExceptionMiddleware
                 exception.Parameters,
                 exception.Failures
                     .Select(failure => new ApiFieldError(
-                        ToCamelCase(failure.FieldKey),
+                        JsonPropertyPathMapper.ToCamelCasePath(failure.FieldKey),
                         failure.MessageKey,
                         failure.Parameters))
                     .ToArray());
@@ -79,6 +79,20 @@ public sealed class ApiExceptionMiddleware
                 HttpStatusCode.Forbidden,
                 exception.MessageKey,
                 exception.Parameters);
+        }
+        catch (DuplicateResourceException exception)
+        {
+            await WriteAsync(
+                context,
+                HttpStatusCode.Conflict,
+                exception.MessageKey,
+                exception.Parameters,
+                exception.FieldKey is null
+                    ? null
+                    : [new ApiFieldError(
+                        JsonPropertyPathMapper.ToCamelCasePath(exception.FieldKey),
+                        exception.MessageKey,
+                        exception.Parameters)]);
         }
         catch (DomainException exception)
         {
@@ -148,10 +162,4 @@ public sealed class ApiExceptionMiddleware
         return context.TraceIdentifier;
     }
 
-    private static string ToCamelCase(string value)
-    {
-        return value.Length == 0
-            ? value
-            : char.ToLowerInvariant(value[0]) + value[1..];
-    }
 }

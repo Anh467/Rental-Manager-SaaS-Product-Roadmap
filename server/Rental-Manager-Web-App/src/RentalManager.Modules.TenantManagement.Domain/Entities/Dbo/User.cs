@@ -23,6 +23,8 @@ public class User : IEntityAudit<Guid>
 
     public required string PasswordSalt { get; set; }
 
+    public Guid? GlobalRoleId { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTimeOffset CreatedAt { get; set; }

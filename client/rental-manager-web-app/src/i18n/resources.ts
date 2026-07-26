@@ -1,15 +1,17 @@
 import enCommon from "@/locales/en/common.json";
 import enError from "@/locales/en/error.json";
+import enGlobalField from "@/locales/en/global-field.json";
 import enProperty from "@/locales/en/property.json";
 import enRoom from "@/locales/en/room.json";
 import enSuccess from "@/locales/en/success.json";
 import viCommon from "@/locales/vi/common.json";
 import viError from "@/locales/vi/error.json";
+import viGlobalField from "@/locales/vi/global-field.json";
 import viProperty from "@/locales/vi/property.json";
 import viRoom from "@/locales/vi/room.json";
 import viSuccess from "@/locales/vi/success.json";
 
-export const namespaces = ["common", "property", "room", "success", "error"] as const;
+export const namespaces = ["common", "property", "room", "global-field", "success", "error"] as const;
 export type AppNamespace = (typeof namespaces)[number];
 
 export const resources = {
@@ -17,6 +19,7 @@ export const resources = {
     common: enCommon,
     property: enProperty,
     room: enRoom,
+    "global-field": enGlobalField,
     success: enSuccess,
     error: enError,
   },
@@ -24,6 +27,7 @@ export const resources = {
     common: viCommon,
     property: viProperty,
     room: viRoom,
+    "global-field": viGlobalField,
     success: viSuccess,
     error: viError,
   },

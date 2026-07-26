@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Building2, DoorOpen, LayoutDashboard, Menu } from "lucide-react";
+import { Building2, DoorOpen, LayoutDashboard, ListTree, Menu } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 
@@ -14,19 +14,22 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { hasPermission, usePermissions } from "@/components/common/permission-guard";
 
 const navigation = [
   { to: "/", labelKey: "navigation.baseline", icon: LayoutDashboard },
   { to: "/properties", labelKey: "navigation.properties", icon: Building2 },
   { to: "/rooms", labelKey: "navigation.rooms", icon: DoorOpen },
+  { to: "/global/fields", labelKey: "navigation.globalFields", icon: ListTree, permission: "global_field_view" },
 ] as const;
 
 function NavigationLinks({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation("common");
+  const permissions = usePermissions();
 
   return (
     <nav className="flex flex-col gap-1" aria-label={t("navigation.menuTitle")}>
-      {navigation.map(({ to, labelKey, icon: Icon }) => (
+      {navigation.filter((item) => !("permission" in item) || !item.permission || hasPermission(permissions, item.permission)).map(({ to, labelKey, icon: Icon }) => (
         <Link
           key={to}
           to={to}

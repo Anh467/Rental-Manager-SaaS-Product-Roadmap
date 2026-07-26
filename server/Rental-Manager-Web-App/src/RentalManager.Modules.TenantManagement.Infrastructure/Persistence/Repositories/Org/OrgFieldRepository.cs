@@ -91,7 +91,7 @@ public sealed class OrgFieldRepository : BaseEntityAuditRepository<Field, Guid>,
         return SqlExceptionClassifier.IsUniqueViolation(
             exception,
             UniqueKeyConstraintName)
-            ? new DuplicateResourceException(ObjectName, exception)
+            ? new DuplicateResourceException(ObjectName, "key", exception)
             : null;
     }
 

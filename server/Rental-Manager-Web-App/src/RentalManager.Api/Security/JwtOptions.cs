@@ -22,4 +22,6 @@ public static class JwtClaimNames
     /// obtaining a new token, which forces the membership check to run again.
     /// </summary>
     public const string OrganizationId = "organization_id";
+
+    public const string Scope = "scope";
 }

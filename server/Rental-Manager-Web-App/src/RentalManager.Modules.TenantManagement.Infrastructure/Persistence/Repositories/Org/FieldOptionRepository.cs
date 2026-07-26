@@ -108,7 +108,7 @@ public sealed class FieldOptionRepository : BaseEntityAuditRepository<FieldOptio
     protected override Exception? TranslateSqlException(SqlException exception)
     {
         return SqlExceptionClassifier.IsUniqueViolation(exception, UniqueOptionKeyIndexName)
-            ? new DuplicateResourceException(ObjectName, exception)
+            ? new DuplicateResourceException(ObjectName, "options", exception)
             : null;
     }
 }

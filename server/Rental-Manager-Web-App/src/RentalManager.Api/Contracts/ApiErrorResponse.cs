@@ -4,7 +4,7 @@ namespace RentalManager.Api.Contracts;
 /// One invalid request field, keyed the way the client's form state is keyed.
 /// </summary>
 public sealed record ApiFieldError(
-    string Field,
+    string FieldKey,
     string MessageKey,
     IReadOnlyDictionary<string, object?>? Parameters = null);
 

@@ -4,6 +4,7 @@ using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorizat
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Fields;
+using RentalManager.Modules.TenantManagement.Application.GlobalFields;
 using RentalManager.Modules.TenantManagement.Infrastructure.Authorization;
 using RentalManager.Modules.TenantManagement.Infrastructure.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Common;
@@ -53,6 +54,7 @@ public static class TenantManagementServiceCollectionExtensions
         this IServiceCollection services)
     {
         services.AddScoped<IFieldService, FieldService>();
+        services.AddScoped<IGlobalFieldService, GlobalFieldService>();
 
         return services;
     }

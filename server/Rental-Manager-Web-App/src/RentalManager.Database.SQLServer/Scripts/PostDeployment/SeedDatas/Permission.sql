@@ -14,7 +14,11 @@ VALUES
     (1, N'View fields',   N'field_view',   N'Read organization field definitions.',   N'TenantManagement'),
     (2, N'Add fields',    N'field_add',    N'Create organization field definitions.', N'TenantManagement'),
     (3, N'Edit fields',   N'field_edit',   N'Update organization field definitions.', N'TenantManagement'),
-    (4, N'Delete fields', N'field_delete', N'Remove organization field definitions.', N'TenantManagement');
+    (4, N'Delete fields', N'field_delete', N'Remove organization field definitions.', N'TenantManagement'),
+    (5, N'View global fields', N'global_field_view', N'Read global field definitions.', N'TenantManagement'),
+    (6, N'Add global fields', N'global_field_add', N'Create global field definitions.', N'TenantManagement'),
+    (7, N'Edit global fields', N'global_field_edit', N'Update global field definitions.', N'TenantManagement'),
+    (8, N'Delete global fields', N'global_field_delete', N'Remove global field definitions.', N'TenantManagement');
 
 UPDATE target
 SET

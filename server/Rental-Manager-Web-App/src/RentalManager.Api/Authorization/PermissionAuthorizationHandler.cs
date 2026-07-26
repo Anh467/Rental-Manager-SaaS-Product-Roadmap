@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using RentalManager.BuildingBlocks.Tenancy.Abstractions;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
+using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
+using RentalManager.Api.Security;
 
 namespace RentalManager.Api.Authorization;
 
@@ -14,6 +16,8 @@ public sealed class PermissionAuthorizationHandler :
 {
     private readonly IPermissionReader _permissionReader;
     private readonly IOrganizationContext _organizationContext;
+    private readonly IUserRepository _users;
+    private readonly IRolePermissionRepository _globalRolePermissions;
     private readonly ILogger<PermissionAuthorizationHandler> _logger;
 
     private IReadOnlySet<string>? _cachedPermissions;
@@ -21,10 +25,14 @@ public sealed class PermissionAuthorizationHandler :
     public PermissionAuthorizationHandler(
         IPermissionReader permissionReader,
         IOrganizationContext organizationContext,
+        IUserRepository users,
+        IRolePermissionRepository globalRolePermissions,
         ILogger<PermissionAuthorizationHandler> logger)
     {
         _permissionReader = permissionReader;
         _organizationContext = organizationContext;
+        _users = users;
+        _globalRolePermissions = globalRolePermissions;
         _logger = logger;
     }
 
@@ -32,8 +40,7 @@ public sealed class PermissionAuthorizationHandler :
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
-        if (!_organizationContext.HasOrganization ||
-            _organizationContext.UserId is not Guid userId)
+        if (_organizationContext.UserId is not Guid userId)
         {
             return;
         }
@@ -42,9 +49,25 @@ public sealed class PermissionAuthorizationHandler :
         {
             // The handler is scoped per request, so several [RequiresPermission]
             // checks on one request share a single database round trip.
-            _cachedPermissions ??= await _permissionReader.GetPermissionKeysAsync(
-                userId,
-                CancellationToken.None);
+            if (_organizationContext.HasOrganization)
+            {
+                _cachedPermissions ??= await _permissionReader.GetPermissionKeysAsync(
+                    userId, CancellationToken.None);
+            }
+            else if (context.User.FindFirst(JwtClaimNames.Scope)?.Value == "global")
+            {
+                var user = await _users.GetAsync(userId, CancellationToken.None);
+                if (user?.GlobalRoleId is not Guid roleId)
+                {
+                    return;
+                }
+                _cachedPermissions ??= await _globalRolePermissions
+                    .GetPermissionKeysByRoleAsync(roleId, CancellationToken.None);
+            }
+            else
+            {
+                return;
+            }
         }
         catch (Exception exception)
         {
