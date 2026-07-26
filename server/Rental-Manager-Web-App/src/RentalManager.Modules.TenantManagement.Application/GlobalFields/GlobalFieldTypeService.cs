@@ -1,5 +1,4 @@
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
-using RentalManager.Modules.TenantManagement.Application.Fields;
 using RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
 
 namespace RentalManager.Modules.TenantManagement.Application.GlobalFields;
@@ -12,10 +11,8 @@ public sealed class GlobalFieldTypeService(IFieldTypeRepository fieldTypes) : IG
         IReadOnlyCollection<Domain.Entities.Dbo.FieldType> items =
             await fieldTypes.GetAllAsync(cancellationToken);
 
-        // Read from [dbo].[FieldType], then apply the same create/list support
-        // rules as FieldInvariants. Table has no DisplayOrder — order by Id.
+        // Full catalogue from [dbo].[FieldType]. No DisplayOrder column — order by Id.
         return items
-            .Where(item => FieldInvariants.IsSupportedFieldType(item.Id))
             .OrderBy(item => item.Id)
             .Select(item => new FieldTypeDto
             {
