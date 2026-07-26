@@ -24,3 +24,11 @@ dotnet user-secrets set "BootstrapAdmin:Enabled" "true"
 
 Run the commands from the `RentalManager.Api` project directory, or pass
 `--project` pointing at `RentalManager.Api.csproj`.
+
+## Frontend (Vite) proxy
+
+The Vite app proxies `/api` to `http://localhost:5008`. In Development the API
+does **not** redirect HTTP → HTTPS, because that redirect drops the
+`Authorization` header and makes `/auth/me` return `ERR-003` after login.
+
+Prefer the `http` launch profile (`http://localhost:5008`) when using the Vite proxy.

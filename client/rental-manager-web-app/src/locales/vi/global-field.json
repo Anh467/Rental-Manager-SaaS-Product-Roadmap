@@ -9,7 +9,14 @@
   },
   "filters": { "fieldType": "Loại trường", "status": "Trạng thái", "sortBy": "Sắp xếp", "ascending": "Tăng dần", "descending": "Giảm dần", "allTypes": "Tất cả loại", "allStatuses": "Tất cả trạng thái" },
   "columns": { "name": "Tên", "key": "Mã", "fieldType": "Loại trường", "optionCount": "Tùy chọn", "status": "Trạng thái", "updatedAt": "Cập nhật", "actions": "Thao tác" },
-  "types": { "1": "Văn bản", "2": "Số", "4": "Đúng/Sai", "6": "Chọn nhiều" },
+  "types": {
+    "1": "Văn bản",
+    "2": "Số",
+    "3": "Ngày",
+    "4": "Có/Không",
+    "5": "Chọn một",
+    "6": "Chọn nhiều"
+  },
   "dialog": { "create": "Tạo trường toàn cục", "view": "Chi tiết trường toàn cục", "edit": "Chỉnh sửa trường toàn cục" },
   "form": {
     "title": "Định nghĩa",

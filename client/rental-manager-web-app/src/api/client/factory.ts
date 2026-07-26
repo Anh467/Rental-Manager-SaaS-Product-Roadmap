@@ -34,7 +34,15 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
     (response) => response,
     (error: unknown) => {
       const apiError = toApiError(error);
-      if (apiError.status === 401) clientOptions.onUnauthorized?.();
+      const requestUrl = axios.isAxiosError(error)
+        ? String(error.config?.url ?? "")
+        : "";
+      // Failed login/token exchange is expected to be 401 — do not clear session / redirect.
+      const isAuthAttempt =
+        requestUrl.includes("/auth/login") || requestUrl.includes("/auth/token");
+      if (apiError.status === 401 && !isAuthAttempt) {
+        clientOptions.onUnauthorized?.();
+      }
       return Promise.reject(apiError);
     },
   );

@@ -107,8 +107,19 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ApiExceptionMiddleware>();
 
-app.UseHttpsRedirection();
-if (app.Environment.IsDevelopment()) app.UseCors("development");
+// Vite proxies to http://localhost:5008. HTTPS redirection would 307 to
+// https://localhost:7125 and strip Authorization on the follow-up, so /auth/me
+// (and other authenticated calls) fail with ERR-003 after a successful login.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("development");
+}
+
 app.UseAuthentication();
 app.UseMiddleware<OrganizationContextMiddleware>();
 app.UseAuthorization();

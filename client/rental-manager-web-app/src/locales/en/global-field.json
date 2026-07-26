@@ -9,7 +9,14 @@
   },
   "filters": { "fieldType": "Field type", "status": "Status", "sortBy": "Sort by", "ascending": "Ascending", "descending": "Descending", "allTypes": "All types", "allStatuses": "All statuses" },
   "columns": { "name": "Name", "key": "Key", "fieldType": "Field type", "optionCount": "Options", "status": "Status", "updatedAt": "Updated", "actions": "Actions" },
-  "types": { "1": "Text", "2": "Number", "4": "Boolean", "6": "Multi-select" },
+    "types": {
+    "1": "Text",
+    "2": "Number",
+    "3": "Date",
+    "4": "Yes/No",
+    "5": "Single select",
+    "6": "Multi-select"
+  },
   "dialog": { "create": "Create global field", "view": "Global field details", "edit": "Edit global field" },
   "form": {
     "title": "Definition",

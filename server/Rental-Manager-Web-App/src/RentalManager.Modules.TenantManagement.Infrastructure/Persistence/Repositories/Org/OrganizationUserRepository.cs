@@ -79,6 +79,30 @@ public sealed class OrganizationUserRepository : IOrganizationUserRepository
         return membership?.RoleId;
     }
 
+    public async Task<IReadOnlyList<ActiveOrganizationMembership>> ListActiveMembershipsByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var parameters = new DynamicParameters();
+        parameters.Add("UserId", userId, DbType.Guid);
+
+        const string sql = """
+            EXEC [dbo].[usp_ListActiveOrganizationMembershipsForUser] @UserId = @UserId;
+            """;
+
+        SqlExecution execution = await _executionContext.GetAsync(cancellationToken);
+
+        IEnumerable<ActiveOrganizationMembership> memberships =
+            await execution.Connection.QueryAsync<ActiveOrganizationMembership>(
+                new CommandDefinition(
+                    sql,
+                    parameters,
+                    execution.Transaction,
+                    cancellationToken: cancellationToken));
+
+        return memberships.ToArray();
+    }
+
     public async Task SaveAsync(
         OrganizationUser membership,
         CancellationToken cancellationToken = default)
