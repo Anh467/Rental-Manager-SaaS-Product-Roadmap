@@ -1,273 +1,134 @@
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using RentalManager.Api.Contracts;
-using RentalManager.Api.Security;
-using RentalManager.BuildingBlocks.Tenancy.Services;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Org;
+using RentalManager.BuildingBlocks.Tenancy.Cqrs;
+using RentalManager.Modules.Identity.Application.Authentication.CurrentUser;
+using RentalManager.Modules.Identity.Application.Authentication.Login;
+using RentalManager.Modules.Identity.Application.Authentication.Logout;
+using RentalManager.Modules.Identity.Application.Authentication.SelectOrganization;
+using RentalManager.Modules.Identity.Application.Contracts;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
-using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
-using DboRolePermissionRepository = RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo.IRolePermissionRepository;
 
 namespace RentalManager.Api.Controllers;
 
-public sealed record TokenRequest(
-    string? Email,
-    string? Password,
+public sealed record LoginRequest(string? Email, string? Password);
+
+public sealed record SelectOrganizationRequest(
+    string? SelectionTicket,
     Guid? OrganizationId);
 
-public sealed record TokenResponse(
-    string AccessToken,
-    string TokenType,
-    DateTimeOffset ExpiresAt);
+public sealed record CsrfTokenResponse(string RequestToken);
 
-public sealed record CurrentUserResponse(
-    Guid Id,
-    string Name,
-    string Email,
-    string Scope,
-    Guid? OrganizationId,
-    object? Role,
-    IReadOnlyCollection<string> Permissions);
+public sealed record OrganizationSelectionResponse(
+    string Status,
+    IReadOnlyList<OrganizationOptionDto> Organizations,
+    string SelectionTicket);
 
 [ApiController]
 [Route("api/v1/auth")]
-public sealed class AuthController : ControllerBase
+public sealed class AuthController(
+    ICommandHandler<LoginCommand, LoginResult> login,
+    ICommandHandler<SelectOrganizationCommand, LoginResult> selectOrganization,
+    ICommandHandler<LogoutCommand> logout,
+    IQueryHandler<GetCurrentUserQuery, CurrentUserDto> getCurrentUser,
+    IAntiforgery antiforgery) : ControllerBase
 {
-    private readonly IUserRepository _users;
-    private readonly IPermissionReader _permissionReader;
-    private readonly IOrganizationUserRepository _organizationUsers;
-    private readonly OrganizationContextAccessor _organizationContextAccessor;
-    private readonly JwtTokenIssuer _tokenIssuer;
-    private readonly IRoleRepository _roles;
-    private readonly DboRolePermissionRepository _globalRolePermissions;
-
-    public AuthController(
-        IUserRepository users,
-        IPermissionReader permissionReader,
-        IOrganizationUserRepository organizationUsers,
-        OrganizationContextAccessor organizationContextAccessor,
-        JwtTokenIssuer tokenIssuer,
-        IRoleRepository roles,
-        DboRolePermissionRepository globalRolePermissions)
-    {
-        _users = users;
-        _permissionReader = permissionReader;
-        _organizationUsers = organizationUsers;
-        _organizationContextAccessor = organizationContextAccessor;
-        _tokenIssuer = tokenIssuer;
-        _roles = roles;
-        _globalRolePermissions = globalRolePermissions;
-    }
-
-    /// <summary>
-    /// Exchanges credentials plus a chosen organization for a token bound to that
-    /// organization. Membership is resolved from
-    /// <c>[org].[OrganizationUser]</c>, so one user may belong to many
-    /// organizations and pick which one to enter.
-    /// </summary>
-    [HttpPost("token")]
+    [HttpGet("csrf")]
     [AllowAnonymous]
-    [EnableRateLimiting("auth")]
-    public async Task<ActionResult<ApiResponse<TokenResponse>>> IssueTokenAsync(
-        [FromBody] TokenRequest request,
-        CancellationToken cancellationToken)
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public ActionResult<ApiResponse<CsrfTokenResponse>> GetCsrfToken()
     {
-        ArgumentNullException.ThrowIfNull(request);
+        AntiforgeryTokenSet tokens = antiforgery.GetAndStoreTokens(HttpContext);
+        Response.Headers.CacheControl = "no-store";
 
-        if (string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Password) ||
-            request.OrganizationId is not Guid organizationId ||
-            organizationId == Guid.Empty)
-        {
-            throw new ValidationFailedException(
-                nameof(TokenRequest.Email),
-                MessageCode.Error.ValidationFailed);
-        }
-
-        User user = await AuthenticateUserAsync(
-            request.Email,
-            request.Password,
-            cancellationToken);
-
-        return Ok(await IssueOrganizationTokenAsync(
-            user,
-            organizationId,
-            cancellationToken));
-    }
-
-    /// <summary>
-    /// Signs in with email and password only. Organization is resolved
-    /// automatically: global admins get a global token; organization users with
-    /// exactly one membership get that organization; multiple memberships require
-    /// an explicit <see cref="TokenRequest.OrganizationId"/> via /token.
-    /// </summary>
-    [HttpPost("login")]
-    [AllowAnonymous]
-    [EnableRateLimiting("auth")]
-    public async Task<ActionResult<ApiResponse<TokenResponse>>> LoginAsync(
-        [FromBody] TokenRequest request,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-
-        if (string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Password))
-        {
-            throw new ValidationFailedException(
-                nameof(TokenRequest.Email),
-                MessageCode.Error.ValidationFailed);
-        }
-
-        User user = await AuthenticateUserAsync(
-            request.Email,
-            request.Password,
-            cancellationToken);
-
-        if (request.OrganizationId is Guid organizationId &&
-            organizationId != Guid.Empty)
-        {
-            return Ok(await IssueOrganizationTokenAsync(
-                user,
-                organizationId,
-                cancellationToken));
-        }
-
-        if (user.GlobalRoleId is not null)
-        {
-            (string token, DateTimeOffset expiresAt) = _tokenIssuer.IssueGlobal(user.Id);
-            return Ok(ApiResponse<TokenResponse>.Create(
-                new TokenResponse(token, "Bearer", expiresAt),
-                MessageCode.Success.SignedIn,
-                correlationId: HttpContext.TraceIdentifier));
-        }
-
-        IReadOnlyList<ActiveOrganizationMembership> memberships =
-            await _organizationUsers.ListActiveMembershipsByUserIdAsync(
-                user.Id,
-                cancellationToken);
-
-        if (memberships.Count == 0)
-        {
-            throw new AuthenticationFailedException();
-        }
-
-        if (memberships.Count > 1)
-        {
-            throw new ValidationFailedException(
-                nameof(TokenRequest.OrganizationId),
-                MessageCode.Error.OrganizationContextMissing);
-        }
-
-        return Ok(await IssueOrganizationTokenAsync(
-            user,
-            memberships[0].OrganizationId,
-            cancellationToken));
-    }
-
-    [Authorize]
-    [HttpGet("me")]
-    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> MeAsync(
-        CancellationToken cancellationToken)
-    {
-        if (_organizationContextAccessor.UserId is not Guid userId)
-        {
-            throw new AuthenticationFailedException();
-        }
-
-        User user = await _users.GetAsync(userId, cancellationToken)
-            ?? throw new AuthenticationFailedException();
-
-        bool global = HttpContext.User.FindFirst(JwtClaimNames.Scope)?.Value == "global";
-        if (global)
-        {
-            if (user.GlobalRoleId is not Guid roleId)
-            {
-                throw new AuthenticationFailedException();
-            }
-
-            Role role = await _roles.GetAsync(roleId, cancellationToken)
-                ?? throw new AuthenticationFailedException();
-            IReadOnlySet<string> permissions =
-                await _globalRolePermissions.GetPermissionKeysByRoleAsync(
-                    roleId,
-                    cancellationToken);
-
-            return Ok(ApiResponse<CurrentUserResponse>.Create(
-                new CurrentUserResponse(
-                    user.Id,
-                    user.DisplayName,
-                    user.Email,
-                    "global",
-                    null,
-                    new { key = role.Key, name = role.Name },
-                    permissions.ToArray()),
-                MessageCode.Success.Retrieved,
-                correlationId: HttpContext.TraceIdentifier));
-        }
-
-        IReadOnlySet<string> orgPermissions =
-            await _permissionReader.GetPermissionKeysAsync(userId, cancellationToken);
-
-        return Ok(ApiResponse<CurrentUserResponse>.Create(
-            new CurrentUserResponse(
-                user.Id,
-                user.DisplayName,
-                user.Email,
-                "organization",
-                _organizationContextAccessor.OrganizationId,
-                null,
-                orgPermissions.ToArray()),
+        return Ok(ApiResponse<CsrfTokenResponse>.Create(
+            new CsrfTokenResponse(tokens.RequestToken ?? string.Empty),
             MessageCode.Success.Retrieved,
             correlationId: HttpContext.TraceIdentifier));
     }
 
-    private async Task<User> AuthenticateUserAsync(
-        string email,
-        string password,
+    [HttpPost("login")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<ApiResponse<object>>> LoginAsync(
+        [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
-        User user = await _users.FindByNormalizedEmailAsync(
-            email.Trim().ToUpperInvariant(),
-            cancellationToken)
-            ?? throw new AuthenticationFailedException();
+        ArgumentNullException.ThrowIfNull(request);
 
-        if (!user.IsActive ||
-            !PasswordHasher.Verify(password, user.PasswordHash, user.PasswordSalt))
-        {
-            throw new AuthenticationFailedException();
-        }
-
-        return user;
-    }
-
-    private async Task<ApiResponse<TokenResponse>> IssueOrganizationTokenAsync(
-        User user,
-        Guid organizationId,
-        CancellationToken cancellationToken)
-    {
-        _organizationContextAccessor.SetOrganization(organizationId);
-        _organizationContextAccessor.SetUser(user.Id);
-
-        bool isMember = await _permissionReader.IsActiveMemberAsync(
-            user.Id,
+        LoginResult result = await login.HandleAsync(
+            new LoginCommand(request.Email, request.Password),
             cancellationToken);
 
-        if (!isMember)
-        {
-            throw new MissingOrganizationContextException();
-        }
+        return MapLoginResult(result);
+    }
 
-        (string token, DateTimeOffset expiresAt) = _tokenIssuer.Issue(
-            user.Id,
-            organizationId);
+    [HttpPost("select-organization")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<ActionResult<ApiResponse<object>>> SelectOrganizationAsync(
+        [FromBody] SelectOrganizationRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
 
-        return ApiResponse<TokenResponse>.Create(
-            new TokenResponse(token, "Bearer", expiresAt),
+        LoginResult result = await selectOrganization.HandleAsync(
+            new SelectOrganizationCommand(
+                request.SelectionTicket,
+                request.OrganizationId),
+            cancellationToken);
+
+        return MapLoginResult(result);
+    }
+
+    [HttpPost("logout")]
+    [Authorize]
+    public async Task<ActionResult<ApiResponse<object>>> LogoutAsync(
+        CancellationToken cancellationToken)
+    {
+        await logout.HandleAsync(new LogoutCommand(), cancellationToken);
+
+        return Ok(ApiResponse<object>.Create(
+            null,
             MessageCode.Success.SignedIn,
-            correlationId: HttpContext.TraceIdentifier);
+            correlationId: HttpContext.TraceIdentifier));
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<ApiResponse<CurrentUserDto>>> MeAsync(
+        CancellationToken cancellationToken)
+    {
+        CurrentUserDto user = await getCurrentUser.HandleAsync(
+            new GetCurrentUserQuery(),
+            cancellationToken);
+
+        return Ok(ApiResponse<CurrentUserDto>.Create(
+            user,
+            MessageCode.Success.Retrieved,
+            correlationId: HttpContext.TraceIdentifier));
+    }
+
+    private ActionResult<ApiResponse<object>> MapLoginResult(LoginResult result)
+    {
+        return result.Status switch
+        {
+            LoginStatus.Failed => throw new AuthenticationFailedException(),
+            LoginStatus.Authenticated => Ok(ApiResponse<object>.Create(
+                result.Authentication,
+                MessageCode.Success.SignedIn,
+                correlationId: HttpContext.TraceIdentifier)),
+            LoginStatus.OrganizationSelectionRequired => Ok(ApiResponse<object>.Create(
+                new OrganizationSelectionResponse(
+                    "organizationSelectionRequired",
+                    result.Organizations ?? [],
+                    result.SelectionTicket ?? string.Empty),
+                MessageCode.Success.SignedIn,
+                correlationId: HttpContext.TraceIdentifier)),
+            _ => throw new AuthenticationFailedException()
+        };
     }
 }
