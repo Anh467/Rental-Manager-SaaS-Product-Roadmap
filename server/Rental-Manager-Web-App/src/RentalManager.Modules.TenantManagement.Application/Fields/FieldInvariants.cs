@@ -11,31 +11,21 @@ namespace RentalManager.Modules.TenantManagement.Application.Fields;
 public static class FieldInvariants
 {
     /// <summary>
-    /// Field types supported by the MVP. <c>Date</c> and <c>Selection</c> exist
-    /// in <c>[dbo].[FieldType]</c> but are not accepted yet, and JSON and file
-    /// types are not modelled at all.
+    /// Whether a field type id is known in the <see cref="EFieldType"/> catalogue
+    /// that mirrors <c>[dbo].[FieldType]</c> seed data. Create/update still
+    /// verifies the row exists in the database.
     /// </summary>
-    public static readonly IReadOnlySet<int> SupportedFieldTypeIds =
-        new HashSet<int>
-        {
-            (int)EFieldType.Text,
-            (int)EFieldType.Number,
-            (int)EFieldType.Boolean,
-            (int)EFieldType.MultiSelect
-        };
-
-    public static bool IsSupportedFieldType(int fieldTypeId)
+    public static bool IsKnownFieldType(int fieldTypeId)
     {
-        return SupportedFieldTypeIds.Contains(fieldTypeId);
+        return Enum.IsDefined(typeof(EFieldType), fieldTypeId);
     }
 
     /// <summary>
-    /// Only a MultiSelect field owns options, and a MultiSelect field is
-    /// meaningless without at least one.
+    /// Selection and MultiSelect own options; other types must not carry any.
     /// </summary>
     public static bool RequiresOptions(int fieldTypeId)
     {
-        return fieldTypeId == (int)EFieldType.MultiSelect;
+        return fieldTypeId is (int)EFieldType.Selection or (int)EFieldType.MultiSelect;
     }
 
     public static string ObjectName => MessageCode.ObjectName.Field;

@@ -1,4 +1,5 @@
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
+using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Org;
 using RentalManager.Modules.TenantManagement.Application.Fields.Dtos;
 using RentalManager.Modules.TenantManagement.Core.Constants;
@@ -16,19 +17,23 @@ public sealed class FieldService : IFieldService
     private readonly ISqlSession _session;
     private readonly IOrgFieldRepository _fields;
     private readonly IFieldOptionRepository _fieldOptions;
+    private readonly IFieldTypeRepository _fieldTypes;
 
     public FieldService(
         ISqlSession session,
         IOrgFieldRepository fields,
-        IFieldOptionRepository fieldOptions)
+        IFieldOptionRepository fieldOptions,
+        IFieldTypeRepository fieldTypes)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(fields);
         ArgumentNullException.ThrowIfNull(fieldOptions);
+        ArgumentNullException.ThrowIfNull(fieldTypes);
 
         _session = session;
         _fields = fields;
         _fieldOptions = fieldOptions;
+        _fieldTypes = fieldTypes;
     }
 
     public async Task<PagedResult<FieldDto>> GetFieldsAsync(
@@ -85,6 +90,12 @@ public sealed class FieldService : IFieldService
     {
         ArgumentNullException.ThrowIfNull(request);
         FieldValidator.ValidateCreate(request);
+        if (await _fieldTypes.GetAsync(request.FieldTypeId, cancellationToken) is null)
+        {
+            throw new ValidationFailedException(
+                nameof(CreateFieldRequest.FieldTypeId),
+                MessageCode.Error.FieldTypeMismatch);
+        }
 
         await using ISqlTransactionScope transaction =
             await _session.BeginTransactionAsync(cancellationToken);

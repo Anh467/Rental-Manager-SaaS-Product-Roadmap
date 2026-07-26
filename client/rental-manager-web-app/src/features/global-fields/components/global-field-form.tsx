@@ -23,8 +23,7 @@ import {
 import { ErrorState } from "@/components/common/page";
 import { Button } from "@/components/ui/button";
 import {
-  getMultiSelectFieldTypeId,
-  isMultiSelectFieldTypeId,
+  fieldTypeRequiresOptions,
   toFieldTypeSelectOptions,
 } from "../lib/field-type-options";
 import { FieldOptionEditor } from "./field-option-editor";
@@ -60,7 +59,6 @@ export function GlobalFieldForm({
   const isEdit = Boolean(field);
   const fieldTypesQuery = useGlobalFieldTypesQuery();
   const fieldTypes = fieldTypesQuery.data ?? [];
-  const multiSelectId = getMultiSelectFieldTypeId(fieldTypes);
   const fieldTypeOptions = useMemo(() => {
     const options = toFieldTypeSelectOptions(fieldTypes);
     if (
@@ -107,8 +105,7 @@ export function GlobalFieldForm({
         })
         .superRefine((values, context) => {
           if (
-            multiSelectId !== undefined &&
-            Number(values.fieldTypeId) === multiSelectId &&
+            fieldTypeRequiresOptions(fieldTypes, values.fieldTypeId) &&
             values.options.length === 0
           ) {
             context.addIssue({
@@ -118,7 +115,7 @@ export function GlobalFieldForm({
             });
           }
         }),
-    [fieldTypeOptions, multiSelectId, t],
+    [fieldTypeOptions, fieldTypes, t],
   );
 
   const initialValues: GlobalFieldFormValues = {
@@ -158,7 +155,7 @@ export function GlobalFieldForm({
         const payload = {
           ...values,
           fieldTypeId,
-          options: isMultiSelectFieldTypeId(fieldTypes, fieldTypeId)
+          options: fieldTypeRequiresOptions(fieldTypes, fieldTypeId)
             ? values.options.map((option, displayOrder) => ({ ...option, displayOrder }))
             : [],
         };
@@ -214,7 +211,7 @@ export function GlobalFieldForm({
                 label={t("form.fields.isActive")}
               />
             ) : null}
-            {isMultiSelectFieldTypeId(fieldTypes, form.watch("fieldTypeId")) ? (
+            {fieldTypeRequiresOptions(fieldTypes, form.watch("fieldTypeId")) ? (
               <FieldOptionEditor control={form.control} disabled={readOnly} />
             ) : null}
           </FormSection>

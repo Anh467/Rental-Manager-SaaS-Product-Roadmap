@@ -12,7 +12,8 @@ namespace RentalManager.Modules.TenantManagement.Application.GlobalFields;
 public sealed class GlobalFieldService(
     ISqlSession session,
     IFieldRepository fields,
-    IGlobalFieldOptionRepository options) : IGlobalFieldService
+    IGlobalFieldOptionRepository options,
+    IFieldTypeRepository fieldTypes) : IGlobalFieldService
 {
     public async Task<PagedResult<FieldDto>> GetFieldsAsync(GetGlobalFieldsRequest request, CancellationToken cancellationToken = default)
     {
@@ -32,6 +33,13 @@ public sealed class GlobalFieldService(
     public async Task<FieldDto> CreateFieldAsync(CreateFieldRequest request, CancellationToken cancellationToken = default)
     {
         FieldValidator.ValidateCreate(request);
+        if (await fieldTypes.GetAsync(request.FieldTypeId, cancellationToken) is null)
+        {
+            throw new ValidationFailedException(
+                nameof(CreateFieldRequest.FieldTypeId),
+                MessageCode.Error.FieldTypeMismatch);
+        }
+
         await using var transaction = await session.BeginTransactionAsync(cancellationToken);
         if (await fields.FindByKeyAsync(request.Key!, cancellationToken) is not null)
             throw new DuplicateResourceException(FieldInvariants.ObjectName, "key");

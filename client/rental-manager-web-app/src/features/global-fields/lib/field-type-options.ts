@@ -1,5 +1,7 @@
 import type { GlobalFieldType } from "@/api/routes/global-field-types";
 
+const OPTION_FIELD_TYPE_KEYS = new Set(["selection", "multi_select"]);
+
 export function toFieldTypeSelectOptions(types: readonly GlobalFieldType[]) {
   return types.map((type) => ({
     value: String(type.id),
@@ -15,15 +17,10 @@ export function getFieldTypeName(
   return types.find((type) => type.id === fieldTypeId)?.name ?? fallback ?? String(fieldTypeId);
 }
 
-export function getMultiSelectFieldTypeId(types: readonly GlobalFieldType[]) {
-  return types.find((type) => type.key === "multi_select")?.id;
-}
-
-export function isMultiSelectFieldTypeId(
+export function fieldTypeRequiresOptions(
   types: readonly GlobalFieldType[],
   fieldTypeId: number | string,
 ) {
-  const multiSelectId = getMultiSelectFieldTypeId(types);
-  if (multiSelectId === undefined) return false;
-  return Number(fieldTypeId) === multiSelectId;
+  const type = types.find((item) => item.id === Number(fieldTypeId));
+  return type !== undefined && OPTION_FIELD_TYPE_KEYS.has(type.key);
 }

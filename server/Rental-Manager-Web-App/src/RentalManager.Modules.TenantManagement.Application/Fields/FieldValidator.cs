@@ -23,7 +23,7 @@ public static class FieldValidator
         ValidateName(request.Name, failures);
         ValidateDescription(request.Description, failures);
 
-        if (!FieldInvariants.IsSupportedFieldType(request.FieldTypeId))
+        if (!FieldInvariants.IsKnownFieldType(request.FieldTypeId))
         {
             failures.Add(new ValidationFailure(
                 nameof(CreateFieldRequest.FieldTypeId),
