@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using RentalManager.Api.Security;
+using RentalManager.Modules.Identity.Infrastructure.Bootstrap;
 using Xunit;
 
 namespace RentalManager.Modules.TenantManagement.Application.UnitTests;
@@ -58,7 +58,7 @@ public sealed class BootstrapAdminOptionsTests
         {
             Enabled = true,
             Email = "ops@example.com",
-            Password = "A-Strong-Local-Only-Password!"
+            Password = "A-Strong-Local-Only-Password1!"
         };
 
         Assert.Empty(Validate(options));

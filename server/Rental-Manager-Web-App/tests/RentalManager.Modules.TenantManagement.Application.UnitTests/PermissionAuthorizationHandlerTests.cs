@@ -1,9 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
-using RentalManager.Api.Authorization;
-using RentalManager.Api.Security;
-using RentalManager.BuildingBlocks.Tenancy.Abstractions;
+using RentalManager.Modules.Identity.Application.Abstractions;
+using RentalManager.Modules.Identity.Infrastructure.Authorization;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
@@ -18,7 +17,6 @@ public sealed class PermissionAuthorizationHandlerTests
     {
         var handler = new PermissionAuthorizationHandler(
             new ThrowingPermissionReader(),
-            new StubOrganizationContext(organizationId: null, userId: null),
             new UnusedUserRepository(),
             new UnusedRolePermissionRepository(),
             new HttpContextAccessor { HttpContext = new DefaultHttpContext() });
@@ -37,11 +35,11 @@ public sealed class PermissionAuthorizationHandlerTests
     [Fact]
     public async Task Infrastructure_exception_from_permission_reader_propagates()
     {
+        Guid userId = Guid.CreateVersion7();
+        Guid organizationId = Guid.CreateVersion7();
+
         var handler = new PermissionAuthorizationHandler(
             new ThrowingPermissionReader(),
-            new StubOrganizationContext(
-                organizationId: Guid.CreateVersion7(),
-                userId: Guid.CreateVersion7()),
             new UnusedUserRepository(),
             new UnusedRolePermissionRepository(),
             new HttpContextAccessor { HttpContext = new DefaultHttpContext() });
@@ -50,7 +48,11 @@ public sealed class PermissionAuthorizationHandlerTests
         var context = new AuthorizationHandlerContext(
             [requirement],
             new ClaimsPrincipal(new ClaimsIdentity(
-                [new Claim(JwtClaimNames.Scope, "organization")],
+                [
+                    new Claim(IdentityClaimNames.UserId, userId.ToString()),
+                    new Claim(IdentityClaimNames.ActiveOrganizationId, organizationId.ToString()),
+                    new Claim(IdentityClaimNames.Scope, IdentityClaimNames.ScopeOrganization)
+                ],
                 authenticationType: "test")),
             resource: null);
 
@@ -71,23 +73,6 @@ public sealed class PermissionAuthorizationHandlerTests
             Guid userId,
             CancellationToken cancellationToken = default) =>
             throw new IOException("simulated database outage");
-    }
-
-    private sealed class StubOrganizationContext : IOrganizationContext
-    {
-        public StubOrganizationContext(Guid? organizationId, Guid? userId)
-        {
-            OrganizationId = organizationId;
-            UserId = userId;
-        }
-
-        public Guid? OrganizationId { get; }
-
-        public Guid? UserId { get; }
-
-        public string? CorrelationId => "test";
-
-        public bool HasOrganization => OrganizationId is not null;
     }
 
     private sealed class UnusedUserRepository : IUserRepository

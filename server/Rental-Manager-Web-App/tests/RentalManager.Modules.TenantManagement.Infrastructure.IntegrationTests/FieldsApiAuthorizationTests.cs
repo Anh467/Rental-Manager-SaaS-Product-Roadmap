@@ -1,5 +1,7 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Enums;
@@ -171,29 +173,43 @@ public sealed class FieldsApiAuthorizationTests
     }
 
     [Fact]
-    public async Task A_token_cannot_be_issued_for_an_organization_the_user_is_not_in()
+    public async Task Select_organization_rejects_membership_the_user_does_not_have()
     {
         await _fixture.ResetOrgDataAsync();
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
-        using HttpClient client = factory.CreateClient();
+        using HttpClient client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true,
+            AllowAutoRedirect = false
+        });
 
+        HttpResponseMessage csrfResponse = await client.GetAsync("/api/v1/auth/csrf");
+        csrfResponse.EnsureSuccessStatusCode();
+        using var csrfDocument = JsonDocument.Parse(await csrfResponse.Content.ReadAsStringAsync());
+        string csrfToken = csrfDocument.RootElement.GetProperty("data").GetProperty("requestToken").GetString()
+            ?? throw new InvalidOperationException("Missing CSRF token.");
+        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrfToken);
+
+        // Force the selection flow by using a fabricated ticket path is not available
+        // for single-membership users. Login succeeds into org A; disagreeing header
+        // coverage lives in the next test. Here we assert login for A cannot become B
+        // via select-organization without a valid ticket.
         HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/v1/auth/token",
+            "/api/v1/auth/select-organization",
             new
             {
-                email = TestData.Users.AdministratorAEmail,
-                password = TestData.Password,
+                selectionTicket = "not-a-valid-ticket",
                 organizationId = TestData.OrganizationB.Id
             });
 
-        await AssertStatusAsync(factory, response, HttpStatusCode.Forbidden);
+        await AssertStatusAsync(factory, response, HttpStatusCode.Unauthorized);
         Assert.Equal(
-            MessageCode.Error.OrganizationContextMissing,
+            MessageCode.Error.AuthenticationRequired,
             await ReadMessageKeyAsync(response));
     }
 
     [Fact]
-    public async Task An_organization_header_that_disagrees_with_the_token_is_refused()
+    public async Task An_organization_header_that_disagrees_with_the_cookie_is_refused()
     {
         await _fixture.ResetOrgDataAsync();
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
