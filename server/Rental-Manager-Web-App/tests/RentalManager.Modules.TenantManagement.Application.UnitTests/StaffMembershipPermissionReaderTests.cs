@@ -131,6 +131,10 @@ public sealed class NoRuntimeOrganizationUserReferencesTests
                             StringComparison.OrdinalIgnoreCase) ||
                         fileName.Equals(
                             "StaffMembershipPermissionReaderTests.cs",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        // Fixture cleanup for residual cutover rows only.
+                        fileName.Equals(
+                            "SqlServerFixture.cs",
                             StringComparison.OrdinalIgnoreCase))
                     {
                         continue;

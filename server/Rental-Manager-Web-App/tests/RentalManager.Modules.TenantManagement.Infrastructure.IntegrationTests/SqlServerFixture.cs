@@ -127,7 +127,8 @@ public sealed class SqlServerFixture : IAsyncLifetime
     /// <summary>
     /// Removes users and identity mappings a test provisioned, leaving the
     /// seeded tenants intact so provisioning tests stay independent of each
-    /// other.
+    /// other. Also clears residual OrganizationUser / Staff* / PlatformUserRole
+    /// rows that cutover or first-login tests may leave behind.
     /// </summary>
     public async Task ResetProvisionedUsersAsync()
     {
@@ -135,11 +136,34 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
         await connection.ExecuteAsync(
             """
+            ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
+                WITH (STATE = OFF);
+
+            DELETE staffRole
+            FROM [org].[StaffRole] AS staffRole
+            INNER JOIN [org].[StaffMembership] AS membership
+                ON membership.[Id] = staffRole.[StaffMembershipId]
+               AND membership.[OrganizationId] = staffRole.[OrganizationId]
+            WHERE membership.[UserId] NOT IN
+                (@AdministratorAId, @ViewerAId, @AdministratorBId);
+
+            DELETE FROM [org].[StaffMembership]
+            WHERE [UserId] NOT IN (@AdministratorAId, @ViewerAId, @AdministratorBId);
+
+            DELETE FROM [org].[OrganizationUser]
+            WHERE [UserId] NOT IN (@AdministratorAId, @ViewerAId, @AdministratorBId);
+
+            DELETE FROM [dbo].[PlatformUserRole]
+            WHERE [UserId] NOT IN (@AdministratorAId, @ViewerAId, @AdministratorBId);
+
             DELETE FROM [dbo].[UserIdentity]
             WHERE [UserId] NOT IN (@AdministratorAId, @ViewerAId, @AdministratorBId);
 
             DELETE FROM [dbo].[User]
             WHERE [Id] NOT IN (@AdministratorAId, @ViewerAId, @AdministratorBId);
+
+            ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
+                WITH (STATE = ON);
             """,
             new
             {

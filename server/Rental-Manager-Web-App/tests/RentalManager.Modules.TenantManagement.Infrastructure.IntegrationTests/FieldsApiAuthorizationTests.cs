@@ -241,13 +241,15 @@ public sealed class FieldsApiAuthorizationTests
             "/api/v1/fields",
             new
             {
-                key = "  ",
-                name = "",
-                fieldTypeId = (int)EFieldType.Text
+                // Passes DataAnnotations (non-empty + valid definition key) so
+                // ASP.NET model binding does not short-circuit as 400. Business
+                // FieldValidator then rejects blank name and unknown field type.
+                key = "valid.key",
+                name = "   ",
+                fieldTypeId = 999
             });
 
-        // Field-level business validation happens after the JSON body has
-        // already parsed successfully, so it is a 422, not a 400.
+        // Semantically valid JSON that fails field/business validation is 422.
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
 
         ErrorEnvelope error =
@@ -257,8 +259,10 @@ public sealed class FieldsApiAuthorizationTests
         Assert.False(error.Success);
         Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
         Assert.NotNull(error.FieldErrors);
-        Assert.Contains(error.FieldErrors, fieldError => fieldError.FieldKey == "key");
         Assert.Contains(error.FieldErrors, fieldError => fieldError.FieldKey == "name");
+        Assert.Contains(
+            error.FieldErrors,
+            fieldError => fieldError.FieldKey == "fieldTypeId");
     }
 
     private static async Task AssertStatusAsync(
