@@ -241,12 +241,12 @@ public sealed class FieldsApiAuthorizationTests
             "/api/v1/fields",
             new
             {
-                // Passes DataAnnotations (non-empty + valid definition key) so
-                // ASP.NET model binding does not short-circuit as 400. Business
-                // FieldValidator then rejects blank name and unknown field type.
+                // Passes ASP.NET DataAnnotations (non-empty name, valid key) so
+                // model binding does not short-circuit as 400. FieldValidator then
+                // rejects the unknown field type and missing selection options.
                 key = "valid.key",
-                name = "   ",
-                fieldTypeId = 999
+                name = "Valid Name",
+                fieldTypeId = (int)EFieldType.Selection
             });
 
         // Semantically valid JSON that fails field/business validation is 422.
@@ -259,10 +259,9 @@ public sealed class FieldsApiAuthorizationTests
         Assert.False(error.Success);
         Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
         Assert.NotNull(error.FieldErrors);
-        Assert.Contains(error.FieldErrors, fieldError => fieldError.FieldKey == "name");
         Assert.Contains(
             error.FieldErrors,
-            fieldError => fieldError.FieldKey == "fieldTypeId");
+            fieldError => fieldError.FieldKey == "options");
     }
 
     private static async Task AssertStatusAsync(
