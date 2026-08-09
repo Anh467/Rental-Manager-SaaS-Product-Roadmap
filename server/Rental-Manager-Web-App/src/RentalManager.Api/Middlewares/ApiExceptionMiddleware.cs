@@ -1,28 +1,30 @@
-using System.Net;
-using System.Text.Json;
-using Microsoft.AspNetCore.Antiforgery;
-using RentalManager.BuildingBlocks.Contracts;
-using RentalManager.BuildingBlocks.Contracts.Messaging;
-using RentalManager.Modules.TenantManagement.Core.Exceptions;
+using RentalManager.Api.Http;
 
 namespace RentalManager.Api.Middlewares;
 
 /// <summary>
-/// Translates exceptions into the single error envelope. The HTTP status comes
-/// from the exception type and the message key comes from the exception, so no
-/// status-to-key mapping is duplicated in controllers.
+/// Translates exceptions into the single error envelope. <see cref="IApiExceptionMapper"/>
+/// maps the exception to an HTTP status and message key, and
+/// <see cref="IApiErrorResponseWriter"/> is the only thing that serializes the
+/// envelope, so no status-to-key mapping or serialization is duplicated here.
 /// </summary>
 public sealed class ApiExceptionMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ApiExceptionMiddleware> _logger;
+    private readonly IApiExceptionMapper _mapper;
+    private readonly IApiErrorResponseWriter _writer;
 
     public ApiExceptionMiddleware(
         RequestDelegate next,
-        ILogger<ApiExceptionMiddleware> logger)
+        ILogger<ApiExceptionMiddleware> logger,
+        IApiExceptionMapper mapper,
+        IApiErrorResponseWriter writer)
     {
         _next = next;
         _logger = logger;
+        _mapper = mapper;
+        _writer = writer;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -35,140 +37,30 @@ public sealed class ApiExceptionMiddleware
         {
             // The caller went away; there is nobody left to send a response to.
         }
-        catch (ValidationFailedException exception)
-        {
-            await WriteAsync(
-                context,
-                HttpStatusCode.BadRequest,
-                exception.MessageKey,
-                exception.Parameters,
-                exception.Failures
-                    .Select(failure => new ApiFieldError(
-                        JsonPropertyPathMapper.ToCamelCasePath(failure.FieldKey),
-                        failure.MessageKey,
-                        failure.Parameters))
-                    .ToArray());
-        }
-        catch (AuthenticationFailedException exception)
-        {
-            await WriteAsync(
-                context,
-                HttpStatusCode.Unauthorized,
-                exception.MessageKey,
-                exception.Parameters);
-        }
-        catch (AntiforgeryValidationException)
-        {
-            await WriteAsync(
-                context,
-                HttpStatusCode.BadRequest,
-                MessageCode.Error.ValidationFailed,
-                parameters: null);
-        }
-        catch (ResourceNotFoundException exception)
-        {
-            await WriteAsync(
-                context,
-                HttpStatusCode.NotFound,
-                exception.MessageKey,
-                exception.Parameters);
-        }
-        catch (MissingOrganizationContextException exception)
-        {
-            await WriteAsync(
-                context,
-                HttpStatusCode.Forbidden,
-                exception.MessageKey,
-                exception.Parameters);
-        }
-        catch (PermissionDeniedException exception)
-        {
-            await WriteAsync(
-                context,
-                HttpStatusCode.Forbidden,
-                exception.MessageKey,
-                exception.Parameters);
-        }
-        catch (DuplicateResourceException exception)
-        {
-            await WriteAsync(
-                context,
-                HttpStatusCode.Conflict,
-                exception.MessageKey,
-                exception.Parameters,
-                exception.FieldKey is null
-                    ? null
-                    : [new ApiFieldError(
-                        JsonPropertyPathMapper.ToCamelCasePath(exception.FieldKey),
-                        exception.MessageKey,
-                        exception.Parameters)]);
-        }
-        catch (DomainException exception)
-        {
-            // Duplicate, stale row version and invariant violations all describe
-            // a conflict with the current state of the resource.
-            await WriteAsync(
-                context,
-                HttpStatusCode.Conflict,
-                exception.MessageKey,
-                exception.Parameters);
-        }
         catch (Exception exception)
         {
-            string correlationId = ResolveCorrelationId(context);
+            ApiErrorMapping mapping = _mapper.Map(exception);
 
-            _logger.LogError(
-                exception,
-                "Unhandled exception for {Method} {Path}. CorrelationId {CorrelationId}.",
-                context.Request.Method,
-                context.Request.Path,
-                correlationId);
+            if (mapping.StatusCode >= StatusCodes.Status500InternalServerError)
+            {
+                // Full exception detail (message, stack trace, inner
+                // exceptions) is logged server-side only, keyed by
+                // correlation id; it must never reach the response body.
+                _logger.LogError(
+                    exception,
+                    "Unhandled exception for {Method} {Path}. CorrelationId {CorrelationId}.",
+                    context.Request.Method,
+                    context.Request.Path,
+                    context.TraceIdentifier);
+            }
 
-            await WriteAsync(
+            await _writer.WriteAsync(
                 context,
-                HttpStatusCode.InternalServerError,
-                MessageCode.Error.UnexpectedError,
-                parameters: null);
+                mapping.StatusCode,
+                mapping.MessageKey,
+                mapping.Parameters,
+                mapping.FieldErrors,
+                context.RequestAborted);
         }
     }
-
-    private static async Task WriteAsync(
-        HttpContext context,
-        HttpStatusCode statusCode,
-        string messageKey,
-        IReadOnlyDictionary<string, object?>? parameters,
-        IReadOnlyList<ApiFieldError>? fieldErrors = null)
-    {
-        if (context.Response.HasStarted)
-        {
-            return;
-        }
-
-        context.Response.Clear();
-        context.Response.StatusCode = (int)statusCode;
-        context.Response.ContentType = "application/json; charset=utf-8";
-
-        var payload = new ApiErrorResponse
-        {
-            MessageKey = messageKey,
-            Parameters = parameters is { Count: > 0 } ? parameters : null,
-            FieldErrors = fieldErrors is { Count: > 0 } ? fieldErrors : null,
-            CorrelationId = ResolveCorrelationId(context)
-        };
-
-        await context.Response.WriteAsync(
-            JsonSerializer.Serialize(payload, SerializerOptions),
-            context.RequestAborted);
-    }
-
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
-    internal static string ResolveCorrelationId(HttpContext context)
-    {
-        return context.TraceIdentifier;
-    }
-
 }

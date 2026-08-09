@@ -246,7 +246,9 @@ public sealed class FieldsApiAuthorizationTests
                 fieldTypeId = (int)EFieldType.Text
             });
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // Field-level business validation happens after the JSON body has
+        // already parsed successfully, so it is a 422, not a 400.
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
 
         ErrorEnvelope error =
             await response.Content.ReadFromJsonAsync<ErrorEnvelope>(FieldsApiFactory.Json)
