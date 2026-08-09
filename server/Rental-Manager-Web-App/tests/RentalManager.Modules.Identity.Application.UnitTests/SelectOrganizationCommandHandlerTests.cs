@@ -7,12 +7,8 @@ using RentalManager.Modules.Identity.Application.Authentication.Login;
 using RentalManager.Modules.Identity.Application.Authentication.SelectOrganization;
 using RentalManager.Modules.Identity.Application.Contracts;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
-using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
 using Xunit;
-using DboRolePermissionRepository =
-    RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo.IRolePermissionRepository;
 
 namespace RentalManager.Modules.Identity.Application.UnitTests;
 
@@ -105,9 +101,7 @@ public sealed class SelectOrganizationCommandHandlerTests
         var profileBuilder = new AuthenticationProfileBuilder(
             accessor,
             new EmptyPermissionReader(),
-            new EmptyPlatformPermissionReader(),
-            new UnusedRoleRepository(),
-            new UnusedRolePermissionRepository());
+            new EmptyPlatformPermissionReader());
 
         var sessionIssuer = new AuthenticationSessionIssuer(
             memberships,
@@ -238,63 +232,6 @@ public sealed class SelectOrganizationCommandHandlerTests
             Guid userId,
             CancellationToken cancellationToken = default) =>
             Task.FromResult<PlatformRoleSummary?>(null);
-    }
-
-    private sealed class UnusedRoleRepository : IRoleRepository
-    {
-        public Task<Role?> FindByKeyAsync(string key, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<Role?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<byte[]?> InsertAsync(Role entity, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<byte[]?> UpdateAsync(
-            Role entity,
-            byte[]? expectedRowVersion = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task SaveAsync(Role entity, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task DeleteAsync(Role entity, CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task SoftDeleteAsync(
-            Guid id,
-            byte[]? expectedRowVersion = null,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<IReadOnlyCollection<Role>> GetAllAsync(
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-    }
-
-    private sealed class UnusedRolePermissionRepository : DboRolePermissionRepository
-    {
-        public Task<IReadOnlySet<string>> GetPermissionKeysByRoleAsync(
-            Guid roleId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlySet<string>>(new HashSet<string>(StringComparer.Ordinal));
-
-        public Task<bool> ExistsAsync(
-            RolePermission entity,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task SaveAsync(
-            RolePermission entity,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task DeleteAsync(
-            RolePermission entity,
-            CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
     }
 
     private sealed class EmptyOrganizationContext : IOrganizationContext

@@ -52,7 +52,7 @@ describe("createApiClient envelope handling", () => {
     });
   });
 
-  it("synthesizes a success envelope for 204 No Content, using the correlation id header", async () => {
+  it("returns void for 204 No Content via deleteNoContent without inventing a message key", async () => {
     const client = createApiClient({ baseUrl: "", withCredentials: true });
     mock = new MockAdapter(client.axios);
     mockCsrfEndpoint(mock);
@@ -60,28 +60,37 @@ describe("createApiClient envelope handling", () => {
       "x-correlation-id": "corr-204",
     });
 
-    const result = await client.delete("/api/v1/things/1");
+    await expect(client.deleteNoContent("/api/v1/things/1")).resolves.toBeUndefined();
+  });
 
-    expect(result).toEqual({
+  it("rejects non-204 responses on the no-content path", async () => {
+    const client = createApiClient({ baseUrl: "", withCredentials: true });
+    mock = new MockAdapter(client.axios);
+    mockCsrfEndpoint(mock);
+    mock.onDelete("/api/v1/things/1").reply(200, {
       success: true,
       messageKey: "SCS-005",
-      data: undefined,
-      correlationId: "corr-204",
+      data: null,
+      correlationId: "corr-json",
+    });
+
+    await expect(client.deleteNoContent("/api/v1/things/1")).rejects.toMatchObject({
+      messageKey: "ERR-050",
     });
   });
 
-  it("falls back to 'unknown' correlation id when the header is missing on 204", async () => {
+  it("rejects 204 on the JSON envelope path instead of synthesizing SCS-005", async () => {
     const client = createApiClient({ baseUrl: "", withCredentials: true });
     mock = new MockAdapter(client.axios);
     mockCsrfEndpoint(mock);
     mock.onDelete("/api/v1/things/1").reply(204);
 
-    const result = await client.delete("/api/v1/things/1");
-
-    expect(result.correlationId).toBe("unknown");
+    await expect(client.delete("/api/v1/things/1")).rejects.toMatchObject({
+      messageKey: "ERR-050",
+    });
   });
 
-  it("returns raw binary data without envelope parsing for blob responseType", async () => {
+  it("returns a Blob from getBlob without wrapping an ApiResponse", async () => {
     const client = createApiClient({ baseUrl: "", withCredentials: true });
     mock = new MockAdapter(client.axios);
     const blob = new Blob(["file-bytes"], { type: "application/pdf" });
@@ -89,14 +98,23 @@ describe("createApiClient envelope handling", () => {
       "x-correlation-id": "corr-blob",
     });
 
-    const result = await client.get("/api/v1/files/1", { responseType: "blob" });
+    const result = await client.getBlob("/api/v1/files/1");
 
-    expect(result.success).toBe(true);
-    expect(result.correlationId).toBe("corr-blob");
-    expect(result.data).toBeInstanceOf(Blob);
+    expect(result).toBeInstanceOf(Blob);
   });
 
-  it("parses a JSON error envelope even when the request used responseType blob", async () => {
+  it("download aliases getBlob", async () => {
+    const client = createApiClient({ baseUrl: "", withCredentials: true });
+    mock = new MockAdapter(client.axios);
+    const blob = new Blob(["file-bytes"], { type: "application/pdf" });
+    mock.onGet("/api/v1/files/1").reply(200, blob);
+
+    const result = await client.download("/api/v1/files/1");
+
+    expect(result).toBeInstanceOf(Blob);
+  });
+
+  it("parses a JSON error envelope even when the request used getBlob", async () => {
     const client = createApiClient({ baseUrl: "", withCredentials: true });
     mock = new MockAdapter(client.axios);
     const errorJson = new Blob(
@@ -105,9 +123,7 @@ describe("createApiClient envelope handling", () => {
     );
     mock.onGet("/api/v1/files/missing").reply(404, errorJson);
 
-    await expect(
-      client.get("/api/v1/files/missing", { responseType: "blob" }),
-    ).rejects.toMatchObject({
+    await expect(client.getBlob("/api/v1/files/missing")).rejects.toMatchObject({
       status: 404,
       messageKey: "ERR-002",
       correlationId: "corr-err",

@@ -1,11 +1,10 @@
 -- Login-time membership lookup. Runs as OrganizationMembershipResolver so the
--- dedicated StaffMembership FILTER predicate can return rows before an
--- organization SESSION_CONTEXT exists. Not EXECUTE AS OWNER — owners do not
--- bypass RLS.
+-- dedicated StaffMembership / Role / StaffRole FILTER predicates can return
+-- rows before an organization SESSION_CONTEXT exists. Not EXECUTE AS OWNER —
+-- owners do not bypass RLS.
 --
 -- Returns only Active StaffMembership rows where the User and Organization are
--- also active. Role activity is enforced later under organization context when
--- permissions are resolved; listing does not require SELECT on [org].[Role].
+-- also active and at least one active StaffRole → active org.Role exists.
 CREATE PROCEDURE [dbo].[usp_ListActiveOrganizationMembershipsForUser]
     @UserId UNIQUEIDENTIFIER
 WITH EXECUTE AS N'OrganizationMembershipResolver'
@@ -30,5 +29,17 @@ BEGIN
       AND [user].[DeletedAt] IS NULL
       AND organization.[IsActive] = 1
       AND organization.[DeletedAt] IS NULL
+      AND EXISTS
+      (
+          SELECT 1
+          FROM [org].[StaffRole] AS staffRole
+          INNER JOIN [org].[Role] AS [role]
+              ON [role].[Id] = staffRole.[RoleId]
+             AND [role].[OrganizationId] = staffRole.[OrganizationId]
+          WHERE staffRole.[StaffMembershipId] = membership.[Id]
+            AND staffRole.[OrganizationId] = membership.[OrganizationId]
+            AND [role].[IsActive] = 1
+            AND [role].[DeletedAt] IS NULL
+      )
     ORDER BY membership.[CreatedAt] ASC, membership.[OrganizationId] ASC;
 END

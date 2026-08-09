@@ -7,9 +7,10 @@
 -- are unnecessary because the filter already removes other organizations' rows
 -- from the update and delete targets.
 --
--- [org].[StaffMembership] FILTER uses a dedicated read predicate that also
--- permits OrganizationMembershipResolver during login-time membership lookup.
--- BLOCK predicates on that table remain the strict tenant predicate.
+-- [org].[StaffMembership], [org].[Role], and [org].[StaffRole] FILTER use
+-- dedicated read predicates that also permit OrganizationMembershipResolver
+-- during login-time membership lookup (active role required). BLOCK predicates
+-- on those tables remain the strict tenant predicate.
 --
 -- [org].[OrganizationUser] remains isolated for the transitional residual table
 -- (runtime no longer reads or writes it after SCRUM-81 cutover).
@@ -28,7 +29,7 @@ CREATE SECURITY POLICY [org].[OrganizationIsolationPolicy]
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[FieldOption] AFTER UPDATE,
 
-    ADD FILTER PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
+    ADD FILTER PREDICATE [org].[fn_RoleReadPredicate]([OrganizationId])
         ON [org].[Role],
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[Role] AFTER INSERT,
@@ -56,7 +57,7 @@ CREATE SECURITY POLICY [org].[OrganizationIsolationPolicy]
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[StaffMembership] AFTER UPDATE,
 
-    ADD FILTER PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
+    ADD FILTER PREDICATE [org].[fn_StaffRoleReadPredicate]([OrganizationId])
         ON [org].[StaffRole],
     ADD BLOCK PREDICATE [org].[fn_OrganizationAccessPredicate]([OrganizationId])
         ON [org].[StaffRole] AFTER INSERT,

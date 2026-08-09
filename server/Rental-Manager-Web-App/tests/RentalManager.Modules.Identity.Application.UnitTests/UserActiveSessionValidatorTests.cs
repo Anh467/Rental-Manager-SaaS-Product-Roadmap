@@ -76,6 +76,27 @@ public sealed class UserActiveSessionValidatorTests
     }
 
     [Fact]
+    public async Task Rejects_organization_session_after_last_active_role_gone()
+    {
+        // Same reader path as membership inactive: USP returns null when the
+        // last active StaffRole → Role join disappears.
+        Guid userId = Guid.CreateVersion7();
+        Guid organizationId = Guid.CreateVersion7();
+        Guid staffMembershipId = Guid.CreateVersion7();
+        string stamp = Guid.NewGuid().ToString("N");
+
+        CookieValidatePrincipalContext context = await ValidateAsync(
+            userId,
+            stamp,
+            new UserSessionState(userId, IsActive: true, stamp, DeletedAt: null),
+            organizationId,
+            staffMembershipId,
+            activeMembershipId: null);
+
+        Assert.Null(context.Principal);
+    }
+
+    [Fact]
     public async Task Accepts_organization_session_with_matching_active_membership()
     {
         Guid userId = Guid.CreateVersion7();

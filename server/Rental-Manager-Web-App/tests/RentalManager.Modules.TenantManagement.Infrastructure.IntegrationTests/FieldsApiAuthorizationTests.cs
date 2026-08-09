@@ -42,7 +42,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient viewer = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.ViewerAEmail,
+            TestData.Users.ViewerASubject,
             TestData.OrganizationA.Id);
 
         HttpResponseMessage read = await viewer.GetAsync("/api/v1/fields");
@@ -66,7 +66,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         HttpResponseMessage created = await administrator.PostAsJsonAsync(
@@ -118,7 +118,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         FieldDto field = await ReadFieldAsync(
@@ -156,14 +156,14 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient fromA = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         FieldDto field = await ReadFieldAsync(
             await fromA.PostAsJsonAsync("/api/v1/fields", NewFieldRequest("room_number")));
 
         using HttpClient fromB = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorBEmail,
+            TestData.Users.AdministratorBSubject,
             TestData.OrganizationB.Id);
 
         HttpResponseMessage response = await fromB.GetAsync($"/api/v1/fields/{field.Id}");
@@ -215,7 +215,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         administrator.DefaultRequestHeaders.Add(
@@ -234,7 +234,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         HttpResponseMessage response = await administrator.PostAsJsonAsync(

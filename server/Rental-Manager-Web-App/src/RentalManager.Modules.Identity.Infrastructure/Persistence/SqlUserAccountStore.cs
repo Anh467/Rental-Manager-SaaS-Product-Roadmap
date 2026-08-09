@@ -15,6 +15,8 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
 {
     private const int UniqueIndexViolation = 2601;
     private const int UniqueConstraintViolation = 2627;
+    private const int MappingVisibilityAttempts = 5;
+    private static readonly TimeSpan MappingVisibilityDelay = TimeSpan.FromMilliseconds(25);
 
     public async Task<AuthenticatedIdentity?> FindActiveByIdAsync(
         Guid userId,
@@ -133,9 +135,8 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
             {
                 // Another request provisioned the same subject first, so the
                 // mapping it created is the correct answer for this caller too.
-                ExternalIdentityMapping? existing = await FindMappingAsync(
+                ExternalIdentityMapping? existing = await FindMappingWithRetryAsync(
                     connection,
-                    transaction: null,
                     provider,
                     request.Subject,
                     cancellationToken);
@@ -148,6 +149,21 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
             if (IsViolationOf(exception, IdentitySqlStatements.UserEmailUniqueIndexName) ||
                 IsViolationOf(exception, IdentitySqlStatements.UserNameUniqueIndexName))
             {
+                // Concurrent first-login often loses on the email/username unique
+                // index before it can insert UserIdentity. Always re-query the
+                // mapping by (Provider, Subject) before treating this as a true
+                // email conflict with a different account.
+                ExternalIdentityMapping? existing = await FindMappingWithRetryAsync(
+                    connection,
+                    provider,
+                    request.Subject,
+                    cancellationToken);
+
+                if (existing is not null)
+                {
+                    return ExternalUserProvisionResult.AlreadyMapped(existing);
+                }
+
                 return ExternalUserProvisionResult.EmailConflict();
             }
 
@@ -179,6 +195,35 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
                 IdentitySqlStatements.RecordLogin,
                 new { Id = userIdentityId, OccurredAt = occurredAt },
                 cancellationToken: cancellationToken));
+    }
+
+    private static async Task<ExternalIdentityMapping?> FindMappingWithRetryAsync(
+        SqlConnection connection,
+        string provider,
+        string subject,
+        CancellationToken cancellationToken)
+    {
+        for (int attempt = 1; attempt <= MappingVisibilityAttempts; attempt++)
+        {
+            ExternalIdentityMapping? existing = await FindMappingAsync(
+                connection,
+                transaction: null,
+                provider,
+                subject,
+                cancellationToken);
+
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            if (attempt < MappingVisibilityAttempts)
+            {
+                await Task.Delay(MappingVisibilityDelay, cancellationToken);
+            }
+        }
+
+        return null;
     }
 
     private static async Task<ExternalIdentityMapping?> FindMappingAsync(

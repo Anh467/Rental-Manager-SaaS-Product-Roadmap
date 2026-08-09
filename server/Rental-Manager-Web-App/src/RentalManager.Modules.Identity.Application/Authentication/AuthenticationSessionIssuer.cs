@@ -39,7 +39,9 @@ public sealed class AuthenticationSessionIssuer(
             identity.UserId,
             cancellationToken);
 
-        if (hasPlatformRole || identity.GlobalRoleId is not null)
+        // Global scope is granted only by an active PlatformUserRole assignment.
+        // Legacy dbo.User.GlobalRoleId must not issue a global session.
+        if (hasPlatformRole)
         {
             return await WriteSessionAsync(
                 identity,

@@ -20,86 +20,237 @@ public sealed class StaffMembershipCutoverTests
     }
 
     [Fact]
-    public async Task Cutover_script_migrates_organization_user_rows_idempotently()
+    public async Task Cutover_migrates_multi_org_rows_with_policies_on_before_and_after()
     {
-        Guid organizationId = TestData.OrganizationA.Id;
+        Assert.True(await IsIsolationPolicyEnabledAsync());
+
         Guid userId = Guid.CreateVersion7();
-        Guid roleId = TestData.OrganizationA.AdministratorRoleId;
-        Guid membershipSourceKey = Guid.CreateVersion7();
+        string email = $"cutover.multi.{userId:N}@rentalmanager.test";
+        DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        await using (SqlConnection seed = await _fixture.OpenConnectionAsync(organizationId))
-        {
-            await seed.ExecuteAsync(
-                """
-                INSERT INTO [dbo].[User]
-                    ([Id], [UserName], [NormalizedUserName], [Email], [NormalizedEmail],
-                     [EmailConfirmed], [DisplayName], [SecurityStamp], [ConcurrencyStamp],
-                     [LockoutEnabled], [AccessFailedCount], [CreatedAt], [UpdatedAt])
-                VALUES
-                    (@UserId, @Email, UPPER(@Email), @Email, UPPER(@Email), 1, N'Cutover User',
-                     CONVERT(NVARCHAR(36), NEWID()), CONVERT(NVARCHAR(36), NEWID()),
-                     0, 0, @Now, @Now);
+        await SeedUserAsync(userId, email, now);
 
-                INSERT INTO [org].[OrganizationUser]
-                    ([OrganizationId], [UserId], [RoleId], [IsActive], [CreatedAt], [UpdatedAt])
-                VALUES
-                    (@OrganizationId, @UserId, @RoleId, 1, @Now, @Now);
-                """,
-                new
-                {
-                    UserId = userId,
-                    Email = $"cutover.{membershipSourceKey:N}@rentalmanager.test",
-                    OrganizationId = organizationId,
-                    RoleId = roleId,
-                    Now = DateTimeOffset.UtcNow
-                });
-        }
+        // Seed residual OrganizationUser rows in two orgs without leaving a
+        // session context for the cutover connection.
+        await SeedOrganizationUserAsync(
+            TestData.OrganizationA.Id,
+            userId,
+            TestData.OrganizationA.AdministratorRoleId,
+            now);
+        await SeedOrganizationUserAsync(
+            TestData.OrganizationB.Id,
+            userId,
+            TestData.OrganizationB.AdministratorRoleId,
+            now);
 
         string cutoverSql = await File.ReadAllTextAsync(ResolveCutoverScriptPath());
 
         await using (SqlConnection connection = await _fixture.OpenConnectionAsync())
         {
-            // sa bypasses RLS; cutover is an elevated upgrade operation.
+            // No organization SESSION_CONTEXT — cutover must disable RLS itself.
             await connection.ExecuteAsync(cutoverSql);
             await connection.ExecuteAsync(cutoverSql);
         }
 
-        await using SqlConnection verify = await _fixture.OpenConnectionAsync(organizationId);
+        Assert.True(await IsIsolationPolicyEnabledAsync());
 
-        var membership = await verify.QuerySingleAsync<(Guid Id, byte Status)>(
+        await using SqlConnection verify = await _fixture.OpenConnectionAsync();
+        await verify.ExecuteAsync(
             """
-            SELECT [Id], [Status]
-            FROM [org].[StaffMembership]
-            WHERE [OrganizationId] = @OrganizationId
-              AND [UserId] = @UserId
-              AND [DeletedAt] IS NULL;
-            """,
-            new { OrganizationId = organizationId, UserId = userId });
+            ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
+                WITH (STATE = OFF);
+            """);
 
-        Assert.Equal((byte)2, membership.Status);
+        try
+        {
+            int membershipCount = await verify.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT_BIG(1)
+                FROM [org].[StaffMembership]
+                WHERE [UserId] = @UserId
+                  AND [DeletedAt] IS NULL;
+                """,
+                new { UserId = userId });
 
-        Guid staffRoleId = await verify.ExecuteScalarAsync<Guid>(
+            Assert.Equal(2, membershipCount);
+
+            int staffRoleCount = await verify.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT_BIG(1)
+                FROM [org].[StaffRole] AS staffRole
+                INNER JOIN [org].[StaffMembership] AS membership
+                    ON membership.[Id] = staffRole.[StaffMembershipId]
+                   AND membership.[OrganizationId] = staffRole.[OrganizationId]
+                WHERE membership.[UserId] = @UserId;
+                """,
+                new { UserId = userId });
+
+            Assert.Equal(2, staffRoleCount);
+
+            int orphans = await verify.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT_BIG(1)
+                FROM [org].[StaffRole] AS staffRole
+                WHERE NOT EXISTS
+                (
+                    SELECT 1
+                    FROM [org].[StaffMembership] AS membership
+                    WHERE membership.[Id] = staffRole.[StaffMembershipId]
+                      AND membership.[OrganizationId] = staffRole.[OrganizationId]
+                );
+                """);
+
+            Assert.Equal(0, orphans);
+
+            int crossOrg = await verify.ExecuteScalarAsync<int>(
+                """
+                SELECT COUNT_BIG(1)
+                FROM [org].[StaffRole] AS staffRole
+                INNER JOIN [org].[StaffMembership] AS membership
+                    ON membership.[Id] = staffRole.[StaffMembershipId]
+                WHERE membership.[OrganizationId] <> staffRole.[OrganizationId]
+                  AND membership.[UserId] = @UserId;
+                """,
+                new { UserId = userId });
+
+            Assert.Equal(0, crossOrg);
+
+            foreach (Guid organizationId in new[]
+                     {
+                         TestData.OrganizationA.Id,
+                         TestData.OrganizationB.Id
+                     })
+            {
+                var membership = await verify.QuerySingleAsync<(Guid Id, byte Status)>(
+                    """
+                    SELECT [Id], [Status]
+                    FROM [org].[StaffMembership]
+                    WHERE [OrganizationId] = @OrganizationId
+                      AND [UserId] = @UserId
+                      AND [DeletedAt] IS NULL;
+                    """,
+                    new { OrganizationId = organizationId, UserId = userId });
+
+                Assert.Equal((byte)2, membership.Status);
+            }
+        }
+        finally
+        {
+            await verify.ExecuteAsync(
+                """
+                ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
+                    WITH (STATE = ON);
+                """);
+        }
+
+        Assert.True(await IsIsolationPolicyEnabledAsync());
+    }
+
+    [Fact]
+    public async Task Cutover_re_enables_policy_after_intentional_failure()
+    {
+        Assert.True(await IsIsolationPolicyEnabledAsync());
+
+        Guid userId = Guid.CreateVersion7();
+        string email = $"cutover.fail.{userId:N}@rentalmanager.test";
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        await SeedUserAsync(userId, email, now);
+        await SeedOrganizationUserAsync(
+            TestData.OrganizationA.Id,
+            userId,
+            TestData.OrganizationA.AdministratorRoleId,
+            now);
+
+        // Force the cutover MERGE to fail so CATCH must re-enable RLS.
+        await using (SqlConnection seed = await _fixture.OpenConnectionAsync())
+        {
+            await seed.ExecuteAsync(
+                """
+                ALTER TABLE [org].[StaffMembership] WITH NOCHECK
+                    ADD CONSTRAINT [CK_SCRUM81_TestForcedFailure]
+                    CHECK ([Id] <> [Id]);
+                """);
+        }
+
+        try
+        {
+            Assert.True(await IsIsolationPolicyEnabledAsync());
+
+            string cutoverSql = await File.ReadAllTextAsync(ResolveCutoverScriptPath());
+
+            await using (SqlConnection connection = await _fixture.OpenConnectionAsync())
+            {
+                await Assert.ThrowsAsync<SqlException>(
+                    () => connection.ExecuteAsync(cutoverSql));
+            }
+
+            Assert.True(await IsIsolationPolicyEnabledAsync());
+        }
+        finally
+        {
+            await using SqlConnection cleanup = await _fixture.OpenConnectionAsync();
+            await cleanup.ExecuteAsync(
+                """
+                IF OBJECT_ID(N'[org].[CK_SCRUM81_TestForcedFailure]', N'C') IS NOT NULL
+                    ALTER TABLE [org].[StaffMembership]
+                        DROP CONSTRAINT [CK_SCRUM81_TestForcedFailure];
+                """);
+        }
+    }
+
+    private async Task SeedUserAsync(Guid userId, string email, DateTimeOffset now)
+    {
+        await using SqlConnection connection = await _fixture.OpenConnectionAsync();
+        await connection.ExecuteAsync(
             """
-            SELECT [Id]
-            FROM [org].[StaffRole]
-            WHERE [StaffMembershipId] = @StaffMembershipId
-              AND [RoleId] = @RoleId;
+            INSERT INTO [dbo].[User]
+                ([Id], [UserName], [NormalizedUserName], [Email], [NormalizedEmail],
+                 [EmailConfirmed], [DisplayName], [SecurityStamp], [ConcurrencyStamp],
+                 [LockoutEnabled], [AccessFailedCount], [CreatedAt], [UpdatedAt])
+            VALUES
+                (@UserId, @Email, UPPER(@Email), @Email, UPPER(@Email), 1, N'Cutover User',
+                 CONVERT(NVARCHAR(36), NEWID()), CONVERT(NVARCHAR(36), NEWID()),
+                 0, 0, @Now, @Now);
             """,
-            new { StaffMembershipId = membership.Id, RoleId = roleId });
+            new { UserId = userId, Email = email, Now = now });
+    }
 
-        Assert.NotEqual(Guid.Empty, staffRoleId);
+    private async Task SeedOrganizationUserAsync(
+        Guid organizationId,
+        Guid userId,
+        Guid roleId,
+        DateTimeOffset now)
+    {
+        await using SqlConnection connection =
+            await _fixture.OpenConnectionAsync(organizationId);
 
-        int duplicateMemberships = await verify.ExecuteScalarAsync<int>(
+        await connection.ExecuteAsync(
             """
-            SELECT COUNT_BIG(1)
-            FROM [org].[StaffMembership]
-            WHERE [OrganizationId] = @OrganizationId
-              AND [UserId] = @UserId
-              AND [DeletedAt] IS NULL;
+            INSERT INTO [org].[OrganizationUser]
+                ([OrganizationId], [UserId], [RoleId], [IsActive], [CreatedAt], [UpdatedAt])
+            VALUES
+                (@OrganizationId, @UserId, @RoleId, 1, @Now, @Now);
             """,
-            new { OrganizationId = organizationId, UserId = userId });
+            new
+            {
+                OrganizationId = organizationId,
+                UserId = userId,
+                RoleId = roleId,
+                Now = now
+            });
+    }
 
-        Assert.Equal(1, duplicateMemberships);
+    private async Task<bool> IsIsolationPolicyEnabledAsync()
+    {
+        await using SqlConnection connection = await _fixture.OpenConnectionAsync();
+        return await connection.ExecuteScalarAsync<bool>(
+            """
+            SELECT CAST(is_enabled AS BIT)
+            FROM sys.security_policies
+            WHERE name = N'OrganizationIsolationPolicy'
+              AND schema_id = SCHEMA_ID(N'org');
+            """);
     }
 
     private static string ResolveCutoverScriptPath()

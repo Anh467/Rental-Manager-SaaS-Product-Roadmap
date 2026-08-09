@@ -45,6 +45,8 @@ public sealed class BootstrapAdminHostedService(
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<IUserAccountStore>();
         var platformUsers = scope.ServiceProvider.GetRequiredService<IPlatformUserStore>();
+        var platformPermissions =
+            scope.ServiceProvider.GetRequiredService<IPlatformPermissionReader>();
         var roles = scope.ServiceProvider.GetRequiredService<IRoleRepository>();
 
         Role role = await roles.FindByKeyAsync(GlobalAdminRoleKey, cancellationToken)
@@ -62,7 +64,10 @@ public sealed class BootstrapAdminHostedService(
 
         if (existing is not null)
         {
-            EnsureUsableAdministrator(existing, role.Id);
+            await EnsureUsableAdministratorAsync(
+                existing,
+                platformPermissions,
+                cancellationToken);
 
             logger.LogInformation(
                 "Bootstrap admin identity already exists for provider {Provider}; " +
@@ -71,6 +76,7 @@ public sealed class BootstrapAdminHostedService(
             return;
         }
 
+        // GlobalRoleId is not written: runtime authz uses PlatformUserRole only.
         ExternalUserProvisionResult result = await users.ProvisionAsync(
             new ExternalUserProvisionRequest(
                 provider,
@@ -78,8 +84,7 @@ public sealed class BootstrapAdminHostedService(
                 email,
                 string.IsNullOrWhiteSpace(value.DisplayName)
                     ? email
-                    : value.DisplayName.Trim(),
-                role.Id),
+                    : value.DisplayName.Trim()),
             cancellationToken);
 
         switch (result.Status)
@@ -96,7 +101,10 @@ public sealed class BootstrapAdminHostedService(
                 return;
 
             case ExternalUserProvisionStatus.AlreadyMapped:
-                EnsureUsableAdministrator(result.Mapping!, role.Id);
+                await EnsureUsableAdministratorAsync(
+                    result.Mapping!,
+                    platformPermissions,
+                    cancellationToken);
                 return;
 
             default:
@@ -111,11 +119,13 @@ public sealed class BootstrapAdminHostedService(
 
     /// <summary>
     /// Startup refuses to continue rather than repairing the account, so an
-    /// operator has to make the change deliberately.
+    /// operator has to make the change deliberately. Usability is defined by an
+    /// active PlatformUserRole assignment, not legacy GlobalRoleId.
     /// </summary>
-    private static void EnsureUsableAdministrator(
+    private static async Task EnsureUsableAdministratorAsync(
         ExternalIdentityMapping mapping,
-        Guid globalRoleId)
+        IPlatformPermissionReader platformPermissions,
+        CancellationToken cancellationToken)
     {
         if (!mapping.User.IsActive)
         {
@@ -124,15 +134,13 @@ public sealed class BootstrapAdminHostedService(
                 "Reactivation is not performed at startup.");
         }
 
-        bool hasLegacyGlobalRole = mapping.User.GlobalRoleId == globalRoleId;
-        // PlatformUserRole may already have been assigned by DACPAC migration;
-        // bootstrap still requires the legacy GlobalRoleId on create-only path
-        // so an incomplete seed is visible as a hard startup failure.
-        if (!hasLegacyGlobalRole)
+        if (!await platformPermissions.HasAnyPlatformRoleAsync(
+                mapping.User.UserId,
+                cancellationToken))
         {
             throw new InvalidOperationException(
-                "The bootstrap admin identity is mapped to a user without the " +
-                "expected global administrator role.");
+                "The bootstrap admin identity is mapped to a user without an " +
+                "active platform administrator role.");
         }
     }
 }

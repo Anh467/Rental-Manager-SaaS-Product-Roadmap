@@ -12,13 +12,15 @@ import {
   refreshCsrfToken,
 } from "./csrf";
 import type {
+  ApiBlobRequestOptions,
   ApiClient,
   ApiClientOptions,
   ApiEmptyObject,
+  ApiJsonRequestOptions,
   ApiRequestOptions,
   ApiResponse,
 } from "./types";
-import { isApiError, parseSuccessResponse, toApiError } from "./utils";
+import { createApiError, isApiError, parseSuccessResponse, toApiError } from "./utils";
 
 type CsrfAxiosConfig = InternalAxiosRequestConfig & {
   __csrfRetried?: boolean;
@@ -94,7 +96,7 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
     },
   );
 
-  const execute = async <
+  const executeJson = async <
     ResponseBody,
     QueryParams = ApiEmptyObject,
     RequestPayload = ApiEmptyObject,
@@ -104,6 +106,14 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
   ): Promise<ApiResponse<ResponseBody>> => {
     const { query, payload, ...requestOptions } = options ?? {};
+
+    if (requestOptions.responseType === "blob" || requestOptions.responseType === "arraybuffer") {
+      throw createApiError(500, {
+        messageKey: "ERR-050",
+        correlationId: UNKNOWN_CORRELATION_ID,
+      });
+    }
+
     const response: AxiosResponse<unknown> = await axiosInstance.request({
       ...requestOptions,
       method,
@@ -112,31 +122,62 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
       data: payload,
     });
 
-    const correlationId = getResponseCorrelationId(response);
-
-    // 204 No Content has no body to parse; synthesize a success envelope so
-    // callers still get a consistent shape.
     if (response.status === 204) {
-      return {
-        success: true,
-        messageKey: "SCS-005",
-        data: undefined as ResponseBody,
-        correlationId,
-      };
-    }
-
-    // Binary responses are not JSON envelopes — the caller asked for the raw
-    // payload (a file download, for example), so return it as-is.
-    if (requestOptions.responseType === "blob" || requestOptions.responseType === "arraybuffer") {
-      return {
-        success: true,
-        messageKey: "SCS-005",
-        data: response.data as ResponseBody,
-        correlationId,
-      };
+      throw createApiError(500, {
+        messageKey: "ERR-050",
+        correlationId: getResponseCorrelationId(response),
+      });
     }
 
     return parseSuccessResponse<ResponseBody>(response.data);
+  };
+
+  const executeNoContent = async <
+    QueryParams = ApiEmptyObject,
+    RequestPayload = ApiEmptyObject,
+  >(
+    method: Method,
+    path: string,
+    options?: ApiJsonRequestOptions<QueryParams, RequestPayload>,
+  ): Promise<void> => {
+    const { query, payload, ...requestOptions } = options ?? {};
+    const response: AxiosResponse<unknown> = await axiosInstance.request({
+      ...requestOptions,
+      method,
+      url: path,
+      params: query,
+      data: payload,
+    });
+
+    if (response.status !== 204) {
+      throw createApiError(500, {
+        messageKey: "ERR-050",
+        correlationId: getResponseCorrelationId(response),
+      });
+    }
+  };
+
+  const executeBlob = async <QueryParams = ApiEmptyObject>(
+    path: string,
+    options?: ApiBlobRequestOptions<QueryParams>,
+  ): Promise<Blob> => {
+    const { query, ...requestOptions } = options ?? {};
+    const response: AxiosResponse<unknown> = await axiosInstance.request({
+      ...requestOptions,
+      method: "GET",
+      url: path,
+      params: query,
+      responseType: "blob",
+    });
+
+    if (!(response.data instanceof Blob)) {
+      throw createApiError(500, {
+        messageKey: "ERR-050",
+        correlationId: getResponseCorrelationId(response),
+      });
+    }
+
+    return response.data;
   };
 
   const request = <
@@ -148,13 +189,13 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
   ) => {
     const method = (options?.method ?? "GET") as Method;
-    return execute<ResponseBody, QueryParams, RequestPayload>(method, path, options);
+    return executeJson<ResponseBody, QueryParams, RequestPayload>(method, path, options);
   };
 
   const get = <ResponseBody, QueryParams = ApiEmptyObject>(
     path: string,
     options?: ApiRequestOptions<QueryParams, ApiEmptyObject>,
-  ) => execute<ResponseBody, QueryParams, ApiEmptyObject>("GET", path, options);
+  ) => executeJson<ResponseBody, QueryParams, ApiEmptyObject>("GET", path, options);
 
   const post = <
     ResponseBody,
@@ -163,7 +204,7 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   >(
     path: string,
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
-  ) => execute<ResponseBody, QueryParams, RequestPayload>("POST", path, options);
+  ) => executeJson<ResponseBody, QueryParams, RequestPayload>("POST", path, options);
 
   const put = <
     ResponseBody,
@@ -172,7 +213,7 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   >(
     path: string,
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
-  ) => execute<ResponseBody, QueryParams, RequestPayload>("PUT", path, options);
+  ) => executeJson<ResponseBody, QueryParams, RequestPayload>("PUT", path, options);
 
   const patch = <
     ResponseBody,
@@ -181,7 +222,7 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   >(
     path: string,
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
-  ) => execute<ResponseBody, QueryParams, RequestPayload>("PATCH", path, options);
+  ) => executeJson<ResponseBody, QueryParams, RequestPayload>("PATCH", path, options);
 
   const deleteRequest = <
     ResponseBody = void,
@@ -190,7 +231,33 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   >(
     path: string,
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
-  ) => execute<ResponseBody, QueryParams, RequestPayload>("DELETE", path, options);
+  ) => executeJson<ResponseBody, QueryParams, RequestPayload>("DELETE", path, options);
+
+  const requestNoContent = <
+    QueryParams = ApiEmptyObject,
+    RequestPayload = ApiEmptyObject,
+  >(
+    path: string,
+    options: ApiJsonRequestOptions<QueryParams, RequestPayload> & { method: Method },
+  ) => executeNoContent(options.method, path, options);
+
+  const deleteNoContent = <
+    QueryParams = ApiEmptyObject,
+    RequestPayload = ApiEmptyObject,
+  >(
+    path: string,
+    options?: ApiJsonRequestOptions<QueryParams, RequestPayload>,
+  ) => executeNoContent("DELETE", path, options);
+
+  const getBlob = <QueryParams = ApiEmptyObject>(
+    path: string,
+    options?: ApiBlobRequestOptions<QueryParams>,
+  ) => executeBlob(path, options);
+
+  const download = <QueryParams = ApiEmptyObject>(
+    path: string,
+    options?: ApiBlobRequestOptions<QueryParams>,
+  ) => executeBlob(path, options);
 
   return {
     axios: axiosInstance,
@@ -200,5 +267,9 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
     put,
     patch,
     delete: deleteRequest,
+    requestNoContent,
+    deleteNoContent,
+    getBlob,
+    download,
   };
 }

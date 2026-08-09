@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 
 namespace RentalManager.Modules.Identity.Infrastructure.Authorization;
 
@@ -17,8 +16,6 @@ public sealed class PermissionAuthorizationHandler :
 {
     private readonly IPermissionReader _permissionReader;
     private readonly IPlatformPermissionReader _platformPermissionReader;
-    private readonly IUserRepository _users;
-    private readonly IRolePermissionRepository _globalRolePermissions;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     private IReadOnlySet<string>? _cachedPermissions;
@@ -26,14 +23,10 @@ public sealed class PermissionAuthorizationHandler :
     public PermissionAuthorizationHandler(
         IPermissionReader permissionReader,
         IPlatformPermissionReader platformPermissionReader,
-        IUserRepository users,
-        IRolePermissionRepository globalRolePermissions,
         IHttpContextAccessor httpContextAccessor)
     {
         _permissionReader = permissionReader;
         _platformPermissionReader = platformPermissionReader;
-        _users = users;
-        _globalRolePermissions = globalRolePermissions;
         _httpContextAccessor = httpContextAccessor;
     }
 
@@ -61,7 +54,9 @@ public sealed class PermissionAuthorizationHandler :
                      IdentityClaimNames.ScopeGlobal,
                      StringComparison.Ordinal))
         {
-            _cachedPermissions ??= await LoadGlobalPermissionsAsync(userId, cancellationToken);
+            _cachedPermissions ??= await _platformPermissionReader.GetPermissionKeysAsync(
+                userId,
+                cancellationToken);
         }
         else
         {
@@ -72,33 +67,6 @@ public sealed class PermissionAuthorizationHandler :
         {
             context.Succeed(requirement);
         }
-    }
-
-    private async Task<IReadOnlySet<string>> LoadGlobalPermissionsAsync(
-        Guid userId,
-        CancellationToken cancellationToken)
-    {
-        HashSet<string> permissions =
-            (await _platformPermissionReader.GetPermissionKeysAsync(userId, cancellationToken))
-            .ToHashSet(StringComparer.Ordinal);
-
-        // Transitional union with legacy GlobalRoleId until every admin has a
-        // PlatformUserRole assignment from the DACPAC seed/cutover.
-        var user = await _users.GetAsync(userId, cancellationToken);
-        if (user?.GlobalRoleId is Guid roleId)
-        {
-            IReadOnlySet<string> legacy =
-                await _globalRolePermissions.GetPermissionKeysByRoleAsync(
-                    roleId,
-                    cancellationToken);
-
-            foreach (string key in legacy)
-            {
-                permissions.Add(key);
-            }
-        }
-
-        return permissions;
     }
 
     private sealed record ClaimsPrincipalUser(

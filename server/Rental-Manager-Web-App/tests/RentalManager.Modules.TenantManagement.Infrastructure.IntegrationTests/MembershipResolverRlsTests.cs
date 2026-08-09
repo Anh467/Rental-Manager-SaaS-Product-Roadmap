@@ -109,7 +109,7 @@ public sealed class MembershipResolverRlsTests
     }
 
     [Fact]
-    public async Task Membership_resolver_does_not_bypass_field_or_role_filters()
+    public async Task Membership_resolver_can_read_role_tables_but_not_fields()
     {
         await _fixture.ResetOrgDataAsync();
 
@@ -127,16 +127,21 @@ public sealed class MembershipResolverRlsTests
 
         try
         {
-            // No SELECT grant on tenant tables other than StaffMembership.
+            // No SELECT grant on tenant Field tables.
             SqlException fieldDenied = await Assert.ThrowsAsync<SqlException>(
                 () => connection.ExecuteScalarAsync<long>(
                     "SELECT COUNT_BIG(1) FROM [org].[Field];"));
             Assert.Equal(229, fieldDenied.Number);
 
-            SqlException roleDenied = await Assert.ThrowsAsync<SqlException>(
-                () => connection.ExecuteScalarAsync<long>(
-                    "SELECT COUNT_BIG(1) FROM [org].[Role];"));
-            Assert.Equal(229, roleDenied.Number);
+            // Role / StaffRole are readable for the active-role EXISTS check;
+            // the resolver read predicate permits these rows (same pattern as
+            // StaffMembership). Field remains denied (no SELECT grant).
+            Assert.True(
+                await connection.ExecuteScalarAsync<long>(
+                    "SELECT COUNT_BIG(1) FROM [org].[Role];") > 0);
+            Assert.True(
+                await connection.ExecuteScalarAsync<long>(
+                    "SELECT COUNT_BIG(1) FROM [org].[StaffRole];") > 0);
 
             Assert.True(
                 await connection.ExecuteScalarAsync<long>(

@@ -37,6 +37,10 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
     /// Signs in through the external identity path and returns a client that
     /// sends cookies plus the CSRF header on unsafe requests.
     /// </summary>
+    /// <param name="subject">
+    /// The external identity subject (not email). Must match a seeded
+    /// <c>UserIdentity.Subject</c> or a first-login provisioning flow.
+    /// </param>
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
         string subject,
         Guid organizationId)
@@ -47,12 +51,15 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
             AllowAutoRedirect = false
         });
 
-        AttachExternalIdentityHeaders(client, subject);
         await AttachCsrfHeaderAsync(client);
 
-        HttpResponseMessage loginResponse = await client.PostAsync(
+        HttpResponseMessage loginResponse = await client.PostAsJsonAsync(
             "/api/v1/auth/login",
-            content: null);
+            new
+            {
+                provider = TestData.Provider,
+                subject
+            });
 
         if (!loginResponse.IsSuccessStatusCode)
         {
@@ -103,6 +110,8 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Development");
+
         builder.ConfigureLogging(logging =>
             logging.AddProvider(new CapturingLoggerProvider(_serverErrors)));
 
@@ -115,12 +124,11 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
                 ["BootstrapAdmin:Subject"] = "",
                 ["BootstrapAdmin:Email"] = "",
 
-                // The verified external principal comes from the fake handler
-                // below, so no test ever contacts a real identity provider, and
-                // the Development-only request-body path stays off.
+                // Development-only request-body path lets tests POST
+                // { provider, subject } without contacting a real IdP.
                 ["Authentication:External:PrincipalScheme"] =
                     TestExternalAuthenticationHandler.SchemeName,
-                ["Authentication:External:AllowRequestBodyLogin"] = "false",
+                ["Authentication:External:AllowRequestBodyLogin"] = "true",
                 ["Authentication:External:AllowedProviders:0"] = TestData.Provider,
 
                 ["DataProtection:KeyRingPath"] = Path.Combine(

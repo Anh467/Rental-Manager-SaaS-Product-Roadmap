@@ -2,18 +2,13 @@ using RentalManager.BuildingBlocks.Tenancy.Services;
 using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.Identity.Application.Contracts;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
-using DboRolePermissionRepository =
-    RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo.IRolePermissionRepository;
 
 namespace RentalManager.Modules.Identity.Application.Authentication;
 
 public sealed class AuthenticationProfileBuilder(
     OrganizationContextAccessor organizationContextAccessor,
     IPermissionReader permissionReader,
-    IPlatformPermissionReader platformPermissionReader,
-    IRoleRepository roles,
-    DboRolePermissionRepository globalRolePermissions)
+    IPlatformPermissionReader platformPermissionReader)
 {
     public async Task<AuthenticationResultDto> BuildAsync(
         AuthenticatedIdentity identity,
@@ -65,10 +60,10 @@ public sealed class AuthenticationProfileBuilder(
         AuthenticatedIdentity identity,
         CancellationToken cancellationToken)
     {
-        HashSet<string> permissions = (await platformPermissionReader.GetPermissionKeysAsync(
+        IReadOnlySet<string> permissions =
+            await platformPermissionReader.GetPermissionKeysAsync(
                 identity.UserId,
-                cancellationToken))
-            .ToHashSet(StringComparer.Ordinal);
+                cancellationToken);
 
         PlatformRoleSummary? platformRole =
             await platformPermissionReader.GetPrimaryRoleAsync(
@@ -79,34 +74,10 @@ public sealed class AuthenticationProfileBuilder(
             ? null
             : new RoleSummaryDto(platformRole.Key, platformRole.Name);
 
-        // Legacy GlobalRoleId path remains as a transitional union so access is
-        // not lost before PlatformUserRole migration completes.
-        if (identity.GlobalRoleId is Guid legacyRoleId)
-        {
-            if (roleSummary is null)
-            {
-                var legacyRole = await roles.GetAsync(legacyRoleId, cancellationToken);
-                if (legacyRole is not null)
-                {
-                    roleSummary = new RoleSummaryDto(legacyRole.Key, legacyRole.Name);
-                }
-            }
-
-            IReadOnlySet<string> legacyPermissions =
-                await globalRolePermissions.GetPermissionKeysByRoleAsync(
-                    legacyRoleId,
-                    cancellationToken);
-
-            foreach (string key in legacyPermissions)
-            {
-                permissions.Add(key);
-            }
-        }
-
         if (roleSummary is null && permissions.Count == 0)
         {
             throw new InvalidOperationException(
-                "A global authentication profile requires a platform or legacy global role.");
+                "A global authentication profile requires an active platform role.");
         }
 
         return new AuthenticationResultDto(

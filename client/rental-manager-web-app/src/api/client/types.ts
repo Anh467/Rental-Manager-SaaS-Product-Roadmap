@@ -1,4 +1,4 @@
-import type { AxiosInstance, AxiosRequestConfig } from "axios";
+import type { AxiosInstance, AxiosRequestConfig, Method } from "axios";
 
 export {
   ACTIVE_ERROR_MESSAGE_KEYS,
@@ -85,6 +85,16 @@ export type ApiRequestOptions<
   payload?: RequestPayload;
 };
 
+export type ApiJsonRequestOptions<
+  QueryParams = ApiEmptyObject,
+  RequestPayload = ApiEmptyObject,
+> = Omit<ApiRequestOptions<QueryParams, RequestPayload>, "responseType">;
+
+export type ApiBlobRequestOptions<QueryParams = ApiEmptyObject> = Omit<
+  ApiRequestOptions<QueryParams, ApiEmptyObject>,
+  "responseType" | "method" | "payload"
+>;
+
 export type ApiClient = {
   axios: AxiosInstance;
   request<ResponseBody, QueryParams = ApiEmptyObject, RequestPayload = ApiEmptyObject>(
@@ -111,6 +121,24 @@ export type ApiClient = {
     path: string,
     options?: ApiRequestOptions<QueryParams, RequestPayload>,
   ): Promise<ApiResponse<ResponseBody>>;
+  /** Expect HTTP 204 with no body. Does not invent messageKey/data. */
+  requestNoContent<QueryParams = ApiEmptyObject, RequestPayload = ApiEmptyObject>(
+    path: string,
+    options: ApiJsonRequestOptions<QueryParams, RequestPayload> & { method: Method },
+  ): Promise<void>;
+  deleteNoContent<QueryParams = ApiEmptyObject, RequestPayload = ApiEmptyObject>(
+    path: string,
+    options?: ApiJsonRequestOptions<QueryParams, RequestPayload>,
+  ): Promise<void>;
+  /** Successful file body; errors still go through toApiError envelope parsing. */
+  getBlob<QueryParams = ApiEmptyObject>(
+    path: string,
+    options?: ApiBlobRequestOptions<QueryParams>,
+  ): Promise<Blob>;
+  download<QueryParams = ApiEmptyObject>(
+    path: string,
+    options?: ApiBlobRequestOptions<QueryParams>,
+  ): Promise<Blob>;
 };
 
 export type PageRequest = {

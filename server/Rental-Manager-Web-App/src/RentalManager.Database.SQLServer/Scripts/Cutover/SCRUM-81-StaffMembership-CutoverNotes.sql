@@ -28,10 +28,12 @@
 -- Validation checklist
 --   - UX_StaffMembership_Organization_User enforces soft-delete uniqueness.
 --   - StaffRole composite FKs include OrganizationId.
---   - List/select org requires User+Org+StaffMembership Active (SCS-005/SCS-014).
+--   - List/select org requires User+Org+StaffMembership Active and at least
+--     one active StaffRole joined to an active org.Role.
 --   - Effective permissions are the union of active StaffRole → active org.Role.
---   - Inactive role contributes no permissions.
+--   - Inactive role contributes no permissions and excludes the membership from
+--     login-time list/select/session revalidation.
 --   - Cross-org probing remains 404 ERR-002; missing org context 403 ERR-005.
 --   - RLS pooling isolation tests still pass; membership resolver grants are
---     limited to StaffMembership + dbo.User + dbo.Organization.
+--     limited to StaffMembership + StaffRole + Role + dbo.User + dbo.Organization.
 GO

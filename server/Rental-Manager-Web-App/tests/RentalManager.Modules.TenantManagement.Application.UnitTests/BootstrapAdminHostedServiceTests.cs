@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using RentalManager.Modules.Identity.Application.Abstractions;
+using RentalManager.Modules.Identity.Application.PlatformUsers;
 using RentalManager.Modules.Identity.Infrastructure.Bootstrap;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Core.Enums;
@@ -20,11 +21,17 @@ public sealed class BootstrapAdminHostedServiceTests
     private const string Email = "ops@example.com";
 
     [Fact]
-    public async Task Creates_global_admin_when_identity_is_missing()
+    public async Task Creates_platform_admin_when_identity_is_missing()
     {
         var store = new FakeUserAccountStore();
+        var platformUsers = new FakePlatformUserStore();
+        var platformPermissions = new FakePlatformPermissionReader();
         var roles = new FakeRoleRepository(CreateGlobalAdminRole());
-        BootstrapAdminHostedService service = CreateService(store, roles);
+        BootstrapAdminHostedService service = CreateService(
+            store,
+            roles,
+            platformUsers,
+            platformPermissions);
 
         await service.StartAsync(CancellationToken.None);
 
@@ -32,28 +39,37 @@ public sealed class BootstrapAdminHostedServiceTests
         Assert.Equal(Provider, request.Provider);
         Assert.Equal(Subject, request.Subject);
         Assert.Equal(Email, request.Email);
-        Assert.Equal(GlobalAdminRoleId, request.GlobalRoleId);
+        Assert.Null(request.GlobalRoleId);
         Assert.Null(store.LastPasswordHash);
+        Assert.Equal(
+            (store.Existing!.User.UserId, PlatformRoleCatalog.SuperAdminId),
+            Assert.Single(platformUsers.Assignments));
     }
 
     [Fact]
-    public async Task Existing_active_global_admin_is_noop()
+    public async Task Existing_active_platform_admin_is_noop()
     {
+        Guid userId = Guid.CreateVersion7();
         var store = new FakeUserAccountStore
         {
             Existing = new ExternalIdentityMapping(
                 Guid.CreateVersion7(),
                 Provider,
                 new AuthenticatedIdentity(
-                    Guid.CreateVersion7(),
+                    userId,
                     Email,
                     "Ops",
                     Guid.NewGuid().ToString("N"),
-                    GlobalAdminRoleId,
+                    GlobalRoleId: null,
                     IsActive: true))
         };
+        var platformPermissions = new FakePlatformPermissionReader { HasPlatformRole = true };
         var roles = new FakeRoleRepository(CreateGlobalAdminRole());
-        BootstrapAdminHostedService service = CreateService(store, roles);
+        BootstrapAdminHostedService service = CreateService(
+            store,
+            roles,
+            new FakePlatformUserStore(),
+            platformPermissions);
 
         await service.StartAsync(CancellationToken.None);
 
@@ -77,7 +93,11 @@ public sealed class BootstrapAdminHostedServiceTests
                     IsActive: false))
         };
         var roles = new FakeRoleRepository(CreateGlobalAdminRole());
-        BootstrapAdminHostedService service = CreateService(store, roles);
+        BootstrapAdminHostedService service = CreateService(
+            store,
+            roles,
+            new FakePlatformUserStore(),
+            new FakePlatformPermissionReader { HasPlatformRole = true });
 
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.StartAsync(CancellationToken.None));
@@ -87,7 +107,7 @@ public sealed class BootstrapAdminHostedServiceTests
     }
 
     [Fact]
-    public async Task Existing_user_without_global_role_fails_startup()
+    public async Task Existing_user_with_only_legacy_global_role_fails_startup()
     {
         var store = new FakeUserAccountStore
         {
@@ -99,28 +119,35 @@ public sealed class BootstrapAdminHostedServiceTests
                     Email,
                     "Ops",
                     Guid.NewGuid().ToString("N"),
-                    GlobalRoleId: null,
+                    GlobalAdminRoleId,
                     IsActive: true))
         };
         var roles = new FakeRoleRepository(CreateGlobalAdminRole());
-        BootstrapAdminHostedService service = CreateService(store, roles);
+        BootstrapAdminHostedService service = CreateService(
+            store,
+            roles,
+            new FakePlatformUserStore(),
+            new FakePlatformPermissionReader { HasPlatformRole = false });
 
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.StartAsync(CancellationToken.None));
 
-        Assert.Contains("without the expected global", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("platform administrator role", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(store.ProvisionCalls);
     }
 
     private static BootstrapAdminHostedService CreateService(
         FakeUserAccountStore store,
-        FakeRoleRepository roles)
+        FakeRoleRepository roles,
+        FakePlatformUserStore platformUsers,
+        FakePlatformPermissionReader platformPermissions)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IRoleRepository>(roles);
         services.AddSingleton<IUserAccountStore>(store);
-        services.AddSingleton<IPlatformUserStore>(new FakePlatformUserStore());
+        services.AddSingleton<IPlatformUserStore>(platformUsers);
+        services.AddSingleton<IPlatformPermissionReader>(platformPermissions);
 
         ServiceProvider provider = services.BuildServiceProvider();
 
@@ -247,6 +274,26 @@ public sealed class BootstrapAdminHostedServiceTests
         }
     }
 
+    private sealed class FakePlatformPermissionReader : IPlatformPermissionReader
+    {
+        public bool HasPlatformRole { get; set; }
+
+        public Task<bool> HasAnyPlatformRoleAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(HasPlatformRole);
+
+        public Task<IReadOnlySet<string>> GetPermissionKeysAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlySet<string>>(new HashSet<string>(StringComparer.Ordinal));
+
+        public Task<PlatformRoleSummary?> GetPrimaryRoleAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<PlatformRoleSummary?>(null);
+    }
+
     private sealed class FakeRoleRepository(Role role) : IRoleRepository
     {
         public Task<Role?> FindByKeyAsync(string key, CancellationToken cancellationToken = default) =>
@@ -278,6 +325,6 @@ public sealed class BootstrapAdminHostedServiceTests
 
         public Task<IReadOnlyCollection<Role>> GetAllAsync(
             CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyCollection<Role>>([role]);
+            throw new NotSupportedException();
     }
 }
