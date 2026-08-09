@@ -2,13 +2,14 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentalManager.Modules.Identity.Infrastructure.Authorization;
 using RentalManager.Api.Contracts;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Fields;
 using RentalManager.Modules.TenantManagement.Application.Fields.Commands;
 using RentalManager.Modules.TenantManagement.Application.Fields.Queries;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
-using RentalManager.Modules.TenantManagement.Core.Constants;
 
 namespace RentalManager.Api.Controllers;
 
@@ -60,8 +61,9 @@ public sealed class FieldsController : ControllerBase
             cancellationToken);
 
         return Ok(ApiResponse<ApiPageResult<FieldDto>>.Create(
-            ApiPageResult<FieldDto>.From(page),
+            page.ToApiPageResult(),
             MessageCode.Success.Retrieved,
+            HttpContext.TraceIdentifier,
             FieldObjectParameters));
     }
 
@@ -78,6 +80,7 @@ public sealed class FieldsController : ControllerBase
         return Ok(ApiResponse<FieldDto>.Create(
             field,
             MessageCode.Success.Retrieved,
+            HttpContext.TraceIdentifier,
             FieldObjectParameters));
     }
 
@@ -96,6 +99,7 @@ public sealed class FieldsController : ControllerBase
             ApiResponse<FieldDto>.Create(
                 field,
                 MessageCode.Success.Created,
+                HttpContext.TraceIdentifier,
                 FieldObjectParameters));
     }
 
@@ -113,6 +117,7 @@ public sealed class FieldsController : ControllerBase
         return Ok(ApiResponse<FieldDto>.Create(
             field,
             MessageCode.Success.Updated,
+            HttpContext.TraceIdentifier,
             FieldObjectParameters));
     }
 
@@ -134,6 +139,7 @@ public sealed class FieldsController : ControllerBase
         return Ok(ApiResponse<object>.Create(
             null,
             MessageCode.Success.Deactivated,
+            HttpContext.TraceIdentifier,
             FieldObjectParameters));
     }
 }

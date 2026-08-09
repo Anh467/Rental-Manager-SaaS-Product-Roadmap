@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using Xunit;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests;

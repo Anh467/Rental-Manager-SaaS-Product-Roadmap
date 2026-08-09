@@ -5,12 +5,12 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
-using RentalManager.Api.Contracts;
 using RentalManager.Api.Middlewares;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy;
 using RentalManager.Modules.Identity.Infrastructure;
 using RentalManager.Modules.Identity.Infrastructure.Options;
-using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);

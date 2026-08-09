@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Org;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 using Xunit;
 using FieldOptionEntity = RentalManager.Modules.TenantManagement.Domain.Entities.Org.FieldOption;

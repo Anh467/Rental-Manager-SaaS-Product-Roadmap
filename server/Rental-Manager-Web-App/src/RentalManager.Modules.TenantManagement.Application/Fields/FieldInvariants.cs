@@ -1,4 +1,4 @@
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Enums;
 
 namespace RentalManager.Modules.TenantManagement.Application.Fields;

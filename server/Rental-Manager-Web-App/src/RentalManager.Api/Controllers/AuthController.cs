@@ -2,14 +2,14 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-using RentalManager.Api.Contracts;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.Identity.Application.Authentication.CurrentUser;
 using RentalManager.Modules.Identity.Application.Authentication.Login;
 using RentalManager.Modules.Identity.Application.Authentication.Logout;
 using RentalManager.Modules.Identity.Application.Authentication.SelectOrganization;
 using RentalManager.Modules.Identity.Application.Contracts;
-using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 
 namespace RentalManager.Api.Controllers;

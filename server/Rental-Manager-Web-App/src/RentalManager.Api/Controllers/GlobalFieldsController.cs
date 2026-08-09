@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentalManager.Modules.Identity.Infrastructure.Authorization;
 using RentalManager.Api.Contracts;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields;
@@ -9,7 +11,6 @@ using RentalManager.Modules.TenantManagement.Application.GlobalFields.Commands;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields.Contracts;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields.Queries;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
-using RentalManager.Modules.TenantManagement.Core.Constants;
 
 namespace RentalManager.Api.Controllers;
 
@@ -26,8 +27,7 @@ public sealed class GlobalFieldsController(
     public async Task<ActionResult<ApiResponse<ApiPageResult<FieldDto>>>> List(
         [FromQuery] GetGlobalFieldsRequest request, CancellationToken ct) =>
         Ok(ApiResponse<ApiPageResult<FieldDto>>.Create(
-            ApiPageResult<FieldDto>.From(
-                await getGlobalFields.HandleAsync(new GetGlobalFieldsQuery(request), ct)),
+            (await getGlobalFields.HandleAsync(new GetGlobalFieldsQuery(request), ct)).ToApiPageResult(),
             MessageCode.Success.Retrieved, correlationId: HttpContext.TraceIdentifier));
 
     [HttpGet("{id:guid}"), RequiresPermission(GlobalFieldPermissions.View)]

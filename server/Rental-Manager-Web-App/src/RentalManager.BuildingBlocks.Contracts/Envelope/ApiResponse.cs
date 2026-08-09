@@ -1,4 +1,4 @@
-namespace RentalManager.Api.Contracts;
+namespace RentalManager.BuildingBlocks.Contracts;
 
 /// <summary>
 /// Success envelope. Shape is dictated by the client contract: a message key
@@ -14,14 +14,22 @@ public sealed class ApiResponse<T>
 
     public IReadOnlyDictionary<string, object?>? Parameters { get; init; }
 
-    public string? CorrelationId { get; init; }
+    /// <summary>
+    /// Required so every envelope written to the wire can be correlated with
+    /// server logs. Callers must always supply a non-empty value; use
+    /// <c>HttpContext.TraceIdentifier</c> in controllers and middleware.
+    /// </summary>
+    public required string CorrelationId { get; init; }
 
     public static ApiResponse<T> Create(
         T? data,
         string messageKey,
-        IReadOnlyDictionary<string, object?>? parameters = null,
-        string? correlationId = null)
+        string correlationId,
+        IReadOnlyDictionary<string, object?>? parameters = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(messageKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(correlationId);
+
         return new ApiResponse<T>
         {
             MessageKey = messageKey,

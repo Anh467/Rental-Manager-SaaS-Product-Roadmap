@@ -2,7 +2,7 @@ using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.Identity.Application.Authentication.Login;
 using RentalManager.Modules.Identity.Application.Contracts;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 
 namespace RentalManager.Modules.Identity.Application.Authentication.SelectOrganization;

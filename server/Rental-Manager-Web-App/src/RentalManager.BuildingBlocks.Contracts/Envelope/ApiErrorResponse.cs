@@ -1,4 +1,4 @@
-namespace RentalManager.Api.Contracts;
+namespace RentalManager.BuildingBlocks.Contracts;
 
 /// <summary>
 /// One invalid request field, keyed the way the client's form state is keyed.
@@ -22,5 +22,10 @@ public sealed class ApiErrorResponse
 
     public IReadOnlyList<ApiFieldError>? FieldErrors { get; init; }
 
-    public string? CorrelationId { get; init; }
+    /// <summary>
+    /// Required so every envelope written to the wire can be correlated with
+    /// server logs. Callers must always supply a non-empty value; use
+    /// <c>HttpContext.TraceIdentifier</c> in controllers and middleware.
+    /// </summary>
+    public required string CorrelationId { get; init; }
 }

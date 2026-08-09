@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Enums;
 using Xunit;
 

@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
 using Microsoft.AspNetCore.Antiforgery;
-using RentalManager.Api.Contracts;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 
 namespace RentalManager.Api.Middlewares;

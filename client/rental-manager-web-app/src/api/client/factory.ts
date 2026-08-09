@@ -18,14 +18,23 @@ import type {
   ApiRequestOptions,
   ApiResponse,
 } from "./types";
-import { isApiError, normalizeSuccessResponse, toApiError } from "./utils";
+import { isApiError, parseSuccessResponse, toApiError } from "./utils";
 
 type CsrfAxiosConfig = InternalAxiosRequestConfig & {
   __csrfRetried?: boolean;
 };
 
+const CORRELATION_ID_HEADER = "x-correlation-id";
+const UNKNOWN_CORRELATION_ID = "unknown";
+
 function isAntiforgeryFailure(error: unknown) {
   return isApiError(error) && error.status === 400 && error.messageKey === "ERR-001";
+}
+
+function getResponseCorrelationId(response: AxiosResponse<unknown>): string {
+  const header = response.headers?.[CORRELATION_ID_HEADER];
+  const value = Array.isArray(header) ? header[0] : header;
+  return typeof value === "string" && value.length > 0 ? value : UNKNOWN_CORRELATION_ID;
 }
 
 export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
@@ -41,7 +50,7 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
 
   const fetchCsrfRequestToken = async () => {
     const response = await axiosInstance.get<unknown>("/api/v1/auth/csrf");
-    const envelope = normalizeSuccessResponse<{ requestToken: string }>(response.data);
+    const envelope = parseSuccessResponse<{ requestToken: string }>(response.data);
     return envelope.data.requestToken;
   };
 
@@ -56,7 +65,7 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   axiosInstance.interceptors.response.use(
     (response) => response,
     async (error: unknown) => {
-      const apiError = toApiError(error);
+      const apiError = await toApiError(error);
       const axiosError = axios.isAxiosError(error) ? error : null;
       const requestUrl = String(axiosError?.config?.url ?? "");
       const config = axiosError?.config as CsrfAxiosConfig | undefined;
@@ -103,7 +112,31 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
       data: payload,
     });
 
-    return normalizeSuccessResponse<ResponseBody>(response.data);
+    const correlationId = getResponseCorrelationId(response);
+
+    // 204 No Content has no body to parse; synthesize a success envelope so
+    // callers still get a consistent shape.
+    if (response.status === 204) {
+      return {
+        success: true,
+        messageKey: "SCS-005",
+        data: undefined as ResponseBody,
+        correlationId,
+      };
+    }
+
+    // Binary responses are not JSON envelopes — the caller asked for the raw
+    // payload (a file download, for example), so return it as-is.
+    if (requestOptions.responseType === "blob" || requestOptions.responseType === "arraybuffer") {
+      return {
+        success: true,
+        messageKey: "SCS-005",
+        data: response.data as ResponseBody,
+        correlationId,
+      };
+    }
+
+    return parseSuccessResponse<ResponseBody>(response.data);
   };
 
   const request = <

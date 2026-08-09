@@ -1,7 +1,7 @@
 using RentalManager.Modules.TenantManagement.Application.Fields.Commands;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 using RentalManager.Modules.TenantManagement.Application.UnitTests.Fakes;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Enums;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Org;

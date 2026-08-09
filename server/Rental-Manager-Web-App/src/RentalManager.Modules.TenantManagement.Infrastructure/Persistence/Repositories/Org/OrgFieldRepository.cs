@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using RentalManager.BuildingBlocks.Tenancy.Abstractions;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Org;
 using RentalManager.Modules.TenantManagement.Core.Constants;

@@ -1,5 +1,5 @@
 ﻿using RentalManager.Modules.TenantManagement.Application.Fields;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Enums;
 using Xunit;
 

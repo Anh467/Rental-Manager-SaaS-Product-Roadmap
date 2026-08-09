@@ -15,4 +15,8 @@
     <None Remove="Utils\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\RentalManager.BuildingBlocks.Contracts\RentalManager.BuildingBlocks.Contracts.csproj" />
+  </ItemGroup>
+
 </Project>

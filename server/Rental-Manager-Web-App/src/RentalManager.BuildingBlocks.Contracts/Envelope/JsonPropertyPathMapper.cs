@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace RentalManager.Api.Contracts;
+namespace RentalManager.BuildingBlocks.Contracts;
 
 /// <summary>Converts CLR/member paths to the JSON paths used by clients.</summary>
 public static class JsonPropertyPathMapper

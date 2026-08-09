@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/RentalManager.BuildingBlocks.Contracts/RentalManager.BuildingBlocks.Contracts.csproj" />
     <Project Path="src/RentalManager.BuildingBlocks.Tenancy/RentalManager.BuildingBlocks.Tenancy.csproj" />
   </Folder>
   <Folder Name="/Src/Database/">
@@ -21,6 +22,7 @@
   </Folder>
   <Project Path="src/RentalManager.Api/RentalManager.Api.csproj" />
   <Folder Name="/tests/">
+    <Project Path="tests/RentalManager.BuildingBlocks.Contracts.UnitTests/RentalManager.BuildingBlocks.Contracts.UnitTests.csproj" />
     <Project Path="tests/RentalManager.Modules.TenantManagement.Application.UnitTests/RentalManager.Modules.TenantManagement.Application.UnitTests.csproj" />
     <Project Path="tests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests.csproj" />
   </Folder>
