@@ -25,10 +25,11 @@ import type {
 } from "@/api/routes/rooms";
 import type { LoginRequest, SelectOrganizationRequest } from "@/api/routes/auth";
 import {
-  MOCK_LOGIN_EMAIL,
-  MOCK_LOGIN_PASSWORD,
+  MOCK_LOGIN_PROVIDER,
+  MOCK_LOGIN_SUBJECT,
   MOCK_MULTI_ORG_EMAIL,
-  MOCK_MULTI_ORG_PASSWORD,
+  MOCK_MULTI_ORG_PROVIDER,
+  MOCK_MULTI_ORG_SUBJECT,
   MOCK_ORGANIZATION_ID,
   MOCK_SESSION_COOKIE,
   buildMockAuthUser,
@@ -37,9 +38,11 @@ import {
 
 export {
   MOCK_LOGIN_EMAIL,
-  MOCK_LOGIN_PASSWORD,
+  MOCK_LOGIN_PROVIDER,
+  MOCK_LOGIN_SUBJECT,
   MOCK_MULTI_ORG_EMAIL,
-  MOCK_MULTI_ORG_PASSWORD,
+  MOCK_MULTI_ORG_PROVIDER,
+  MOCK_MULTI_ORG_SUBJECT,
   MOCK_ORGANIZATION_ID,
   MOCK_SESSION_COOKIE,
   mockAuthUser,
@@ -160,32 +163,32 @@ function registerAuthHandlers(mock: MockAdapter) {
     const csrfFailure = requireCsrf(config);
     if (csrfFailure) return csrfFailure;
 
-    const payload = readBody<LoginRequest>(config);
-    if (!payload?.email?.trim() || !payload?.password) {
+    const payload = readBody<LoginRequest>(config) ?? {};
+    const provider = payload.provider?.trim() || MOCK_LOGIN_PROVIDER;
+    const subject = payload.subject?.trim();
+
+    if (!subject) {
       return [400, problem("ERR-001", {}, [
-        { fieldKey: "email", messageKey: "ERR-001", parameters: { field: "email" } },
+        { fieldKey: "subject", messageKey: "ERR-001", parameters: { field: "subject" } },
       ])];
     }
 
-    const email = payload.email.trim().toLocaleLowerCase();
-    const password = payload.password;
-
-    if (email === MOCK_MULTI_ORG_EMAIL && password === MOCK_MULTI_ORG_PASSWORD) {
+    if (provider === MOCK_MULTI_ORG_PROVIDER && subject === MOCK_MULTI_ORG_SUBJECT) {
       const selectionTicket = `ticket-${crypto.randomUUID()}`;
       mockSelectionTickets.set(selectionTicket, {
         email: MOCK_MULTI_ORG_EMAIL,
         organizationIds: mockOrganizations.map((item) => item.id),
       });
-      return [200, success("SCS-005", {
+      return [200, success("SCS-017", {
         status: "organizationSelectionRequired",
         organizations: mockOrganizations,
         selectionTicket,
       }, { object: "session" })];
     }
 
-    if (email === MOCK_LOGIN_EMAIL && password === MOCK_LOGIN_PASSWORD) {
+    if (provider === MOCK_LOGIN_PROVIDER && subject === MOCK_LOGIN_SUBJECT) {
       writeSessionCookie(MOCK_ORGANIZATION_ID);
-      return [200, success("SCS-005", buildMockAuthUser(MOCK_ORGANIZATION_ID), { object: "session" })];
+      return [200, success("SCS-017", buildMockAuthUser(MOCK_ORGANIZATION_ID), { object: "session" })];
     }
 
     return [401, problem("ERR-003")];
@@ -204,7 +207,7 @@ function registerAuthHandlers(mock: MockAdapter) {
     mockSelectionTickets.delete(payload.selectionTicket);
     writeSessionCookie(payload.organizationId);
     return [200, success(
-      "SCS-005",
+      "SCS-017",
       buildMockAuthUser(payload.organizationId, ticket.email),
       { object: "session" },
     )];
@@ -219,7 +222,7 @@ function registerAuthHandlers(mock: MockAdapter) {
     }
 
     writeSessionCookie(null);
-    return [200, success("SCS-005", null, { object: "session" })];
+    return [200, success("SCS-018", null, { object: "session" })];
   });
 
   mock.onGet("/api/v1/auth/me").reply(() => {

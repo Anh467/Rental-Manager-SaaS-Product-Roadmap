@@ -1,6 +1,5 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using RentalManager.Api.Http;
@@ -9,6 +8,7 @@ using RentalManager.BuildingBlocks.Contracts;
 using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy;
 using RentalManager.Modules.Identity.Infrastructure;
+using RentalManager.Modules.Identity.Infrastructure.Authentication;
 using RentalManager.Modules.Identity.Infrastructure.Options;
 using RentalManager.Modules.TenantManagement.Infrastructure;
 
@@ -93,7 +93,7 @@ builder.Services.AddCors(options => options.AddPolicy("development", policy => p
     .AllowCredentials()));
 
 builder.Services.PostConfigure<CookieAuthenticationOptions>(
-    IdentityConstants.ApplicationScheme,
+    IdentityAuthenticationSchemes.ApplicationCookie,
     options =>
     {
         options.Events.OnRedirectToLogin = context =>

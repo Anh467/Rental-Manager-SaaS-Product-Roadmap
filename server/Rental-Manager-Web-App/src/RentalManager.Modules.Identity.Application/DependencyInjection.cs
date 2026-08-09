@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.Identity.Application.Authentication;
 using RentalManager.Modules.Identity.Application.Authentication.CurrentUser;
@@ -16,11 +17,14 @@ public static class IdentityApplicationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.TryAddSingleton(TimeProvider.System);
+
         services.AddScoped<AuthenticationProfileBuilder>();
+        services.AddScoped<AuthenticationSessionIssuer>();
 
         services.AddScoped<
-            ICommandHandler<LoginCommand, LoginResult>,
-            LoginCommandHandler>();
+            ICommandHandler<ExternalLoginCommand, LoginResult>,
+            ExternalLoginCommandHandler>();
         services.AddScoped<
             ICommandHandler<LogoutCommand>,
             LogoutCommandHandler>();

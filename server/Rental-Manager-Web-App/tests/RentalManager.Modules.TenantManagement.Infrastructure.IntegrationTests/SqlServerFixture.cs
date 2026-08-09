@@ -1,6 +1,5 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
-using RentalManager.Modules.Identity.Infrastructure.Identity;
 using Xunit;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests;
@@ -126,6 +125,31 @@ public sealed class SqlServerFixture : IAsyncLifetime
     }
 
     /// <summary>
+    /// Removes users and identity mappings a test provisioned, leaving the
+    /// seeded tenants intact so provisioning tests stay independent of each
+    /// other.
+    /// </summary>
+    public async Task ResetProvisionedUsersAsync()
+    {
+        await using SqlConnection connection = await OpenConnectionAsync();
+
+        await connection.ExecuteAsync(
+            """
+            DELETE FROM [dbo].[UserIdentity]
+            WHERE [UserId] NOT IN (@AdministratorAId, @ViewerAId, @AdministratorBId);
+
+            DELETE FROM [dbo].[User]
+            WHERE [Id] NOT IN (@AdministratorAId, @ViewerAId, @AdministratorBId);
+            """,
+            new
+            {
+                AdministratorAId = TestData.Users.AdministratorAId,
+                ViewerAId = TestData.Users.ViewerAId,
+                AdministratorBId = TestData.Users.AdministratorBId
+            });
+    }
+
+    /// <summary>
     /// Counts rows ignoring row level security, so a test can prove a row is
     /// really absent rather than merely hidden from the caller.
     /// </summary>
@@ -156,10 +180,12 @@ public sealed class SqlServerFixture : IAsyncLifetime
             """);
     }
 
+    /// <summary>
+    /// Seeds users with no credential columns at all and gives each one an
+    /// external identity mapping, which is the only way a user can sign in.
+    /// </summary>
     private async Task SeedTenantsAsync()
     {
-        (string hash, string salt) = LegacyPasswordHash.Create(TestData.Password);
-
         await using SqlConnection connection = await OpenConnectionAsync();
 
         await connection.ExecuteAsync(
@@ -172,22 +198,32 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
             INSERT INTO [dbo].[User]
                 ([Id], [UserName], [NormalizedUserName], [Email], [NormalizedEmail],
-                 [EmailConfirmed], [DisplayName], [PasswordHash], [PasswordSalt],
+                 [EmailConfirmed], [DisplayName],
                  [SecurityStamp], [ConcurrencyStamp], [LockoutEnabled],
                  [AccessFailedCount], [CreatedAt], [UpdatedAt])
             VALUES
                 (@AdministratorAId, @AdministratorAEmail, UPPER(@AdministratorAEmail),
                  @AdministratorAEmail, UPPER(@AdministratorAEmail), 1, N'Administrator A',
-                 @PasswordHash, @PasswordSalt, CONVERT(NVARCHAR(36), NEWID()),
-                 CONVERT(NVARCHAR(36), NEWID()), 1, 0, @Now, @Now),
+                 CONVERT(NVARCHAR(36), NEWID()),
+                 CONVERT(NVARCHAR(36), NEWID()), 0, 0, @Now, @Now),
                 (@ViewerAId, @ViewerAEmail, UPPER(@ViewerAEmail),
                  @ViewerAEmail, UPPER(@ViewerAEmail), 1, N'Viewer A',
-                 @PasswordHash, @PasswordSalt, CONVERT(NVARCHAR(36), NEWID()),
-                 CONVERT(NVARCHAR(36), NEWID()), 1, 0, @Now, @Now),
+                 CONVERT(NVARCHAR(36), NEWID()),
+                 CONVERT(NVARCHAR(36), NEWID()), 0, 0, @Now, @Now),
                 (@AdministratorBId, @AdministratorBEmail, UPPER(@AdministratorBEmail),
                  @AdministratorBEmail, UPPER(@AdministratorBEmail), 1, N'Administrator B',
-                 @PasswordHash, @PasswordSalt, CONVERT(NVARCHAR(36), NEWID()),
-                 CONVERT(NVARCHAR(36), NEWID()), 1, 0, @Now, @Now);
+                 CONVERT(NVARCHAR(36), NEWID()),
+                 CONVERT(NVARCHAR(36), NEWID()), 0, 0, @Now, @Now);
+
+            INSERT INTO [dbo].[UserIdentity]
+                ([Id], [UserId], [Provider], [Subject], [CreatedAt], [UpdatedAt])
+            VALUES
+                (@AdministratorAIdentityId, @AdministratorAId, @Provider,
+                 @AdministratorASubject, @Now, @Now),
+                (@ViewerAIdentityId, @ViewerAId, @Provider,
+                 @ViewerASubject, @Now, @Now),
+                (@AdministratorBIdentityId, @AdministratorBId, @Provider,
+                 @AdministratorBSubject, @Now, @Now);
             """,
             new
             {
@@ -199,8 +235,13 @@ public sealed class SqlServerFixture : IAsyncLifetime
                 TestData.Users.ViewerAEmail,
                 AdministratorBId = TestData.Users.AdministratorBId,
                 TestData.Users.AdministratorBEmail,
-                PasswordHash = hash,
-                PasswordSalt = salt,
+                TestData.Provider,
+                TestData.Users.AdministratorASubject,
+                TestData.Users.ViewerASubject,
+                TestData.Users.AdministratorBSubject,
+                AdministratorAIdentityId = TestData.Users.AdministratorAIdentityId,
+                ViewerAIdentityId = TestData.Users.ViewerAIdentityId,
+                AdministratorBIdentityId = TestData.Users.AdministratorBIdentityId,
                 Now = DateTimeOffset.UtcNow
             });
 

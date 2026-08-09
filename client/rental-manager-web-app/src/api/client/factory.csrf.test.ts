@@ -32,7 +32,9 @@ describe("createApiClient CSRF behavior", () => {
     });
 
     await client.get("/api/v1/auth/me");
-    await client.post("/api/v1/auth/login", { payload: { email: "a@b.c", password: "x" } });
+    await client.post("/api/v1/auth/login", {
+      payload: { provider: "oidc", subject: "test-subject" },
+    });
     expect(getCachedCsrfToken()).toBe("csrf-abc");
 
     mock.restore();

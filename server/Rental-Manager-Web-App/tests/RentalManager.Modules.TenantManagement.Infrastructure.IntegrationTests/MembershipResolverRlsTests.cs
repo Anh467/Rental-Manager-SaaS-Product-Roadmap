@@ -89,13 +89,14 @@ public sealed class MembershipResolverRlsTests
             ?? throw new InvalidOperationException("Missing CSRF token.");
         client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrfToken);
 
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        FieldsApiFactory.AttachExternalIdentityHeaders(
+            client,
+            TestData.Users.AdministratorASubject,
+            TestData.Users.AdministratorAEmail);
+
+        HttpResponseMessage response = await client.PostAsync(
             "/api/v1/auth/login",
-            new
-            {
-                email = TestData.Users.AdministratorAEmail,
-                password = TestData.Password
-            });
+            content: null);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

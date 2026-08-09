@@ -6,4 +6,5 @@ public sealed record AuthenticationSession(
     string DisplayName,
     string Scope,
     Guid? ActiveOrganizationId,
-    string SecurityStamp);
+    string SecurityStamp,
+    string? Provider = null);

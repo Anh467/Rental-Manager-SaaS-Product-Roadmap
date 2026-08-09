@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.Identity.Infrastructure.Bootstrap;
-using RentalManager.Modules.Identity.Infrastructure.Identity;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Core.Enums;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
@@ -16,133 +15,111 @@ public sealed class BootstrapAdminHostedServiceTests
     private static readonly Guid GlobalAdminRoleId =
         Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
 
+    private const string Provider = "oidc";
+    private const string Subject = "bootstrap-admin-subject";
+    private const string Email = "ops@example.com";
+
     [Fact]
-    public async Task Creates_global_admin_when_user_is_missing()
+    public async Task Creates_global_admin_when_identity_is_missing()
     {
-        var store = new FakeUserStore();
+        var store = new FakeUserAccountStore();
         var roles = new FakeRoleRepository(CreateGlobalAdminRole());
         BootstrapAdminHostedService service = CreateService(store, roles);
 
         await service.StartAsync(CancellationToken.None);
 
-        ApplicationUser created = Assert.Single(store.Users);
-        Assert.Equal("ops@example.com", created.Email);
-        Assert.Equal(GlobalAdminRoleId, created.GlobalRoleId);
-        Assert.True(created.IsActive);
-        Assert.False(string.IsNullOrWhiteSpace(created.PasswordHash));
+        ExternalUserProvisionRequest request = Assert.Single(store.ProvisionCalls);
+        Assert.Equal(Provider, request.Provider);
+        Assert.Equal(Subject, request.Subject);
+        Assert.Equal(Email, request.Email);
+        Assert.Equal(GlobalAdminRoleId, request.GlobalRoleId);
+        Assert.Null(store.LastPasswordHash);
     }
 
     [Fact]
-    public async Task Existing_active_global_admin_is_noop_and_does_not_reset_password()
+    public async Task Existing_active_global_admin_is_noop()
     {
-        var store = new FakeUserStore();
-        var roles = new FakeRoleRepository(CreateGlobalAdminRole());
-        store.Users.Add(new ApplicationUser
+        var store = new FakeUserAccountStore
         {
-            Id = Guid.CreateVersion7(),
-            UserName = "ops@example.com",
-            NormalizedUserName = "OPS@EXAMPLE.COM",
-            Email = "ops@example.com",
-            NormalizedEmail = "OPS@EXAMPLE.COM",
-            DisplayName = "Ops",
-            PasswordHash = "existing-hash",
-            PasswordSalt = "existing-salt",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            ConcurrencyStamp = Guid.NewGuid().ToString(),
-            GlobalRoleId = GlobalAdminRoleId,
-            IsActive = true
-        });
-
+            Existing = new ExternalIdentityMapping(
+                Guid.CreateVersion7(),
+                Provider,
+                new AuthenticatedIdentity(
+                    Guid.CreateVersion7(),
+                    Email,
+                    "Ops",
+                    Guid.NewGuid().ToString("N"),
+                    GlobalAdminRoleId,
+                    IsActive: true))
+        };
+        var roles = new FakeRoleRepository(CreateGlobalAdminRole());
         BootstrapAdminHostedService service = CreateService(store, roles);
+
         await service.StartAsync(CancellationToken.None);
 
-        ApplicationUser user = Assert.Single(store.Users);
-        Assert.Equal("existing-hash", user.PasswordHash);
-        Assert.Equal("existing-salt", user.PasswordSalt);
+        Assert.Empty(store.ProvisionCalls);
     }
 
     [Fact]
     public async Task Existing_inactive_user_fails_startup()
     {
-        var store = new FakeUserStore();
-        var roles = new FakeRoleRepository(CreateGlobalAdminRole());
-        store.Users.Add(new ApplicationUser
+        var store = new FakeUserAccountStore
         {
-            Id = Guid.CreateVersion7(),
-            UserName = "ops@example.com",
-            NormalizedUserName = "OPS@EXAMPLE.COM",
-            Email = "ops@example.com",
-            NormalizedEmail = "OPS@EXAMPLE.COM",
-            DisplayName = "Ops",
-            PasswordHash = "hash",
-            PasswordSalt = "salt",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            ConcurrencyStamp = Guid.NewGuid().ToString(),
-            GlobalRoleId = GlobalAdminRoleId,
-            IsActive = false
-        });
-
+            Existing = new ExternalIdentityMapping(
+                Guid.CreateVersion7(),
+                Provider,
+                new AuthenticatedIdentity(
+                    Guid.CreateVersion7(),
+                    Email,
+                    "Ops",
+                    Guid.NewGuid().ToString("N"),
+                    GlobalAdminRoleId,
+                    IsActive: false))
+        };
+        var roles = new FakeRoleRepository(CreateGlobalAdminRole());
         BootstrapAdminHostedService service = CreateService(store, roles);
 
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.StartAsync(CancellationToken.None));
 
         Assert.Contains("inactive", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("hash", store.Users[0].PasswordHash);
-        Assert.False(store.Users[0].IsActive);
+        Assert.Empty(store.ProvisionCalls);
     }
 
     [Fact]
     public async Task Existing_user_without_global_role_fails_startup()
     {
-        var store = new FakeUserStore();
-        var roles = new FakeRoleRepository(CreateGlobalAdminRole());
-        store.Users.Add(new ApplicationUser
+        var store = new FakeUserAccountStore
         {
-            Id = Guid.CreateVersion7(),
-            UserName = "ops@example.com",
-            NormalizedUserName = "OPS@EXAMPLE.COM",
-            Email = "ops@example.com",
-            NormalizedEmail = "OPS@EXAMPLE.COM",
-            DisplayName = "Ops",
-            PasswordHash = "hash",
-            PasswordSalt = "salt",
-            SecurityStamp = Guid.NewGuid().ToString(),
-            ConcurrencyStamp = Guid.NewGuid().ToString(),
-            GlobalRoleId = null,
-            IsActive = true
-        });
-
+            Existing = new ExternalIdentityMapping(
+                Guid.CreateVersion7(),
+                Provider,
+                new AuthenticatedIdentity(
+                    Guid.CreateVersion7(),
+                    Email,
+                    "Ops",
+                    Guid.NewGuid().ToString("N"),
+                    GlobalRoleId: null,
+                    IsActive: true))
+        };
+        var roles = new FakeRoleRepository(CreateGlobalAdminRole());
         BootstrapAdminHostedService service = CreateService(store, roles);
 
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.StartAsync(CancellationToken.None));
 
-        Assert.Contains("no global role", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Null(store.Users[0].GlobalRoleId);
+        Assert.Contains("without a global", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(store.ProvisionCalls);
     }
 
     private static BootstrapAdminHostedService CreateService(
-        FakeUserStore store,
+        FakeUserAccountStore store,
         FakeRoleRepository roles)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IRoleRepository>(roles);
-        services.AddSingleton(store);
-        services.AddSingleton<IUserStore<ApplicationUser>>(store);
-        services.AddSingleton<IUserPasswordStore<ApplicationUser>>(store);
-        services.AddSingleton<IUserEmailStore<ApplicationUser>>(store);
-        services
-            .AddIdentityCore<ApplicationUser>(options =>
-            {
-                options.User.RequireUniqueEmail = true;
-                options.Password.RequiredLength = 10;
-                options.Password.RequireDigit = true;
-                options.Password.RequireLowercase = true;
-                options.Password.RequireUppercase = true;
-                options.Password.RequireNonAlphanumeric = true;
-            });
+        services.AddSingleton<IUserAccountStore>(store);
 
         ServiceProvider provider = services.BuildServiceProvider();
 
@@ -151,9 +128,12 @@ public sealed class BootstrapAdminHostedServiceTests
             Options.Create(new BootstrapAdminOptions
             {
                 Enabled = true,
-                Email = "ops@example.com",
-                Password = "A-Strong-Local-Only-Password1!"
+                Provider = Provider,
+                Subject = Subject,
+                Email = Email,
+                DisplayName = "Ops"
             }),
+            new AllowAllExternalAuthenticationPolicy(),
             NullLogger<BootstrapAdminHostedService>.Instance);
     }
 
@@ -165,175 +145,73 @@ public sealed class BootstrapAdminHostedServiceTests
         Scope = ERoleScope.Global
     };
 
-    private sealed class FakeUserStore :
-        IUserStore<ApplicationUser>,
-        IUserPasswordStore<ApplicationUser>,
-        IUserEmailStore<ApplicationUser>
+    private sealed class AllowAllExternalAuthenticationPolicy : IExternalAuthenticationPolicy
     {
-        public List<ApplicationUser> Users { get; } = [];
+        public bool IsProviderAllowed(string provider) => true;
 
-        public void Dispose()
-        {
-        }
-
-        public Task<IdentityResult> CreateAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken)
-        {
-            Users.Add(user);
-            return Task.FromResult(IdentityResult.Success);
-        }
-
-        public Task<IdentityResult> DeleteAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
-        public Task<ApplicationUser?> FindByIdAsync(
-            string userId,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(Users.FirstOrDefault(user => user.Id.ToString() == userId));
-
-        public Task<ApplicationUser?> FindByNameAsync(
-            string normalizedUserName,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(Users.FirstOrDefault(user =>
-                string.Equals(
-                    user.NormalizedUserName,
-                    normalizedUserName,
-                    StringComparison.Ordinal)));
-
-        public Task<string?> GetNormalizedUserNameAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(user.NormalizedUserName);
-
-        public Task<string> GetUserIdAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(user.Id.ToString());
-
-        public Task<string?> GetUserNameAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(user.UserName);
-
-        public Task SetNormalizedUserNameAsync(
-            ApplicationUser user,
-            string? normalizedName,
-            CancellationToken cancellationToken)
-        {
-            user.NormalizedUserName = normalizedName;
-            return Task.CompletedTask;
-        }
-
-        public Task SetUserNameAsync(
-            ApplicationUser user,
-            string? userName,
-            CancellationToken cancellationToken)
-        {
-            user.UserName = userName;
-            return Task.CompletedTask;
-        }
-
-        public Task<IdentityResult> UpdateAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(IdentityResult.Success);
-
-        public Task SetPasswordHashAsync(
-            ApplicationUser user,
-            string? passwordHash,
-            CancellationToken cancellationToken)
-        {
-            user.PasswordHash = passwordHash;
-            return Task.CompletedTask;
-        }
-
-        public Task<string?> GetPasswordHashAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(user.PasswordHash);
-
-        public Task<bool> HasPasswordAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(!string.IsNullOrEmpty(user.PasswordHash));
-
-        public Task SetEmailAsync(
-            ApplicationUser user,
-            string? email,
-            CancellationToken cancellationToken)
-        {
-            user.Email = email;
-            return Task.CompletedTask;
-        }
-
-        public Task<string?> GetEmailAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(user.Email);
-
-        public Task<bool> GetEmailConfirmedAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(user.EmailConfirmed);
-
-        public Task SetEmailConfirmedAsync(
-            ApplicationUser user,
-            bool confirmed,
-            CancellationToken cancellationToken)
-        {
-            user.EmailConfirmed = confirmed;
-            return Task.CompletedTask;
-        }
-
-        public Task<ApplicationUser?> FindByEmailAsync(
-            string normalizedEmail,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(Users.FirstOrDefault(user =>
-                string.Equals(
-                    user.NormalizedEmail,
-                    normalizedEmail,
-                    StringComparison.Ordinal)));
-
-        public Task<string?> GetNormalizedEmailAsync(
-            ApplicationUser user,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(user.NormalizedEmail);
-
-        public Task SetNormalizedEmailAsync(
-            ApplicationUser user,
-            string? normalizedEmail,
-            CancellationToken cancellationToken)
-        {
-            user.NormalizedEmail = normalizedEmail;
-            return Task.CompletedTask;
-        }
+        public bool AllowsFirstLoginProvisioning(string provider) => true;
     }
 
-    private sealed class FakeRoleRepository : IRoleRepository
+    private sealed class FakeUserAccountStore : IUserAccountStore
     {
-        private readonly Role _role;
+        public ExternalIdentityMapping? Existing { get; set; }
 
-        public FakeRoleRepository(Role role) => _role = role;
+        public List<ExternalUserProvisionRequest> ProvisionCalls { get; } = [];
 
-        public Task<Role?> FindByKeyAsync(
-            string key,
+        public string? LastPasswordHash { get; private set; }
+
+        public Task<AuthenticatedIdentity?> FindActiveByIdAsync(
+            Guid userId,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(
-                string.Equals(_role.Key, key, StringComparison.Ordinal) ? _role : null);
+            Task.FromResult<AuthenticatedIdentity?>(null);
+
+        public Task<ExternalIdentityMapping?> FindByExternalIdentityAsync(
+            string provider,
+            string subject,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(Existing);
+
+        public Task<bool> IsEmailInUseAsync(
+            string email,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<ExternalUserProvisionResult> ProvisionAsync(
+            ExternalUserProvisionRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            ProvisionCalls.Add(request);
+            LastPasswordHash = null;
+            var mapping = new ExternalIdentityMapping(
+                Guid.CreateVersion7(),
+                request.Provider,
+                new AuthenticatedIdentity(
+                    Guid.CreateVersion7(),
+                    request.Email,
+                    request.DisplayName,
+                    Guid.NewGuid().ToString("N"),
+                    request.GlobalRoleId,
+                    IsActive: true));
+            Existing = mapping;
+            return Task.FromResult(ExternalUserProvisionResult.Created(mapping));
+        }
+
+        public Task RecordLoginAsync(
+            Guid userIdentityId,
+            DateTimeOffset occurredAt,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class FakeRoleRepository(Role role) : IRoleRepository
+    {
+        public Task<Role?> FindByKeyAsync(string key, CancellationToken cancellationToken = default) =>
+            Task.FromResult(key == role.Key ? role : null);
 
         public Task<Role?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(_role.Id == id ? _role : null);
+            Task.FromResult(id == role.Id ? role : null);
 
-        public Task<IReadOnlyCollection<Role>> GetAllAsync(
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyCollection<Role>>([_role]);
-
-        public Task<byte[]?> InsertAsync(
-            Role entity,
-            CancellationToken cancellationToken = default) =>
+        public Task<byte[]?> InsertAsync(Role entity, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task<byte[]?> UpdateAsync(
@@ -342,14 +220,10 @@ public sealed class BootstrapAdminHostedServiceTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task SaveAsync(
-            Role entity,
-            CancellationToken cancellationToken = default) =>
+        public Task SaveAsync(Role entity, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
-        public Task DeleteAsync(
-            Role entity,
-            CancellationToken cancellationToken = default) =>
+        public Task DeleteAsync(Role entity, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task SoftDeleteAsync(
@@ -357,5 +231,9 @@ public sealed class BootstrapAdminHostedServiceTests
             byte[]? expectedRowVersion = null,
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+
+        public Task<IReadOnlyCollection<Role>> GetAllAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyCollection<Role>>([role]);
     }
 }

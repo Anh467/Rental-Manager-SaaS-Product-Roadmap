@@ -207,5 +207,6 @@ public static class MessageCode
     {
         public const string Field = "field";
         public const string FieldOption = "fieldOption";
+        public const string User = "user";
     }
 }

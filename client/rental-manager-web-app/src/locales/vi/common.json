@@ -119,12 +119,12 @@
   },
   "login": {
     "title": "Rental Manager",
-    "subtitle": "Đăng nhập để tiếp tục.",
-    "email": "Email",
-    "password": "Mật khẩu",
+    "subtitle": "Đăng nhập bằng nhà cung cấp danh tính để tiếp tục.",
     "submit": "Đăng nhập",
     "submitting": "Đang đăng nhập...",
-    "failed": "Không thể đăng nhập. Kiểm tra thông tin và thử lại."
+    "failed": "Không thể đăng nhập. Thử lại hoặc liên hệ quản trị viên.",
+    "callbackTitle": "Đang hoàn tất đăng nhập",
+    "callbackSubtitle": "Đang thiết lập phiên làm việc..."
   },
   "selectOrganization": {
     "title": "Chọn Organization",

@@ -6,6 +6,7 @@ import { clearCsrfToken, refreshCsrfToken } from "@/api/client";
 import {
   authQueries,
   getCsrf,
+  getExternalLoginStartUrl,
   isOrganizationSelectionRequired,
   login,
   logout as logoutRequest,
@@ -32,7 +33,10 @@ type AuthContextValue = {
   permissions: readonly string[];
   scope: AuthUser["scope"] | null;
   isLoading: boolean;
-  login: (credentials: LoginRequest) => Promise<AuthenticateResult>;
+  /** Completes sign-in after an external principal is present (or mock provider/subject). */
+  completeLogin: (payload?: LoginRequest) => Promise<AuthenticateResult>;
+  /** Starts the browser OIDC redirect to GET /api/v1/auth/login. */
+  startExternalLogin: (returnUrl?: string) => void;
   completeOrganizationSelection: (organizationId: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
@@ -47,9 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const meQuery = useMeQuery(true);
 
-  const authenticate = useCallback(async (credentials: LoginRequest): Promise<AuthenticateResult> => {
+  const completeLogin = useCallback(async (payload: LoginRequest = {}): Promise<AuthenticateResult> => {
     await ensureFreshCsrf();
-    const loginResponse = await login({ payload: credentials });
+    const loginResponse = await login({ payload });
 
     if (isOrganizationSelectionRequired(loginResponse.data)) {
       setPendingOrganizationSelection({
@@ -67,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextUser = await queryClient.fetchQuery(authQueries.me());
     return { status: "authenticated", user: nextUser };
   }, [queryClient]);
+
+  const startExternalLogin = useCallback((returnUrl = "/login/callback") => {
+    window.location.assign(getExternalLoginStartUrl(returnUrl));
+  }, []);
 
   const completeOrganizationSelection = useCallback(async (organizationId: string) => {
     const pending = getPendingOrganizationSelection();
@@ -108,10 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     permissions: meQuery.data?.permissions ?? [],
     scope: meQuery.data?.scope ?? null,
     isLoading: meQuery.isPending,
-    login: authenticate,
+    completeLogin,
+    startExternalLogin,
     completeOrganizationSelection,
     logout,
-  }), [authenticate, completeOrganizationSelection, logout, meQuery.data, meQuery.isPending]);
+  }), [
+    completeLogin,
+    completeOrganizationSelection,
+    logout,
+    meQuery.data,
+    meQuery.isPending,
+    startExternalLogin,
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

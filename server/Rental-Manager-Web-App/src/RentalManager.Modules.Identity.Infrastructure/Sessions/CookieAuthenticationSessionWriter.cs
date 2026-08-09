@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
 using RentalManager.Modules.Identity.Application.Abstractions;
+using RentalManager.Modules.Identity.Infrastructure.Authentication;
 
 namespace RentalManager.Modules.Identity.Infrastructure.Sessions;
 
@@ -27,14 +27,26 @@ public sealed class CookieAuthenticationSessionWriter(
             new(ClaimTypes.Email, session.Email),
             new(ClaimTypes.Name, session.DisplayName),
             new(IdentityClaimNames.Scope, session.Scope),
-            new(ClaimTypes.AuthenticationMethod, "pwd")
+
+            // Federation is the only way a session is established, so the
+            // authentication method is never a password value.
+            new(
+                ClaimTypes.AuthenticationMethod,
+                IdentityClaimNames.AuthenticationMethodExternal)
         };
 
         if (!string.IsNullOrWhiteSpace(session.SecurityStamp))
         {
             claims.Add(new Claim(
-                new ClaimsIdentityOptions().SecurityStampClaimType,
+                IdentityClaimNames.SecurityStamp,
                 session.SecurityStamp));
+        }
+
+        if (!string.IsNullOrWhiteSpace(session.Provider))
+        {
+            claims.Add(new Claim(
+                IdentityClaimNames.IdentityProvider,
+                session.Provider));
         }
 
         if (session.ActiveOrganizationId is Guid organizationId)
@@ -46,12 +58,12 @@ public sealed class CookieAuthenticationSessionWriter(
 
         var identity = new ClaimsIdentity(
             claims,
-            IdentityConstants.ApplicationScheme);
+            IdentityAuthenticationSchemes.ApplicationCookie);
 
         var principal = new ClaimsPrincipal(identity);
 
         await httpContext.SignInAsync(
-            IdentityConstants.ApplicationScheme,
+            IdentityAuthenticationSchemes.ApplicationCookie,
             principal,
             new AuthenticationProperties
             {
@@ -59,6 +71,11 @@ public sealed class CookieAuthenticationSessionWriter(
                 AllowRefresh = true,
                 IssuedUtc = DateTimeOffset.UtcNow
             });
+
+        // The external principal has served its purpose once the application
+        // session exists; leaving it behind would keep a second, longer-lived
+        // identity on the browser.
+        await httpContext.SignOutAsync(IdentityAuthenticationSchemes.ExternalCookie);
     }
 
     public async Task ClearAsync(CancellationToken cancellationToken = default)
@@ -69,6 +86,7 @@ public sealed class CookieAuthenticationSessionWriter(
             return;
         }
 
-        await httpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+        await httpContext.SignOutAsync(IdentityAuthenticationSchemes.ApplicationCookie);
+        await httpContext.SignOutAsync(IdentityAuthenticationSchemes.ExternalCookie);
     }
 }

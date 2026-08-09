@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -33,11 +34,11 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
     };
 
     /// <summary>
-    /// Signs in with cookie auth and returns a client that sends cookies plus
-    /// the CSRF header on unsafe requests.
+    /// Signs in through the external identity path and returns a client that
+    /// sends cookies plus the CSRF header on unsafe requests.
     /// </summary>
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
-        string email,
+        string subject,
         Guid organizationId)
     {
         HttpClient client = CreateClient(new WebApplicationFactoryClientOptions
@@ -46,20 +47,17 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
             AllowAutoRedirect = false
         });
 
+        AttachExternalIdentityHeaders(client, subject);
         await AttachCsrfHeaderAsync(client);
 
-        HttpResponseMessage loginResponse = await client.PostAsJsonAsync(
+        HttpResponseMessage loginResponse = await client.PostAsync(
             "/api/v1/auth/login",
-            new
-            {
-                email,
-                password = TestData.Password
-            });
+            content: null);
 
         if (!loginResponse.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Signing in as '{email}' failed with {(int)loginResponse.StatusCode}: " +
+                $"Signing in as '{subject}' failed with {(int)loginResponse.StatusCode}: " +
                 await loginResponse.Content.ReadAsStringAsync() +
                 Environment.NewLine +
                 string.Join(Environment.NewLine, ServerErrors));
@@ -87,7 +85,7 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
             if (!selectResponse.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException(
-                    $"Selecting organization for '{email}' failed with " +
+                    $"Selecting organization for '{subject}' failed with " +
                     $"{(int)selectResponse.StatusCode}: " +
                     await selectResponse.Content.ReadAsStringAsync() +
                     Environment.NewLine +
@@ -113,8 +111,18 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["BootstrapAdmin:Enabled"] = "false",
+                ["BootstrapAdmin:Provider"] = "",
+                ["BootstrapAdmin:Subject"] = "",
                 ["BootstrapAdmin:Email"] = "",
-                ["BootstrapAdmin:Password"] = "",
+
+                // The verified external principal comes from the fake handler
+                // below, so no test ever contacts a real identity provider, and
+                // the Development-only request-body path stays off.
+                ["Authentication:External:PrincipalScheme"] =
+                    TestExternalAuthenticationHandler.SchemeName,
+                ["Authentication:External:AllowRequestBodyLogin"] = "false",
+                ["Authentication:External:AllowedProviders:0"] = TestData.Provider,
+
                 ["DataProtection:KeyRingPath"] = Path.Combine(
                     Path.GetTempPath(),
                     "rental-manager-tests-dp-" + Guid.NewGuid().ToString("N"))
@@ -130,7 +138,38 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IIdentityConnectionFactory>();
             services.AddSingleton<IIdentityConnectionFactory>(
                 new IdentityConnectionFactory(_connectionString));
+
+            services
+                .AddAuthentication()
+                .AddScheme<AuthenticationSchemeOptions, TestExternalAuthenticationHandler>(
+                    TestExternalAuthenticationHandler.SchemeName,
+                    configureOptions: null);
         });
+    }
+
+    /// <summary>
+    /// Presents an identity the fake external handler will treat as verified.
+    /// </summary>
+    internal static void AttachExternalIdentityHeaders(
+        HttpClient client,
+        string? subject,
+        string? email = null,
+        string? displayName = null)
+    {
+        foreach ((string name, string? value) in new (string, string?)[]
+        {
+            (TestExternalAuthenticationHandler.SubjectHeader, subject),
+            (TestExternalAuthenticationHandler.EmailHeader, email),
+            (TestExternalAuthenticationHandler.DisplayNameHeader, displayName)
+        })
+        {
+            client.DefaultRequestHeaders.Remove(name);
+
+            if (!string.IsNullOrEmpty(value))
+            {
+                client.DefaultRequestHeaders.Add(name, value);
+            }
+        }
     }
 
     internal static async Task AttachCsrfHeaderAsync(HttpClient client)

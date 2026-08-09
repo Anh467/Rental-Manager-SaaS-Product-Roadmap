@@ -1,0 +1,38 @@
+-- SCRUM-79 cutover notes (documentation script; not executed by PostDeployment).
+--
+-- Goal
+--   Replace runtime email/password authentication with provider-agnostic
+--   external identity mapping through [dbo].[UserIdentity].
+--
+-- Clean publish (empty / DACPAC model)
+--   1. [dbo].[UserIdentity] is created from Schema/Dbo/Tables/UserIdentity.sql.
+--   2. [dbo].[User].[PasswordHash] and [PasswordSalt] are nullable in the model.
+--      New users are provisioned with NULL credential columns.
+--
+-- Upgrade from a password-hashing deployment
+--   1. Publish / dacpac deploy so PasswordHash/PasswordSalt become NULLABLE and
+--      UserIdentity is created. Existing hashes are retained until an explicit
+--      later drop migration; the runtime no longer reads or writes them.
+--   2. For each live user that must keep signing in, insert a UserIdentity row:
+--        INSERT INTO [dbo].[UserIdentity]
+--            ([Id], [UserId], [Provider], [Subject], [CreatedAt], [UpdatedAt], [LastLoginAt])
+--        VALUES
+--            (@Id, @UserId, @Provider, @Subject, SYSUTCDATETIME(), SYSUTCDATETIME(), NULL);
+--      Provider is the deployment's Authentication:External provider key.
+--      Subject is the IdP 'sub' claim (case-sensitive; BIN2 collation).
+--   3. Do not auto-link by email. Email collisions with a different
+--      (Provider, Subject) are rejected at runtime with ERR-041.
+--   4. BootstrapAdmin now takes Provider/Subject/Email/DisplayName only.
+--
+-- Residual credential columns
+--   PasswordHash/PasswordSalt remain on [dbo].[User] as nullable retired
+--   columns so historical rows are preserved. Dropping them is out of scope
+--   for SCRUM-79 and requires an explicit later migration after cutover
+--   validation.
+--
+-- Validation checklist
+--   - UX_UserIdentity_Provider_Subject rejects duplicate (Provider, Subject).
+--   - Subject comparisons are case-sensitive.
+--   - First-login provisioning creates User + UserIdentity in one transaction.
+--   - Inactive users are rejected with ERR-009; email conflicts with ERR-041.
+GO

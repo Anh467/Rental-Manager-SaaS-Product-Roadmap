@@ -1,15 +1,13 @@
 import { test as base, expect, type Page } from "@playwright/test";
 
 /** Keep in sync with src/api/mocks/auth-constants.ts */
-export const MOCK_LOGIN_EMAIL = "mock.admin@example.com";
-export const MOCK_LOGIN_PASSWORD = "Password123!";
+export const MOCK_LOGIN_PROVIDER = "oidc";
+export const MOCK_LOGIN_SUBJECT = "mock-admin-subject";
 export const MOCK_ORGANIZATION_ID = "org-mock-1";
 
 export async function loginAsMockUser(page: Page) {
   await page.context().clearCookies();
   await page.goto("/login");
-  await page.getByLabel(/email/i).fill(MOCK_LOGIN_EMAIL);
-  await page.getByLabel(/password|mật khẩu/i).fill(MOCK_LOGIN_PASSWORD);
   await page.getByRole("button", { name: /sign in|đăng nhập/i }).click();
   await expect(page).not.toHaveURL(/\/login(?:\?|$)/);
 

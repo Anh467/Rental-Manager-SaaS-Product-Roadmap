@@ -7,58 +7,60 @@ namespace RentalManager.Modules.TenantManagement.Application.UnitTests;
 public sealed class BootstrapAdminOptionsTests
 {
     [Fact]
-    public void Disabled_bootstrap_skips_credential_validation()
+    public void Disabled_bootstrap_skips_identity_validation()
     {
         var options = new BootstrapAdminOptions
         {
             Enabled = false,
-            Email = "",
-            Password = ""
+            Provider = "",
+            Subject = "",
+            Email = ""
         };
 
         Assert.Empty(Validate(options));
     }
 
     [Fact]
-    public void Enabled_bootstrap_requires_email_and_password()
+    public void Enabled_bootstrap_requires_provider_subject_and_email()
     {
         var options = new BootstrapAdminOptions
         {
             Enabled = true,
-            Email = " ",
-            Password = null
+            Provider = " ",
+            Subject = null,
+            Email = " "
         };
 
         ValidationResult[] results = Validate(options);
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(BootstrapAdminOptions.Provider)));
+        Assert.Contains(results, result => result.MemberNames.Contains(nameof(BootstrapAdminOptions.Subject)));
         Assert.Contains(results, result => result.MemberNames.Contains(nameof(BootstrapAdminOptions.Email)));
-        Assert.Contains(results, result => result.MemberNames.Contains(nameof(BootstrapAdminOptions.Password)));
     }
 
-    [Theory]
-    [InlineData("your-admin@email.com", "ValidPassword123!")]
-    [InlineData("admin@example.com", "YourStrongPassword")]
-    public void Enabled_bootstrap_rejects_placeholder_credentials(
-        string email,
-        string password)
+    [Fact]
+    public void Enabled_bootstrap_rejects_placeholder_email()
     {
         var options = new BootstrapAdminOptions
         {
             Enabled = true,
-            Email = email,
-            Password = password
+            Provider = "oidc",
+            Subject = "admin-subject",
+            Email = "your-admin@email.com"
         };
 
         Assert.NotEmpty(Validate(options));
     }
 
     [Fact]
-    public void Enabled_bootstrap_accepts_non_placeholder_credentials()
+    public void Enabled_bootstrap_accepts_external_identity()
     {
         var options = new BootstrapAdminOptions
         {
             Enabled = true,
+            Provider = "oidc",
+            Subject = "admin-subject",
             Email = "ops@example.com",
-            Password = "A-Strong-Local-Only-Password1!"
+            DisplayName = "Ops"
         };
 
         Assert.Empty(Validate(options));

@@ -1,18 +1,17 @@
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.Identity.Application.Authentication.Login;
-using RentalManager.Modules.Identity.Application.Contracts;
-using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 
 namespace RentalManager.Modules.Identity.Application.Authentication.SelectOrganization;
 
 public sealed class SelectOrganizationCommandHandler(
     IProtectedOrganizationSelectionTicketService selectionTicketService,
-    ICredentialAuthenticator credentialAuthenticator,
+    IUserAccountStore users,
     IOrganizationMembershipReader organizationMembershipReader,
-    IAuthenticationSessionWriter sessionWriter,
-    AuthenticationProfileBuilder profileBuilder)
+    AuthenticationSessionIssuer sessionIssuer,
+    TimeProvider timeProvider)
     : ICommandHandler<SelectOrganizationCommand, LoginResult>
 {
     public async Task<LoginResult> HandleAsync(
@@ -33,18 +32,15 @@ public sealed class SelectOrganizationCommandHandler(
         OrganizationSelectionTicket? ticket =
             selectionTicketService.Unprotect(command.SelectionTicket);
 
-        if (ticket is null || ticket.ExpiresAt <= DateTimeOffset.UtcNow)
+        if (ticket is null || ticket.ExpiresAt <= timeProvider.GetUtcNow())
         {
             throw new AuthenticationFailedException();
         }
 
         AuthenticatedIdentity? identity =
-            await credentialAuthenticator.FindByIdAsync(
-                ticket.UserId,
-                cancellationToken);
+            await users.FindActiveByIdAsync(ticket.UserId, cancellationToken);
 
         if (identity is null ||
-            !identity.IsActive ||
             !string.Equals(
                 identity.SecurityStamp,
                 ticket.SecurityStamp,
@@ -63,22 +59,10 @@ public sealed class SelectOrganizationCommandHandler(
             throw new AuthenticationFailedException();
         }
 
-        AuthenticationResultDto profile = await profileBuilder.BuildAsync(
+        return await sessionIssuer.IssueForOrganizationAsync(
             identity,
-            IdentityClaimNames.ScopeOrganization,
+            ticket.Provider,
             organizationId,
             cancellationToken);
-
-        await sessionWriter.WriteAsync(
-            new AuthenticationSession(
-                identity.UserId,
-                identity.Email,
-                identity.DisplayName,
-                IdentityClaimNames.ScopeOrganization,
-                organizationId,
-                identity.SecurityStamp),
-            cancellationToken);
-
-        return LoginResult.Authenticated(profile);
     }
 }

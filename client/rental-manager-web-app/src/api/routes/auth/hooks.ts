@@ -10,7 +10,7 @@ export function useMeQuery(enabled = true) {
 
 export function useLoginMutation() {
   return useMutation({
-    mutationFn: (payload: LoginRequest) => login({ payload }),
+    mutationFn: (payload: LoginRequest = {}) => login({ payload }),
   });
 }
 

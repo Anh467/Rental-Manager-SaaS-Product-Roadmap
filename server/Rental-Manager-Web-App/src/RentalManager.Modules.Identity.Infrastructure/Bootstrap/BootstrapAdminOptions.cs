@@ -2,6 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace RentalManager.Modules.Identity.Infrastructure.Bootstrap;
 
+/// <summary>
+/// The controlled way to give a new deployment its first global administrator.
+/// It describes an external identity to admit, never a credential: there is no
+/// password to configure, leak or rotate.
+/// </summary>
 public sealed class BootstrapAdminOptions : IValidatableObject
 {
     public const string SectionName = "BootstrapAdmin";
@@ -11,22 +16,43 @@ public sealed class BootstrapAdminOptions : IValidatableObject
         "your-admin@email.com"
     };
 
-    private static readonly HashSet<string> RejectedPasswords = new(StringComparer.Ordinal)
-    {
-        "YourStrongPassword"
-    };
-
     public bool Enabled { get; set; }
+
+    /// <summary>
+    /// The provider key the administrator will sign in with. Must be one of
+    /// <c>Authentication:External:AllowedProviders</c>.
+    /// </summary>
+    public string? Provider { get; set; }
+
+    /// <summary>
+    /// The provider's stable subject identifier for the administrator. This is
+    /// the only identity key; email is a profile attribute.
+    /// </summary>
+    public string? Subject { get; set; }
 
     public string? Email { get; set; }
 
-    public string? Password { get; set; }
+    public string? DisplayName { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (!Enabled)
         {
             yield break;
+        }
+
+        if (string.IsNullOrWhiteSpace(Provider))
+        {
+            yield return new ValidationResult(
+                "BootstrapAdmin:Provider is required when BootstrapAdmin:Enabled is true.",
+                [nameof(Provider)]);
+        }
+
+        if (string.IsNullOrWhiteSpace(Subject))
+        {
+            yield return new ValidationResult(
+                "BootstrapAdmin:Subject is required when BootstrapAdmin:Enabled is true.",
+                [nameof(Subject)]);
         }
 
         if (string.IsNullOrWhiteSpace(Email))
@@ -40,19 +66,6 @@ public sealed class BootstrapAdminOptions : IValidatableObject
             yield return new ValidationResult(
                 "BootstrapAdmin:Email must not use a placeholder value.",
                 [nameof(Email)]);
-        }
-
-        if (string.IsNullOrWhiteSpace(Password))
-        {
-            yield return new ValidationResult(
-                "BootstrapAdmin:Password is required when BootstrapAdmin:Enabled is true.",
-                [nameof(Password)]);
-        }
-        else if (RejectedPasswords.Contains(Password))
-        {
-            yield return new ValidationResult(
-                "BootstrapAdmin:Password must not use a placeholder value.",
-                [nameof(Password)]);
         }
     }
 }

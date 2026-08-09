@@ -24,6 +24,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/RentalManager.Api.UnitTests/RentalManager.Api.UnitTests.csproj" />
     <Project Path="tests/RentalManager.BuildingBlocks.Contracts.UnitTests/RentalManager.BuildingBlocks.Contracts.UnitTests.csproj" />
+    <Project Path="tests/RentalManager.Modules.Identity.Application.UnitTests/RentalManager.Modules.Identity.Application.UnitTests.csproj" />
     <Project Path="tests/RentalManager.Modules.TenantManagement.Application.UnitTests/RentalManager.Modules.TenantManagement.Application.UnitTests.csproj" />
     <Project Path="tests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests/RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests.csproj" />
   </Folder>
