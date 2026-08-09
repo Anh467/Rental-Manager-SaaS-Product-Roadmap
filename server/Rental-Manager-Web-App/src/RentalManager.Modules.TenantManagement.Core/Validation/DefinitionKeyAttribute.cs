@@ -11,7 +11,8 @@ namespace RentalManager.Modules.TenantManagement.Core.Validation;
 public sealed partial class DefinitionKeyAttribute : ValidationAttribute
 {
     public DefinitionKeyAttribute()
-        : base("The key may contain only lowercase ASCII letters, digits, and underscores.")
+        : base(
+            "The key may contain only lowercase ASCII letters, digits, underscores, dots, and hyphens.")
     {
     }
 
@@ -21,6 +22,9 @@ public sealed partial class DefinitionKeyAttribute : ValidationAttribute
                value is string key && DefinitionKeyRegex().IsMatch(key);
     }
 
-    [GeneratedRegex("^[a-z0-9_]+$", RegexOptions.CultureInvariant)]
+    // Confluence 15.1 uses module.action / platform.module.action and hyphenated
+    // segments such as property-type.view. Underscore keys remain valid for
+    // already-seeded TenantManagement permissions.
+    [GeneratedRegex("^[a-z0-9]+([._-][a-z0-9]+)*$", RegexOptions.CultureInvariant)]
     private static partial Regex DefinitionKeyRegex();
 }

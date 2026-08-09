@@ -9,7 +9,7 @@ namespace RentalManager.BuildingBlocks.Tenancy.Security;
 /// SecurityLog persistence, retention and querying, and will add its own
 /// implementation of <see cref="ISecurityEventPublisher"/>.
 /// </summary>
-public sealed class LoggingSecurityEventPublisher : ISecurityEventPublisher
+public sealed class LoggingSecurityEventPublisher : ISecurityEventPublisher, IAuditEventPublisher
 {
     private readonly ILogger<LoggingSecurityEventPublisher> _logger;
 

@@ -8,13 +8,15 @@ namespace RentalManager.Modules.Identity.Infrastructure.Authorization;
 
 /// <summary>
 /// Resolves the caller's permissions for the organization currently bound to the
-/// request. Missing identity or permission fails closed (403). Infrastructure
-/// failures propagate so they become 500 via the exception middleware.
+/// request, or the union of PlatformRole permissions for a global-scope session.
+/// Missing identity or permission fails closed (403). Infrastructure failures
+/// propagate so they become 500 via the exception middleware.
 /// </summary>
 public sealed class PermissionAuthorizationHandler :
     AuthorizationHandler<PermissionRequirement>
 {
     private readonly IPermissionReader _permissionReader;
+    private readonly IPlatformPermissionReader _platformPermissionReader;
     private readonly IUserRepository _users;
     private readonly IRolePermissionRepository _globalRolePermissions;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -23,11 +25,13 @@ public sealed class PermissionAuthorizationHandler :
 
     public PermissionAuthorizationHandler(
         IPermissionReader permissionReader,
+        IPlatformPermissionReader platformPermissionReader,
         IUserRepository users,
         IRolePermissionRepository globalRolePermissions,
         IHttpContextAccessor httpContextAccessor)
     {
         _permissionReader = permissionReader;
+        _platformPermissionReader = platformPermissionReader;
         _users = users;
         _globalRolePermissions = globalRolePermissions;
         _httpContextAccessor = httpContextAccessor;
@@ -57,14 +61,7 @@ public sealed class PermissionAuthorizationHandler :
                      IdentityClaimNames.ScopeGlobal,
                      StringComparison.Ordinal))
         {
-            var user = await _users.GetAsync(userId, cancellationToken);
-            if (user?.GlobalRoleId is not Guid roleId)
-            {
-                return;
-            }
-
-            _cachedPermissions ??= await _globalRolePermissions
-                .GetPermissionKeysByRoleAsync(roleId, cancellationToken);
+            _cachedPermissions ??= await LoadGlobalPermissionsAsync(userId, cancellationToken);
         }
         else
         {
@@ -75,6 +72,33 @@ public sealed class PermissionAuthorizationHandler :
         {
             context.Succeed(requirement);
         }
+    }
+
+    private async Task<IReadOnlySet<string>> LoadGlobalPermissionsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        HashSet<string> permissions =
+            (await _platformPermissionReader.GetPermissionKeysAsync(userId, cancellationToken))
+            .ToHashSet(StringComparer.Ordinal);
+
+        // Transitional union with legacy GlobalRoleId until every admin has a
+        // PlatformUserRole assignment from the DACPAC seed/cutover.
+        var user = await _users.GetAsync(userId, cancellationToken);
+        if (user?.GlobalRoleId is Guid roleId)
+        {
+            IReadOnlySet<string> legacy =
+                await _globalRolePermissions.GetPermissionKeysByRoleAsync(
+                    roleId,
+                    cancellationToken);
+
+            foreach (string key in legacy)
+            {
+                permissions.Add(key);
+            }
+        }
+
+        return permissions;
     }
 
     private sealed record ClaimsPrincipalUser(

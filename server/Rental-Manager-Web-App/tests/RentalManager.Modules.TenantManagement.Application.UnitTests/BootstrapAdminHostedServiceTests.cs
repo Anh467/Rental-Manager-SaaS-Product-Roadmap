@@ -108,7 +108,7 @@ public sealed class BootstrapAdminHostedServiceTests
         InvalidOperationException exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.StartAsync(CancellationToken.None));
 
-        Assert.Contains("without a global", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("without the expected global", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(store.ProvisionCalls);
     }
 
@@ -120,6 +120,7 @@ public sealed class BootstrapAdminHostedServiceTests
         services.AddLogging();
         services.AddSingleton<IRoleRepository>(roles);
         services.AddSingleton<IUserAccountStore>(store);
+        services.AddSingleton<IPlatformUserStore>(new FakePlatformUserStore());
 
         ServiceProvider provider = services.BuildServiceProvider();
 
@@ -201,6 +202,49 @@ public sealed class BootstrapAdminHostedServiceTests
             DateTimeOffset occurredAt,
             CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private sealed class FakePlatformUserStore : IPlatformUserStore
+    {
+        public List<(Guid UserId, Guid PlatformRoleId)> Assignments { get; } = [];
+
+        public Task<PlatformUserRecord?> GetByIdAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<PlatformUserListResult> ListAsync(
+            PlatformUserListQuery query,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<PlatformUserRecord> UpdateAsync(
+            Guid userId,
+            string displayName,
+            byte[] expectedRowVersion,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<PlatformUserRecord> SetActiveAsync(
+            Guid userId,
+            bool isActive,
+            byte[] expectedRowVersion,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<int> CountOrganizationMembershipsAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task AssignPlatformRoleAsync(
+            Guid userId,
+            Guid platformRoleId,
+            CancellationToken cancellationToken = default)
+        {
+            Assignments.Add((userId, platformRoleId));
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeRoleRepository(Role role) : IRoleRepository

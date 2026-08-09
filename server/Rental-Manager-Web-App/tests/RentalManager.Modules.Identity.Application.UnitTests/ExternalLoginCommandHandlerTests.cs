@@ -264,6 +264,7 @@ internal sealed class ExternalLoginHarness
         var profileBuilder = new AuthenticationProfileBuilder(
             accessor,
             permissionReader,
+            new EmptyPlatformPermissionReader(),
             new UnusedRoleRepository(),
             new UnusedRolePermissionRepository());
 
@@ -272,6 +273,7 @@ internal sealed class ExternalLoginHarness
             tickets,
             sessions,
             profileBuilder,
+            new EmptyPlatformPermissionReader(),
             securityEvents,
             organizationContext,
             TimeProvider.System);
@@ -413,6 +415,24 @@ internal sealed class FakeOrganizationContext : IOrganizationContext
     public string? CorrelationId => "test-correlation";
 
     public bool HasOrganization => false;
+}
+
+internal sealed class EmptyPlatformPermissionReader : IPlatformPermissionReader
+{
+    public Task<bool> HasAnyPlatformRoleAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(false);
+
+    public Task<IReadOnlySet<string>> GetPermissionKeysAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlySet<string>>(new HashSet<string>(StringComparer.Ordinal));
+
+    public Task<PlatformRoleSummary?> GetPrimaryRoleAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<PlatformRoleSummary?>(null);
 }
 
 internal sealed class FakePermissionReader : IPermissionReader

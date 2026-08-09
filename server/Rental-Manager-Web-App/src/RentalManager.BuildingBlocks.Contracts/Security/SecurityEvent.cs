@@ -50,6 +50,12 @@ public static class SecurityEventTypes
     public const string InactiveUserRejected = "InactiveUserRejected";
 
     public const string UserProvisioned = "UserProvisioned";
+
+    public const string UserActivated = "UserActivated";
+
+    public const string UserDeactivated = "UserDeactivated";
+
+    public const string UserUpdated = "UserUpdated";
 }
 
 /// <summary>
@@ -69,6 +75,16 @@ public static class SecurityEventFields
     public const string Reason = "reason";
 
     public const string Object = "object";
+
+    public const string ActorUserId = "actorUserId";
+
+    public const string TargetUserId = "targetUserId";
+
+    public const string Before = "before";
+
+    public const string After = "after";
+
+    public const string Result = "result";
 }
 
 /// <summary>
@@ -90,4 +106,12 @@ public static class SecurityEventReasons
     public const string NoActiveMembership = "noActiveMembership";
 
     public const string ExternalPrincipalMissing = "externalPrincipalMissing";
+
+    public const string Succeeded = "succeeded";
+
+    public const string Failed = "failed";
+
+    public const string SessionRejectedInactive = "sessionRejectedInactive";
+
+    public const string SessionRejectedStampMismatch = "sessionRejectedStampMismatch";
 }

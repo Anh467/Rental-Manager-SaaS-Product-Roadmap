@@ -17,6 +17,7 @@ public sealed class PermissionAuthorizationHandlerTests
     {
         var handler = new PermissionAuthorizationHandler(
             new ThrowingPermissionReader(),
+            new EmptyPlatformPermissionReader(),
             new UnusedUserRepository(),
             new UnusedRolePermissionRepository(),
             new HttpContextAccessor { HttpContext = new DefaultHttpContext() });
@@ -40,6 +41,7 @@ public sealed class PermissionAuthorizationHandlerTests
 
         var handler = new PermissionAuthorizationHandler(
             new ThrowingPermissionReader(),
+            new EmptyPlatformPermissionReader(),
             new UnusedUserRepository(),
             new UnusedRolePermissionRepository(),
             new HttpContextAccessor { HttpContext = new DefaultHttpContext() });
@@ -60,6 +62,24 @@ public sealed class PermissionAuthorizationHandlerTests
             () => handler.HandleAsync(context));
         Assert.Equal("simulated database outage", exception.Message);
         Assert.False(context.HasSucceeded);
+    }
+
+    private sealed class EmptyPlatformPermissionReader : IPlatformPermissionReader
+    {
+        public Task<bool> HasAnyPlatformRoleAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(false);
+
+        public Task<IReadOnlySet<string>> GetPermissionKeysAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlySet<string>>(new HashSet<string>(StringComparer.Ordinal));
+
+        public Task<PlatformRoleSummary?> GetPrimaryRoleAsync(
+            Guid userId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<PlatformRoleSummary?>(null);
     }
 
     private sealed class ThrowingPermissionReader : IPermissionReader

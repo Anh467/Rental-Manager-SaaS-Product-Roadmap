@@ -31,7 +31,11 @@ public static class TenancyServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        services.TryAddSingleton<ISecurityEventPublisher, LoggingSecurityEventPublisher>();
+        services.TryAddSingleton<LoggingSecurityEventPublisher>();
+        services.TryAddSingleton<ISecurityEventPublisher>(provider =>
+            provider.GetRequiredService<LoggingSecurityEventPublisher>());
+        services.TryAddSingleton<IAuditEventPublisher>(provider =>
+            provider.GetRequiredService<LoggingSecurityEventPublisher>());
 
         return services;
     }

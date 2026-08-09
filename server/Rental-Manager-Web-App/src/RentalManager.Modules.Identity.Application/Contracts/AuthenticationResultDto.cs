@@ -4,6 +4,7 @@ public sealed record AuthenticationResultDto(
     Guid Id,
     string Name,
     string Email,
+    bool IsActive,
     string Scope,
     Guid? OrganizationId,
     RoleSummaryDto? Role,

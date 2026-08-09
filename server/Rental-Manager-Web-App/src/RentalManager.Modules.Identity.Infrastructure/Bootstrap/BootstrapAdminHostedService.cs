@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RentalManager.Modules.Identity.Application.Abstractions;
+using RentalManager.Modules.Identity.Application.PlatformUsers;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Core.Enums;
 using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
@@ -10,7 +11,7 @@ using RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
 namespace RentalManager.Modules.Identity.Infrastructure.Bootstrap;
 
 /// <summary>
-/// Create-only bootstrap of the first global administrator from a configured
+/// Create-only bootstrap of the first platform administrator from a configured
 /// external identity. Nothing about an existing account is ever modified, so a
 /// misconfigured deployment can never silently escalate or reactivate a user.
 /// </summary>
@@ -43,6 +44,7 @@ public sealed class BootstrapAdminHostedService(
 
         await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
         var users = scope.ServiceProvider.GetRequiredService<IUserAccountStore>();
+        var platformUsers = scope.ServiceProvider.GetRequiredService<IPlatformUserStore>();
         var roles = scope.ServiceProvider.GetRequiredService<IRoleRepository>();
 
         Role role = await roles.FindByKeyAsync(GlobalAdminRoleKey, cancellationToken)
@@ -83,6 +85,11 @@ public sealed class BootstrapAdminHostedService(
         switch (result.Status)
         {
             case ExternalUserProvisionStatus.Created:
+                await platformUsers.AssignPlatformRoleAsync(
+                    result.Mapping!.User.UserId,
+                    PlatformRoleCatalog.SuperAdminId,
+                    cancellationToken);
+
                 logger.LogInformation(
                     "Bootstrap admin user created for provider {Provider}.",
                     provider);
@@ -117,18 +124,15 @@ public sealed class BootstrapAdminHostedService(
                 "Reactivation is not performed at startup.");
         }
 
-        if (mapping.User.GlobalRoleId is null)
+        bool hasLegacyGlobalRole = mapping.User.GlobalRoleId == globalRoleId;
+        // PlatformUserRole may already have been assigned by DACPAC migration;
+        // bootstrap still requires the legacy GlobalRoleId on create-only path
+        // so an incomplete seed is visible as a hard startup failure.
+        if (!hasLegacyGlobalRole)
         {
             throw new InvalidOperationException(
-                "The bootstrap admin identity is mapped to a user without a global " +
-                "role. Role assignment is not performed at startup.");
-        }
-
-        if (mapping.User.GlobalRoleId != globalRoleId)
-        {
-            throw new InvalidOperationException(
-                "The bootstrap admin identity is mapped to a user that holds a " +
-                "different global role.");
+                "The bootstrap admin identity is mapped to a user without the " +
+                "expected global administrator role.");
         }
     }
 }

@@ -16,6 +16,7 @@ public sealed class AuthenticationSessionIssuer(
     IProtectedOrganizationSelectionTicketService selectionTicketService,
     IAuthenticationSessionWriter sessionWriter,
     AuthenticationProfileBuilder profileBuilder,
+    IPlatformPermissionReader platformPermissionReader,
     ISecurityEventPublisher securityEvents,
     IOrganizationContext organizationContext,
     TimeProvider timeProvider)
@@ -34,7 +35,11 @@ public sealed class AuthenticationSessionIssuer(
     {
         ArgumentNullException.ThrowIfNull(identity);
 
-        if (identity.GlobalRoleId is not null)
+        bool hasPlatformRole = await platformPermissionReader.HasAnyPlatformRoleAsync(
+            identity.UserId,
+            cancellationToken);
+
+        if (hasPlatformRole || identity.GlobalRoleId is not null)
         {
             return await WriteSessionAsync(
                 identity,

@@ -106,6 +106,7 @@ public static class IdentityInfrastructureServiceCollectionExtensions
                 options.Cookie.Path = "/";
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
+                options.Events.OnValidatePrincipal = UserActiveSessionValidator.ValidateAsync;
                 options.Events.OnRedirectToLogin = context =>
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -163,6 +164,12 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         services.AddHostedService<BootstrapAdminHostedService>();
 
         services.AddScoped<IUserAccountStore, SqlUserAccountStore>();
+        services.AddScoped<SqlPlatformUserStore>();
+        services.AddScoped<IPlatformUserStore>(provider =>
+            provider.GetRequiredService<SqlPlatformUserStore>());
+        services.AddScoped<IUserSessionStateReader>(provider =>
+            provider.GetRequiredService<SqlPlatformUserStore>());
+        services.AddScoped<IPlatformPermissionReader, SqlPlatformPermissionReader>();
         services.AddScoped<IExternalIdentityResolver, HttpExternalIdentityResolver>();
         services.AddSingleton<IExternalAuthenticationPolicy, ExternalAuthenticationPolicy>();
         services.AddSingleton<IExternalLoginChallengeFactory, ExternalLoginChallengeFactory>();
