@@ -1,5 +1,4 @@
-﻿using System.Net.Http.Headers;
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -8,6 +7,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using RentalManager.Modules.Identity.Infrastructure;
+using RentalManager.Modules.Identity.Infrastructure.Persistence;
 using RentalManager.Modules.TenantManagement.Infrastructure.Persistence.Connections;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests;
@@ -32,49 +33,72 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
     };
 
     /// <summary>
-    /// Signs in and returns a client whose every request carries the resulting
-    /// bearer token, which is the only way the organization reaches the server.
+    /// Signs in with cookie auth and returns a client that sends cookies plus
+    /// the CSRF header on unsafe requests.
     /// </summary>
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
         string email,
         Guid organizationId)
     {
-        HttpClient client = CreateClient();
+        HttpClient client = CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true,
+            AllowAutoRedirect = false
+        });
 
-        HttpResponseMessage response = await client.PostAsJsonAsync(
-            "/api/v1/auth/token",
+        await AttachCsrfHeaderAsync(client);
+
+        HttpResponseMessage loginResponse = await client.PostAsJsonAsync(
+            "/api/v1/auth/login",
             new
             {
                 email,
-                password = TestData.Password,
-                organizationId
+                password = TestData.Password
             });
 
-        if (!response.IsSuccessStatusCode)
+        if (!loginResponse.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
-                $"Signing in as '{email}' failed with {(int)response.StatusCode}: " +
-                await response.Content.ReadAsStringAsync() +
+                $"Signing in as '{email}' failed with {(int)loginResponse.StatusCode}: " +
+                await loginResponse.Content.ReadAsStringAsync() +
                 Environment.NewLine +
                 string.Join(Environment.NewLine, ServerErrors));
         }
 
-        TokenEnvelope envelope =
-            await response.Content.ReadFromJsonAsync<TokenEnvelope>(Json)
-            ?? throw new InvalidOperationException(
-                "The token endpoint returned an empty body.");
+        LoginEnvelope? envelope =
+            await loginResponse.Content.ReadFromJsonAsync<LoginEnvelope>(Json);
 
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-            "Bearer",
-            envelope.Data.AccessToken);
+        if (envelope?.Data is not null &&
+            string.Equals(
+                envelope.Data.Status,
+                "organizationSelectionRequired",
+                StringComparison.Ordinal))
+        {
+            await AttachCsrfHeaderAsync(client);
 
+            HttpResponseMessage selectResponse = await client.PostAsJsonAsync(
+                "/api/v1/auth/select-organization",
+                new
+                {
+                    selectionTicket = envelope.Data.SelectionTicket,
+                    organizationId
+                });
+
+            if (!selectResponse.IsSuccessStatusCode)
+            {
+                throw new InvalidOperationException(
+                    $"Selecting organization for '{email}' failed with " +
+                    $"{(int)selectResponse.StatusCode}: " +
+                    await selectResponse.Content.ReadAsStringAsync() +
+                    Environment.NewLine +
+                    string.Join(Environment.NewLine, ServerErrors));
+            }
+        }
+
+        await AttachCsrfHeaderAsync(client);
         return client;
     }
 
-    /// <summary>
-    /// Server-side failures logged so far. A 500 from the host is otherwise
-    /// invisible to the test, which makes such a failure very hard to diagnose.
-    /// </summary>
     public IReadOnlyList<string> ServerErrors => _serverErrors;
 
     private readonly List<string> _serverErrors = [];
@@ -84,34 +108,56 @@ internal class FieldsApiFactory : WebApplicationFactory<Program>
         builder.ConfigureLogging(logging =>
             logging.AddProvider(new CapturingLoggerProvider(_serverErrors)));
 
-        // Keep bootstrap disabled in the test host even if user-secrets still
-        // contain placeholder credentials from local development.
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["BootstrapAdmin:Enabled"] = "false",
                 ["BootstrapAdmin:Email"] = "",
-                ["BootstrapAdmin:Password"] = ""
+                ["BootstrapAdmin:Password"] = "",
+                ["DataProtection:KeyRingPath"] = Path.Combine(
+                    Path.GetTempPath(),
+                    "rental-manager-tests-dp-" + Guid.NewGuid().ToString("N"))
             });
         });
 
-        // The connection string is read from configuration while services are
-        // registered, which is before a test can add a configuration source. The
-        // connection factory is therefore replaced directly instead. Everything
-        // else, including the JWT settings, comes from the application's own
-        // Development configuration.
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<ISqlConnectionFactory>();
             services.AddSingleton<ISqlConnectionFactory>(
                 new SqlConnectionFactory(_connectionString));
+
+            services.RemoveAll<IIdentityConnectionFactory>();
+            services.AddSingleton<IIdentityConnectionFactory>(
+                new IdentityConnectionFactory(_connectionString));
         });
     }
 
-    internal sealed record TokenEnvelope(bool Success, string MessageKey, TokenPayload Data);
+    internal static async Task AttachCsrfHeaderAsync(HttpClient client)
+    {
+        HttpResponseMessage csrfResponse = await client.GetAsync("/api/v1/auth/csrf");
+        csrfResponse.EnsureSuccessStatusCode();
 
-    internal sealed record TokenPayload(string AccessToken, string TokenType);
+        CsrfEnvelope envelope =
+            await csrfResponse.Content.ReadFromJsonAsync<CsrfEnvelope>(Json)
+            ?? throw new InvalidOperationException("CSRF endpoint returned an empty body.");
+
+        client.DefaultRequestHeaders.Remove(
+            IdentityInfrastructureServiceCollectionExtensions.AntiforgeryHeaderName);
+        client.DefaultRequestHeaders.Add(
+            IdentityInfrastructureServiceCollectionExtensions.AntiforgeryHeaderName,
+            envelope.Data.RequestToken);
+    }
+
+    internal sealed record CsrfEnvelope(bool Success, string MessageKey, CsrfPayload Data);
+
+    internal sealed record CsrfPayload(string RequestToken);
+
+    internal sealed record LoginEnvelope(bool Success, string MessageKey, LoginPayload? Data);
+
+    internal sealed record LoginPayload(
+        string? Status,
+        string? SelectionTicket);
 
     private sealed class CapturingLoggerProvider : ILoggerProvider
     {

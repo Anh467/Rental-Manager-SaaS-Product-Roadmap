@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\RentalManager.Api\RentalManager.Api.csproj" />
     <ProjectReference Include="..\..\src\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
+    <ProjectReference Include="..\..\src\RentalManager.Modules.Identity.Infrastructure\RentalManager.Modules.Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
     <ProjectReference Include="..\..\src\RentalManager.Modules.TenantManagement.Domain\RentalManager.Modules.TenantManagement.Domain.csproj" />
     <ProjectReference Include="..\..\src\RentalManager.Modules.TenantManagement.Infrastructure\RentalManager.Modules.TenantManagement.Infrastructure.csproj" />

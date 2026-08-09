@@ -7,6 +7,7 @@ namespace RentalManager.Modules.TenantManagement.Application.Abstractions.Persis
 /// </summary>
 public sealed record ActiveOrganizationMembership(
     Guid OrganizationId,
+    string Name,
     Guid RoleId,
     DateTimeOffset CreatedAt);
 

@@ -1,5 +1,16 @@
-import axios, { type AxiosResponse, type Method } from "axios";
+import axios, {
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+  type Method,
+} from "axios";
 
+import {
+  clearCsrfToken,
+  ensureCsrfToken,
+  getCsrfHeaderName,
+  isUnsafeHttpMethod,
+  refreshCsrfToken,
+} from "./csrf";
 import type {
   ApiClient,
   ApiClientOptions,
@@ -7,40 +18,67 @@ import type {
   ApiRequestOptions,
   ApiResponse,
 } from "./types";
-import { normalizeSuccessResponse, toApiError } from "./utils";
+import { isApiError, normalizeSuccessResponse, toApiError } from "./utils";
+
+type CsrfAxiosConfig = InternalAxiosRequestConfig & {
+  __csrfRetried?: boolean;
+};
+
+function isAntiforgeryFailure(error: unknown) {
+  return isApiError(error) && error.status === 400 && error.messageKey === "ERR-001";
+}
 
 export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   const axiosInstance = axios.create({
     baseURL: clientOptions.baseUrl,
     timeout: clientOptions.timeoutMs ?? 30_000,
-    withCredentials: clientOptions.withCredentials ?? false,
+    withCredentials: clientOptions.withCredentials ?? true,
     headers: {
       "Content-Type": "application/json",
       ...clientOptions.defaultHeaders,
     },
   });
 
-  axiosInstance.interceptors.request.use((config) => {
-    const accessToken = clientOptions.getAccessToken?.();
-    const organizationId = clientOptions.getOrganizationId?.();
+  const fetchCsrfRequestToken = async () => {
+    const response = await axiosInstance.get<unknown>("/api/v1/auth/csrf");
+    const envelope = normalizeSuccessResponse<{ requestToken: string }>(response.data);
+    return envelope.data.requestToken;
+  };
 
-    if (accessToken) config.headers.set("Authorization", `Bearer ${accessToken}`);
-    if (organizationId) config.headers.set("X-Organization-Id", organizationId);
+  axiosInstance.interceptors.request.use(async (config) => {
+    if (!isUnsafeHttpMethod(config.method)) return config;
 
+    const token = await ensureCsrfToken(fetchCsrfRequestToken);
+    config.headers.set(getCsrfHeaderName(), token);
     return config;
   });
 
   axiosInstance.interceptors.response.use(
     (response) => response,
-    (error: unknown) => {
+    async (error: unknown) => {
       const apiError = toApiError(error);
-      const requestUrl = axios.isAxiosError(error)
-        ? String(error.config?.url ?? "")
-        : "";
-      // Failed login/token exchange is expected to be 401 — do not clear session / redirect.
+      const axiosError = axios.isAxiosError(error) ? error : null;
+      const requestUrl = String(axiosError?.config?.url ?? "");
+      const config = axiosError?.config as CsrfAxiosConfig | undefined;
+
+      if (
+        config
+        && isUnsafeHttpMethod(config.method)
+        && isAntiforgeryFailure(apiError)
+        && !config.__csrfRetried
+      ) {
+        config.__csrfRetried = true;
+        const token = await refreshCsrfToken(fetchCsrfRequestToken);
+        config.headers.set(getCsrfHeaderName(), token);
+        return axiosInstance.request(config);
+      }
+
+      // Failed login/select-organization is expected to be 401 — do not clear session / redirect.
       const isAuthAttempt =
-        requestUrl.includes("/auth/login") || requestUrl.includes("/auth/token");
+        requestUrl.includes("/auth/login")
+        || requestUrl.includes("/auth/select-organization");
       if (apiError.status === 401 && !isAuthAttempt) {
+        clearCsrfToken();
         clientOptions.onUnauthorized?.();
       }
       return Promise.reject(apiError);

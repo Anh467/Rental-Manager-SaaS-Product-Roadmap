@@ -125,5 +125,11 @@
     "submit": "Sign in",
     "submitting": "Signing in...",
     "failed": "Unable to sign in. Check your credentials and try again."
+  },
+  "selectOrganization": {
+    "title": "Choose an organization",
+    "subtitle": "Select the organization you want to work in.",
+    "submitting": "Opening...",
+    "failed": "Unable to open that organization. Please try again."
   }
 }

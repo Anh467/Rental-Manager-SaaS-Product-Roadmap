@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Dapper;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Org;
@@ -71,7 +73,21 @@ public sealed class MembershipResolverRlsTests
     public async Task Single_membership_user_can_login_without_organization_id()
     {
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
-        using HttpClient client = factory.CreateClient();
+        using HttpClient client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true,
+            AllowAutoRedirect = false
+        });
+
+        HttpResponseMessage csrfResponse = await client.GetAsync("/api/v1/auth/csrf");
+        csrfResponse.EnsureSuccessStatusCode();
+        using var csrfDocument = JsonDocument.Parse(await csrfResponse.Content.ReadAsStringAsync());
+        string csrfToken = csrfDocument.RootElement
+            .GetProperty("data")
+            .GetProperty("requestToken")
+            .GetString()
+            ?? throw new InvalidOperationException("Missing CSRF token.");
+        client.DefaultRequestHeaders.Add("X-CSRF-TOKEN", csrfToken);
 
         HttpResponseMessage response = await client.PostAsJsonAsync(
             "/api/v1/auth/login",
@@ -83,12 +99,13 @@ public sealed class MembershipResolverRlsTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        TokenEnvelope envelope =
-            await response.Content.ReadFromJsonAsync<TokenEnvelope>(FieldsApiFactory.Json)
-            ?? throw new InvalidOperationException("Empty login body.");
-
-        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.AccessToken));
-        Assert.Equal("Bearer", envelope.Data.TokenType);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(document.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal(
+            "organization",
+            document.RootElement.GetProperty("data").GetProperty("scope").GetString());
+        Assert.False(
+            document.RootElement.GetProperty("data").TryGetProperty("accessToken", out _));
     }
 
     [Fact]
@@ -156,7 +173,4 @@ public sealed class MembershipResolverRlsTests
         Assert.Equal(33504, exception.Number);
     }
 
-    private sealed record TokenEnvelope(bool Success, string MessageKey, TokenPayload Data);
-
-    private sealed record TokenPayload(string AccessToken, string TokenType);
 }

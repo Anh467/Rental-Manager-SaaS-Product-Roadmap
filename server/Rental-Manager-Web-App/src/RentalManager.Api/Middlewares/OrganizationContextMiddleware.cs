@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using RentalManager.Api.Security;
 using RentalManager.BuildingBlocks.Tenancy.Services;
+using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 
 namespace RentalManager.Api.Middlewares;
@@ -8,7 +8,7 @@ namespace RentalManager.Api.Middlewares;
 /// <summary>
 /// Binds the organization context from the authenticated principal. This is the
 /// only place the organization enters the request, and it is taken from the
-/// token, never from the request body or query string.
+/// cookie claims, never from the request body or query string.
 /// </summary>
 public sealed class OrganizationContextMiddleware
 {
@@ -31,18 +31,19 @@ public sealed class OrganizationContextMiddleware
 
         if (principal.Identity?.IsAuthenticated == true)
         {
-            if (TryReadGuidClaim(principal, JwtClaimNames.Subject, out Guid userId))
+            if (TryReadGuidClaim(principal, IdentityClaimNames.UserId, out Guid userId) ||
+                TryReadGuidClaim(principal, ClaimTypes.NameIdentifier, out userId))
             {
                 accessor.SetUser(userId);
             }
 
             if (TryReadGuidClaim(
                     principal,
-                    JwtClaimNames.OrganizationId,
+                    IdentityClaimNames.ActiveOrganizationId,
                     out Guid organizationId))
             {
                 // A client may echo the organization back in a header for
-                // logging, but it is only ever allowed to agree with the token.
+                // logging, but it is only ever allowed to agree with the cookie.
                 EnsureHeaderAgrees(context, organizationId);
                 accessor.SetOrganization(organizationId);
             }

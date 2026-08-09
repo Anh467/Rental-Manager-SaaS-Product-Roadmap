@@ -1,19 +1,11 @@
 import { queryClient } from "@/api/query-client";
 import { router } from "@/router";
 
-const ORGANIZATION_STORAGE_KEY = "organization_id";
-
-export function getOrganizationId() {
-  return localStorage.getItem(ORGANIZATION_STORAGE_KEY);
-}
-
-export async function setOrganizationId(organizationId: string | null) {
-  if (organizationId) {
-    localStorage.setItem(ORGANIZATION_STORAGE_KEY, organizationId);
-  } else {
-    localStorage.removeItem(ORGANIZATION_STORAGE_KEY);
-  }
-
+/**
+ * Organization context is established by the authenticated cookie session (/me).
+ * Clients must not persist or send organization_id from localStorage.
+ */
+export async function refreshTenantContext() {
   queryClient.clear();
   await router.invalidate();
 }

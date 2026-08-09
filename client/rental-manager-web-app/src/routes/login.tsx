@@ -51,7 +51,11 @@ function LoginPage() {
           schema={schema}
           defaultValues={{ email: "", password: "" }}
           onSubmit={async (values) => {
-            await login(values);
+            const result = await login(values);
+            if (result.status === "organizationSelectionRequired") {
+              await navigate({ to: "/select-organization" });
+              return;
+            }
             await navigate({ to: "/" });
           }}
           serverErrorOptions={{

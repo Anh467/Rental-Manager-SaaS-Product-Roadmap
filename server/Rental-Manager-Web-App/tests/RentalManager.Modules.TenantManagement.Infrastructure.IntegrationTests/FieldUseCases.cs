@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Cqrs;
+using Microsoft.Extensions.DependencyInjection;
+using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.Fields.Commands;
 using RentalManager.Modules.TenantManagement.Application.Fields.Queries;

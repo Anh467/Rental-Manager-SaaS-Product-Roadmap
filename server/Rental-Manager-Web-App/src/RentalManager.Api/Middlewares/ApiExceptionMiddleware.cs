@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Antiforgery;
 using RentalManager.Api.Contracts;
 using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
@@ -55,6 +56,14 @@ public sealed class ApiExceptionMiddleware
                 HttpStatusCode.Unauthorized,
                 exception.MessageKey,
                 exception.Parameters);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            await WriteAsync(
+                context,
+                HttpStatusCode.BadRequest,
+                MessageCode.Error.ValidationFailed,
+                parameters: null);
         }
         catch (ResourceNotFoundException exception)
         {

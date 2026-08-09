@@ -13,11 +13,37 @@ export type AuthUser = {
 export type LoginRequest = {
   email: string;
   password: string;
-  organizationId?: string;
 };
 
-export type LoginResponse = {
-  accessToken?: string;
-  access_token?: string;
-  token?: string;
+export type OrganizationOption = {
+  id: string;
+  name: string;
 };
+
+export type OrganizationSelectionRequiredResponse = {
+  status: "organizationSelectionRequired";
+  organizations: OrganizationOption[];
+  selectionTicket: string;
+};
+
+export type LoginResponse = AuthUser | OrganizationSelectionRequiredResponse;
+
+export type SelectOrganizationRequest = {
+  selectionTicket: string;
+  organizationId: string;
+};
+
+export type CsrfResponse = {
+  requestToken: string;
+};
+
+export function isOrganizationSelectionRequired(
+  data: LoginResponse,
+): data is OrganizationSelectionRequiredResponse {
+  return (
+    typeof data === "object"
+    && data !== null
+    && "status" in data
+    && data.status === "organizationSelectionRequired"
+  );
+}

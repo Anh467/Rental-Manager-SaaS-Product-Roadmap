@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using RentalManager.Api.Authorization;
+using RentalManager.Modules.Identity.Infrastructure.Authorization;
 using RentalManager.Api.Contracts;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Cqrs;
+using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Common;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields.Commands;

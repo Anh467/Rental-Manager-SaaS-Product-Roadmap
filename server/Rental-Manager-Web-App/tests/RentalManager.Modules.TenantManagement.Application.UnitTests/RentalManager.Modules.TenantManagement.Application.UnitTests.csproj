@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RentalManager.Api\RentalManager.Api.csproj" />
+    <ProjectReference Include="..\..\src\RentalManager.Modules.Identity.Infrastructure\RentalManager.Modules.Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
     <ProjectReference Include="..\..\src\RentalManager.Modules.TenantManagement.Domain\RentalManager.Modules.TenantManagement.Domain.csproj" />
     <!-- Referenced for SqlExceptionClassifier, which is the only infrastructure

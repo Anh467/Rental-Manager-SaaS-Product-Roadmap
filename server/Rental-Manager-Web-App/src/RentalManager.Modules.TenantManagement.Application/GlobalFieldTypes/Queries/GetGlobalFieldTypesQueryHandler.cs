@@ -1,4 +1,4 @@
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Cqrs;
+using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 

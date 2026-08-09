@@ -1,6 +1,6 @@
 ﻿using Dapper;
 using Microsoft.Data.SqlClient;
-using RentalManager.Api.Security;
+using RentalManager.Modules.Identity.Infrastructure.Identity;
 using Xunit;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests;
@@ -158,7 +158,7 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
     private async Task SeedTenantsAsync()
     {
-        (string hash, string salt) = PasswordHasher.Create(TestData.Password);
+        (string hash, string salt) = LegacyPasswordHash.Create(TestData.Password);
 
         await using SqlConnection connection = await OpenConnectionAsync();
 
@@ -171,18 +171,23 @@ public sealed class SqlServerFixture : IAsyncLifetime
                 (@OrganizationBId, N'Organization B', N'organization_b', @Now, @Now);
 
             INSERT INTO [dbo].[User]
-                ([Id], [Email], [NormalizedEmail], [DisplayName],
-                 [PasswordHash], [PasswordSalt], [CreatedAt], [UpdatedAt])
+                ([Id], [UserName], [NormalizedUserName], [Email], [NormalizedEmail],
+                 [EmailConfirmed], [DisplayName], [PasswordHash], [PasswordSalt],
+                 [SecurityStamp], [ConcurrencyStamp], [LockoutEnabled],
+                 [AccessFailedCount], [CreatedAt], [UpdatedAt])
             VALUES
-                (@AdministratorAId, @AdministratorAEmail,
-                 UPPER(@AdministratorAEmail), N'Administrator A',
-                 @PasswordHash, @PasswordSalt, @Now, @Now),
-                (@ViewerAId, @ViewerAEmail,
-                 UPPER(@ViewerAEmail), N'Viewer A',
-                 @PasswordHash, @PasswordSalt, @Now, @Now),
-                (@AdministratorBId, @AdministratorBEmail,
-                 UPPER(@AdministratorBEmail), N'Administrator B',
-                 @PasswordHash, @PasswordSalt, @Now, @Now);
+                (@AdministratorAId, @AdministratorAEmail, UPPER(@AdministratorAEmail),
+                 @AdministratorAEmail, UPPER(@AdministratorAEmail), 1, N'Administrator A',
+                 @PasswordHash, @PasswordSalt, CONVERT(NVARCHAR(36), NEWID()),
+                 CONVERT(NVARCHAR(36), NEWID()), 1, 0, @Now, @Now),
+                (@ViewerAId, @ViewerAEmail, UPPER(@ViewerAEmail),
+                 @ViewerAEmail, UPPER(@ViewerAEmail), 1, N'Viewer A',
+                 @PasswordHash, @PasswordSalt, CONVERT(NVARCHAR(36), NEWID()),
+                 CONVERT(NVARCHAR(36), NEWID()), 1, 0, @Now, @Now),
+                (@AdministratorBId, @AdministratorBEmail, UPPER(@AdministratorBEmail),
+                 @AdministratorBEmail, UPPER(@AdministratorBEmail), 1, N'Administrator B',
+                 @PasswordHash, @PasswordSalt, CONVERT(NVARCHAR(36), NEWID()),
+                 CONVERT(NVARCHAR(36), NEWID()), 1, 0, @Now, @Now);
             """,
             new
             {
