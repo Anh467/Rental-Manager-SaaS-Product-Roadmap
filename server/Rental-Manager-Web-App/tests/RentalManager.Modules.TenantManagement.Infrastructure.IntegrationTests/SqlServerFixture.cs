@@ -274,16 +274,6 @@ public sealed class SqlServerFixture : IAsyncLifetime
         // context, so the seed binds the organization first.
         await SetOrganizationContextAsync(connection, organizationId);
 
-        var parameters = new
-        {
-            OrganizationId = organizationId,
-            AdministratorRoleId = administratorRoleId,
-            ViewerRoleId = viewerRoleId,
-            AdministratorUserId = administratorUserId,
-            ViewerUserId = viewerUserId,
-            Now = DateTimeOffset.UtcNow
-        };
-
         await connection.ExecuteAsync(
             """
             INSERT INTO [org].[Role]
@@ -299,16 +289,34 @@ public sealed class SqlServerFixture : IAsyncLifetime
             FROM [dbo].[Permission]
             WHERE [Key] LIKE N'field_%';
 
-            INSERT INTO [org].[OrganizationUser]
-                ([OrganizationId], [UserId], [RoleId], [CreatedAt], [UpdatedAt])
+            INSERT INTO [org].[StaffMembership]
+                ([Id], [OrganizationId], [UserId], [Status], [CreatedAt], [UpdatedAt])
             VALUES
-                (@OrganizationId, @AdministratorUserId, @AdministratorRoleId,
-                 @Now, @Now);
+                (@AdministratorMembershipId, @OrganizationId, @AdministratorUserId,
+                 2, @Now, @Now);
+
+            INSERT INTO [org].[StaffRole]
+                ([Id], [OrganizationId], [StaffMembershipId], [RoleId],
+                 [CreatedAt], [UpdatedAt])
+            VALUES
+                (@AdministratorStaffRoleId, @OrganizationId, @AdministratorMembershipId,
+                 @AdministratorRoleId, @Now, @Now);
             """,
-            parameters);
+            new
+            {
+                OrganizationId = organizationId,
+                AdministratorRoleId = administratorRoleId,
+                ViewerRoleId = viewerRoleId,
+                AdministratorUserId = administratorUserId,
+                ViewerUserId = viewerUserId,
+                AdministratorMembershipId = Guid.CreateVersion7(),
+                AdministratorStaffRoleId = Guid.CreateVersion7(),
+                Now = DateTimeOffset.UtcNow
+            });
 
         if (viewerRoleId is null || viewerUserId is null)
         {
+            await SetOrganizationContextAsync(connection, organizationId: null);
             return;
         }
 
@@ -327,12 +335,27 @@ public sealed class SqlServerFixture : IAsyncLifetime
             FROM [dbo].[Permission]
             WHERE [Key] = N'field_view';
 
-            INSERT INTO [org].[OrganizationUser]
-                ([OrganizationId], [UserId], [RoleId], [CreatedAt], [UpdatedAt])
+            INSERT INTO [org].[StaffMembership]
+                ([Id], [OrganizationId], [UserId], [Status], [CreatedAt], [UpdatedAt])
             VALUES
-                (@OrganizationId, @ViewerUserId, @ViewerRoleId, @Now, @Now);
+                (@ViewerMembershipId, @OrganizationId, @ViewerUserId, 2, @Now, @Now);
+
+            INSERT INTO [org].[StaffRole]
+                ([Id], [OrganizationId], [StaffMembershipId], [RoleId],
+                 [CreatedAt], [UpdatedAt])
+            VALUES
+                (@ViewerStaffRoleId, @OrganizationId, @ViewerMembershipId,
+                 @ViewerRoleId, @Now, @Now);
             """,
-            parameters);
+            new
+            {
+                OrganizationId = organizationId,
+                ViewerRoleId = viewerRoleId,
+                ViewerUserId = viewerUserId,
+                ViewerMembershipId = Guid.CreateVersion7(),
+                ViewerStaffRoleId = Guid.CreateVersion7(),
+                Now = DateTimeOffset.UtcNow
+            });
 
         await SetOrganizationContextAsync(connection, organizationId: null);
     }

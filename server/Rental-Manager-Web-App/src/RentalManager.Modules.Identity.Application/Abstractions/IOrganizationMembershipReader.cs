@@ -12,4 +12,13 @@ public interface IOrganizationMembershipReader
         Guid userId,
         Guid organizationId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns the verified active staff membership id for the user in the
+    /// given organization, or null when the membership is not usable.
+    /// </summary>
+    Task<Guid?> GetActiveStaffMembershipIdAsync(
+        Guid userId,
+        Guid organizationId,
+        CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Dapper;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -11,7 +10,7 @@ using Xunit;
 namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Login-time membership discovery must see <c>[org].[OrganizationUser]</c>
+/// Login-time membership discovery must see <c>[org].[StaffMembership]</c>
 /// through <c>OrganizationMembershipResolver</c> without weakening FILTER or
 /// BLOCK predicates on other tenant tables.
 /// </summary>
@@ -26,14 +25,14 @@ public sealed class MembershipResolverRlsTests
     }
 
     [Fact]
-    public async Task Direct_organization_user_query_without_context_returns_no_rows()
+    public async Task Direct_staff_membership_query_without_context_returns_no_rows()
     {
         await using SqlConnection connection = await _fixture.OpenConnectionAsync();
 
         Assert.Equal(
             0,
             await connection.ExecuteScalarAsync<int>(
-                "SELECT COUNT_BIG(1) FROM [org].[OrganizationUser];"));
+                "SELECT COUNT_BIG(1) FROM [org].[StaffMembership];"));
     }
 
     [Fact]
@@ -42,8 +41,8 @@ public sealed class MembershipResolverRlsTests
         await using TenantScope unbound = TenantScope.Unbound(_fixture);
         await using AsyncServiceScope scope = unbound.BeginUnitOfWork();
 
-        IOrganizationUserRepository memberships =
-            scope.ServiceProvider.GetRequiredService<IOrganizationUserRepository>();
+        IStaffMembershipRepository memberships =
+            scope.ServiceProvider.GetRequiredService<IStaffMembershipRepository>();
 
         IReadOnlyList<ActiveOrganizationMembership> forAdministratorA =
             await memberships.ListActiveMembershipsByUserIdAsync(
@@ -51,7 +50,7 @@ public sealed class MembershipResolverRlsTests
 
         ActiveOrganizationMembership membership = Assert.Single(forAdministratorA);
         Assert.Equal(TestData.OrganizationA.Id, membership.OrganizationId);
-        Assert.Equal(TestData.OrganizationA.AdministratorRoleId, membership.RoleId);
+        Assert.NotEqual(Guid.Empty, membership.StaffMembershipId);
 
         IReadOnlyList<ActiveOrganizationMembership> forAdministratorB =
             await memberships.ListActiveMembershipsByUserIdAsync(
@@ -128,7 +127,7 @@ public sealed class MembershipResolverRlsTests
 
         try
         {
-            // No SELECT grant on tenant tables other than OrganizationUser.
+            // No SELECT grant on tenant tables other than StaffMembership.
             SqlException fieldDenied = await Assert.ThrowsAsync<SqlException>(
                 () => connection.ExecuteScalarAsync<long>(
                     "SELECT COUNT_BIG(1) FROM [org].[Field];"));
@@ -141,7 +140,7 @@ public sealed class MembershipResolverRlsTests
 
             Assert.True(
                 await connection.ExecuteScalarAsync<long>(
-                    "SELECT COUNT_BIG(1) FROM [org].[OrganizationUser];") > 0);
+                    "SELECT COUNT_BIG(1) FROM [org].[StaffMembership];") > 0);
         }
         finally
         {
@@ -158,20 +157,19 @@ public sealed class MembershipResolverRlsTests
         SqlException exception = await Assert.ThrowsAsync<SqlException>(
             () => connection.ExecuteAsync(
                 """
-                INSERT INTO [org].[OrganizationUser]
-                    ([OrganizationId], [UserId], [RoleId], [CreatedAt], [UpdatedAt])
+                INSERT INTO [org].[StaffMembership]
+                    ([Id], [OrganizationId], [UserId], [Status], [CreatedAt], [UpdatedAt])
                 VALUES
-                    (@OrganizationId, @UserId, @RoleId, @Now, @Now);
+                    (@Id, @OrganizationId, @UserId, 2, @Now, @Now);
                 """,
                 new
                 {
+                    Id = Guid.CreateVersion7(),
                     OrganizationId = TestData.OrganizationB.Id,
                     UserId = TestData.Users.AdministratorAId,
-                    RoleId = TestData.OrganizationB.AdministratorRoleId,
                     Now = DateTimeOffset.UtcNow
                 }));
 
         Assert.Equal(33504, exception.Number);
     }
-
 }

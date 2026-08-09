@@ -1,5 +1,5 @@
 -- Global identity. Membership of one or more organizations is held by
--- [org].[OrganizationUser], not by columns on this table.
+-- [org].[StaffMembership], not by columns on this table.
 -- Identity Core columns live on this table (no AspNetUsers).
 CREATE TABLE [dbo].[User]
 (

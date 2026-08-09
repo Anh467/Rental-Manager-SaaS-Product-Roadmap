@@ -49,12 +49,15 @@ public sealed class SelectOrganizationCommandHandler(
             throw new AuthenticationFailedException();
         }
 
-        bool isMember = await organizationMembershipReader.IsActiveMemberAsync(
-            identity.UserId,
-            organizationId,
-            cancellationToken);
+        Guid? staffMembershipId =
+            await organizationMembershipReader.GetActiveStaffMembershipIdAsync(
+                identity.UserId,
+                organizationId,
+                cancellationToken);
 
-        if (!isMember)
+        // Client OrganizationId is selection only; backend re-verifies membership.
+        // Do not disclose whether the organization exists for non-members.
+        if (staffMembershipId is null)
         {
             throw new AuthenticationFailedException();
         }
@@ -63,6 +66,7 @@ public sealed class SelectOrganizationCommandHandler(
             identity,
             ticket.Provider,
             organizationId,
+            staffMembershipId.Value,
             cancellationToken);
     }
 }

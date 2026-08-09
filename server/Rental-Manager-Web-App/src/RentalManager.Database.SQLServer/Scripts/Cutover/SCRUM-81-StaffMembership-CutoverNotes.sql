@@ -1,0 +1,37 @@
+-- SCRUM-81 cutover notes (documentation script; not executed by PostDeployment).
+--
+-- Goal
+--   Replace runtime [org].[OrganizationUser] (single RoleId) with
+--   [org].[StaffMembership] + [org].[StaffRole] (many roles, permission union).
+--   Organization Context must carry verified StaffMembershipId.
+--
+-- Clean publish (empty / DACPAC model)
+--   1. StaffMembership and StaffRole are created from Schema/Org/Tables.
+--   2. OrganizationUser remains in the model as a residual unused table.
+--   3. Seeds and tests insert StaffMembership + StaffRole directly.
+--   4. usp_ListActiveOrganizationMembershipsForUser reads StaffMembership only.
+--
+-- Upgrade from an OrganizationUser deployment
+--   1. Publish / dacpac deploy so Staff* tables, predicates, grants, and the
+--      updated membership procedure exist.
+--   2. Run Scripts/Cutover/SCRUM-81-StaffMembership-Cutover.sql against the
+--      upgraded database (idempotent; validates pre/post counts).
+--   3. Confirm no runtime repository/query/middleware still references
+--      OrganizationUser.
+--   4. Keep OrganizationUser for one release; drop in a later explicit migration
+--      after cutover validation in production-like environments.
+--
+-- Status values (StaffMembership.Status TINYINT)
+--   1 = Pending, 2 = Active, 3 = Inactive.
+--   Cutover maps OrganizationUser.IsActive=1 → Active (2), else Inactive (3).
+--
+-- Validation checklist
+--   - UX_StaffMembership_Organization_User enforces soft-delete uniqueness.
+--   - StaffRole composite FKs include OrganizationId.
+--   - List/select org requires User+Org+StaffMembership Active (SCS-005/SCS-014).
+--   - Effective permissions are the union of active StaffRole → active org.Role.
+--   - Inactive role contributes no permissions.
+--   - Cross-org probing remains 404 ERR-002; missing org context 403 ERR-005.
+--   - RLS pooling isolation tests still pass; membership resolver grants are
+--     limited to StaffMembership + dbo.User + dbo.Organization.
+GO

@@ -19,13 +19,14 @@ public sealed class AuthenticationProfileBuilder(
         AuthenticatedIdentity identity,
         string scope,
         Guid? organizationId,
+        Guid? staffMembershipId,
         CancellationToken cancellationToken)
     {
         organizationContextAccessor.SetUser(identity.UserId);
 
-        if (organizationId is Guid orgId)
+        if (organizationId is Guid orgId && staffMembershipId is Guid membershipId)
         {
-            organizationContextAccessor.SetOrganization(orgId);
+            organizationContextAccessor.SetOrganization(orgId, membershipId);
         }
 
         if (string.Equals(scope, IdentityClaimNames.ScopeGlobal, StringComparison.Ordinal))

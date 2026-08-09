@@ -6,7 +6,7 @@ namespace RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
 
 /// <summary>
 /// Global identity. Organization membership is stored in
-/// <c>[org].[OrganizationUser]</c>, so one user may belong to many organizations.
+/// <c>[org].[StaffMembership]</c>, so one user may belong to many organizations.
 /// </summary>
 [Table(nameof(User), Schema = DatabaseConstant.Schema.DBO)]
 public class User : IEntityAudit<Guid>, IConcurrencyAware

@@ -9,8 +9,9 @@ using RentalManager.Modules.Identity.Infrastructure.Authentication;
 namespace RentalManager.Modules.Identity.Infrastructure.Sessions;
 
 /// <summary>
-/// Rejects cookies for inactive users or after SecurityStamp rotation
-/// (inactivate). Failures sign the principal out without disclosing why.
+/// Rejects cookies for inactive users, after SecurityStamp rotation, or when an
+/// organization-scoped session no longer has an active StaffMembership.
+/// Failures sign the principal out without disclosing why.
 /// </summary>
 public sealed class UserActiveSessionValidator
 {
@@ -24,9 +25,7 @@ public sealed class UserActiveSessionValidator
 
         if (userId is null)
         {
-            context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(
-                IdentityAuthenticationSchemes.ApplicationCookie);
+            await RejectAsync(context, userId: null, SecurityEventReasons.SessionRejectedInactive);
             return;
         }
 
@@ -45,32 +44,65 @@ public sealed class UserActiveSessionValidator
             (!string.IsNullOrWhiteSpace(stamp)
              && !string.Equals(stamp, state.SecurityStamp, StringComparison.Ordinal)))
         {
-            ISecurityEventPublisher? publisher =
-                context.HttpContext.RequestServices.GetService<ISecurityEventPublisher>();
+            string reason = state is null || state.DeletedAt is not null || !state.IsActive
+                ? SecurityEventReasons.SessionRejectedInactive
+                : SecurityEventReasons.SessionRejectedStampMismatch;
 
-            if (publisher is not null)
-            {
-                string reason = state is null || state.DeletedAt is not null || !state.IsActive
-                    ? SecurityEventReasons.SessionRejectedInactive
-                    : SecurityEventReasons.SessionRejectedStampMismatch;
-
-                await publisher.PublishAsync(
-                    SecurityEvent.Create(
-                        SecurityEventTypes.InactiveUserRejected,
-                        context.HttpContext.TraceIdentifier,
-                        new Dictionary<string, object?>
-                        {
-                            [SecurityEventFields.UserId] = userId,
-                            [SecurityEventFields.Reason] = reason,
-                            [SecurityEventFields.Result] = SecurityEventReasons.Failed
-                        }),
-                    context.HttpContext.RequestAborted);
-            }
-
-            context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(
-                IdentityAuthenticationSchemes.ApplicationCookie);
+            await RejectAsync(context, userId, reason);
+            return;
         }
+
+        Guid? organizationId = ReadGuid(principal, IdentityClaimNames.ActiveOrganizationId);
+        if (organizationId is Guid orgId)
+        {
+            IOrganizationMembershipReader memberships =
+                context.HttpContext.RequestServices.GetRequiredService<IOrganizationMembershipReader>();
+
+            Guid? staffMembershipId = await memberships.GetActiveStaffMembershipIdAsync(
+                userId.Value,
+                orgId,
+                context.HttpContext.RequestAborted);
+
+            Guid? claimMembershipId = ReadGuid(principal, IdentityClaimNames.StaffMembershipId);
+
+            if (staffMembershipId is null ||
+                claimMembershipId is null ||
+                staffMembershipId.Value != claimMembershipId.Value)
+            {
+                await RejectAsync(
+                    context,
+                    userId,
+                    SecurityEventReasons.SessionRejectedInactive);
+            }
+        }
+    }
+
+    private static async Task RejectAsync(
+        CookieValidatePrincipalContext context,
+        Guid? userId,
+        string reason)
+    {
+        ISecurityEventPublisher? publisher =
+            context.HttpContext.RequestServices.GetService<ISecurityEventPublisher>();
+
+        if (publisher is not null)
+        {
+            await publisher.PublishAsync(
+                SecurityEvent.Create(
+                    SecurityEventTypes.InactiveUserRejected,
+                    context.HttpContext.TraceIdentifier,
+                    new Dictionary<string, object?>
+                    {
+                        [SecurityEventFields.UserId] = userId,
+                        [SecurityEventFields.Reason] = reason,
+                        [SecurityEventFields.Result] = SecurityEventReasons.Failed
+                    }),
+                context.HttpContext.RequestAborted);
+        }
+
+        context.RejectPrincipal();
+        await context.HttpContext.SignOutAsync(
+            IdentityAuthenticationSchemes.ApplicationCookie);
     }
 
     private static Guid? ReadGuid(ClaimsPrincipal principal, string claimType)

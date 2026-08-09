@@ -24,6 +24,12 @@ public static class IdentityClaimNames
 
     public const string ActiveOrganizationId = "organization_id";
 
+    /// <summary>
+    /// Verified <c>[org].[StaffMembership].[Id]</c> for an organization-scoped
+    /// session. Never accepted from the client as an authorization input.
+    /// </summary>
+    public const string StaffMembershipId = "staff_membership_id";
+
     public const string ScopeGlobal = "global";
 
     public const string ScopeOrganization = "organization";

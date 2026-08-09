@@ -11,7 +11,8 @@ public sealed class ExplicitOrganizationContext : IOrganizationContext
     public ExplicitOrganizationContext(
         Guid organizationId,
         Guid? userId = null,
-        string? correlationId = null)
+        string? correlationId = null,
+        Guid? staffMembershipId = null)
     {
         if (organizationId == Guid.Empty)
         {
@@ -23,11 +24,14 @@ public sealed class ExplicitOrganizationContext : IOrganizationContext
         OrganizationId = organizationId;
         UserId = userId;
         CorrelationId = correlationId;
+        StaffMembershipId = staffMembershipId;
     }
 
     public Guid? OrganizationId { get; }
 
     public Guid? UserId { get; }
+
+    public Guid? StaffMembershipId { get; }
 
     public string? CorrelationId { get; }
 

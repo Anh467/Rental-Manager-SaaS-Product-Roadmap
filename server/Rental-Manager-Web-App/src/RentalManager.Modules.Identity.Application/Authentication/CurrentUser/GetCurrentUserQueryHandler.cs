@@ -36,6 +36,7 @@ public sealed class GetCurrentUserQueryHandler(
             identity,
             currentIdentity.Scope,
             currentIdentity.ActiveOrganizationId,
+            currentIdentity.StaffMembershipId,
             cancellationToken);
 
         return profileBuilder.ToCurrentUser(profile);

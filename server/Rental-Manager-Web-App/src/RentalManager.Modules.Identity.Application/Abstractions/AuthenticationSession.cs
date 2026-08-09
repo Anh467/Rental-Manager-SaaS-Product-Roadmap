@@ -7,4 +7,5 @@ public sealed record AuthenticationSession(
     string Scope,
     Guid? ActiveOrganizationId,
     string SecurityStamp,
-    string? Provider = null);
+    string? Provider = null,
+    Guid? StaffMembershipId = null);

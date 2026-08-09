@@ -37,15 +37,28 @@ public sealed class OrganizationContextMiddleware
                 accessor.SetUser(userId);
             }
 
-            if (TryReadGuidClaim(
-                    principal,
-                    IdentityClaimNames.ActiveOrganizationId,
-                    out Guid organizationId))
+            bool hasOrganization = TryReadGuidClaim(
+                principal,
+                IdentityClaimNames.ActiveOrganizationId,
+                out Guid organizationId);
+
+            bool hasMembership = TryReadGuidClaim(
+                principal,
+                IdentityClaimNames.StaffMembershipId,
+                out Guid staffMembershipId);
+
+            if (hasOrganization)
             {
+                // Organization-scoped sessions must carry a verified membership.
+                if (!hasMembership)
+                {
+                    throw new MissingOrganizationContextException();
+                }
+
                 // A client may echo the organization back in a header for
                 // logging, but it is only ever allowed to agree with the cookie.
                 EnsureHeaderAgrees(context, organizationId);
-                accessor.SetOrganization(organizationId);
+                accessor.SetOrganization(organizationId, staffMembershipId);
             }
         }
 

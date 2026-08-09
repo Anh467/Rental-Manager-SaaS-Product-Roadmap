@@ -363,6 +363,8 @@ internal sealed class FakeOrganizationMembershipReader : IOrganizationMembership
 {
     public IReadOnlyList<OrganizationOptionDto> Organizations { get; set; } = [];
 
+    public Dictionary<Guid, Guid> StaffMembershipIdsByOrganization { get; } = new();
+
     public Task<IReadOnlyList<OrganizationOptionDto>> ListActiveOrganizationsAsync(
         Guid userId,
         CancellationToken cancellationToken = default) =>
@@ -373,6 +375,22 @@ internal sealed class FakeOrganizationMembershipReader : IOrganizationMembership
         Guid organizationId,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(Organizations.Any(item => item.Id == organizationId));
+
+    public Task<Guid?> GetActiveStaffMembershipIdAsync(
+        Guid userId,
+        Guid organizationId,
+        CancellationToken cancellationToken = default)
+    {
+        if (StaffMembershipIdsByOrganization.TryGetValue(organizationId, out Guid membershipId))
+        {
+            return Task.FromResult<Guid?>(membershipId);
+        }
+
+        return Task.FromResult(
+            Organizations.Any(item => item.Id == organizationId)
+                ? Guid.CreateVersion7()
+                : (Guid?)null);
+    }
 }
 
 internal sealed class RecordingSecurityEventPublisher : ISecurityEventPublisher
@@ -411,6 +429,8 @@ internal sealed class FakeOrganizationContext : IOrganizationContext
     public Guid? OrganizationId => null;
 
     public Guid? UserId => null;
+
+    public Guid? StaffMembershipId => null;
 
     public string? CorrelationId => "test-correlation";
 

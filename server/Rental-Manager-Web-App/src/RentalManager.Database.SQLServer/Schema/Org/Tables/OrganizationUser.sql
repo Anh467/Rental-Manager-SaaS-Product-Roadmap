@@ -1,5 +1,10 @@
--- Membership of a global user in an organization, with exactly one role in that
--- organization. A user may belong to many organizations through many rows here.
+-- RETIRED (SCRUM-81): residual table retained for one-release upgrade safety.
+-- Runtime application code must not read or write this table. Source of truth
+-- is [org].[StaffMembership] + [org].[StaffRole]. See Scripts/Cutover/
+-- SCRUM-81-StaffMembership-Cutover.sql.
+--
+-- Historical model: membership of a global user in an organization, with
+-- exactly one role in that organization.
 CREATE TABLE [org].[OrganizationUser]
 (
     [OrganizationId] UNIQUEIDENTIFIER NOT NULL,

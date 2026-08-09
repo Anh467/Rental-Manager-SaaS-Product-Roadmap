@@ -46,6 +46,7 @@ public sealed class AuthenticationSessionIssuer(
                 provider,
                 IdentityClaimNames.ScopeGlobal,
                 organizationId: null,
+                staffMembershipId: null,
                 cancellationToken);
         }
 
@@ -80,11 +81,19 @@ public sealed class AuthenticationSessionIssuer(
             return LoginResult.OrganizationSelectionRequired(organizations, ticket);
         }
 
+        Guid organizationId = organizations[0].Id;
+        Guid? staffMembershipId =
+            await organizationMembershipReader.GetActiveStaffMembershipIdAsync(
+                identity.UserId,
+                organizationId,
+                cancellationToken);
+
         return await WriteSessionAsync(
             identity,
             provider,
             IdentityClaimNames.ScopeOrganization,
-            organizations[0].Id,
+            organizationId,
+            staffMembershipId,
             cancellationToken);
     }
 
@@ -92,19 +101,21 @@ public sealed class AuthenticationSessionIssuer(
     /// Issues an organization session for a membership the caller has already
     /// verified.
     /// </summary>
-    public Task<LoginResult> IssueForOrganizationAsync(
+    public async Task<LoginResult> IssueForOrganizationAsync(
         AuthenticatedIdentity identity,
         string? provider,
         Guid organizationId,
+        Guid staffMembershipId,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(identity);
 
-        return WriteSessionAsync(
+        return await WriteSessionAsync(
             identity,
             provider,
             IdentityClaimNames.ScopeOrganization,
             organizationId,
+            staffMembershipId,
             cancellationToken);
     }
 
@@ -141,12 +152,23 @@ public sealed class AuthenticationSessionIssuer(
         string? provider,
         string scope,
         Guid? organizationId,
+        Guid? staffMembershipId,
         CancellationToken cancellationToken)
     {
+        if (organizationId is Guid orgId && staffMembershipId is null)
+        {
+            staffMembershipId =
+                await organizationMembershipReader.GetActiveStaffMembershipIdAsync(
+                    identity.UserId,
+                    orgId,
+                    cancellationToken);
+        }
+
         AuthenticationResultDto profile = await profileBuilder.BuildAsync(
             identity,
             scope,
             organizationId,
+            staffMembershipId,
             cancellationToken);
 
         await sessionWriter.WriteAsync(
@@ -157,7 +179,8 @@ public sealed class AuthenticationSessionIssuer(
                 scope,
                 organizationId,
                 identity.SecurityStamp,
-                provider),
+                provider,
+                staffMembershipId),
             cancellationToken);
 
         await PublishAsync(

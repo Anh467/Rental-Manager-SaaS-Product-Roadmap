@@ -11,4 +11,6 @@ public interface ICurrentIdentity
     string? Scope { get; }
 
     Guid? ActiveOrganizationId { get; }
+
+    Guid? StaffMembershipId { get; }
 }

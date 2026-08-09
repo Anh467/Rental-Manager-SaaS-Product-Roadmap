@@ -15,6 +15,8 @@ internal sealed class UnboundOrganizationContext : IOrganizationContext
 
     public Guid? UserId => null;
 
+    public Guid? StaffMembershipId => null;
+
     public string? CorrelationId => null;
 
     public bool HasOrganization => false;

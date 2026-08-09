@@ -6,22 +6,23 @@ namespace RentalManager.Modules.TenantManagement.Application.Abstractions.Persis
 /// One active organization membership discovered at login time (RLS bypassed).
 /// </summary>
 public sealed record ActiveOrganizationMembership(
+    Guid StaffMembershipId,
     Guid OrganizationId,
     string Name,
-    Guid RoleId,
     DateTimeOffset CreatedAt);
 
 /// <summary>
-/// Persistence for organization membership. One user may have many memberships;
-/// within a single organization the membership is unique by user.
+/// Persistence for staff memberships. One user may have many memberships;
+/// within a single organization the membership is unique by user while not
+/// soft-deleted.
 /// </summary>
-public interface IOrganizationUserRepository
+public interface IStaffMembershipRepository
 {
-    Task<OrganizationUser?> FindActiveByUserIdAsync(
+    Task<StaffMembership?> FindActiveByUserIdAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task<Guid?> GetActiveRoleIdAsync(
+    Task<Guid?> GetActiveStaffMembershipIdAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 
@@ -33,11 +34,20 @@ public interface IOrganizationUserRepository
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task SaveAsync(
-        OrganizationUser membership,
+    Task<IReadOnlyCollection<string>> GetPermissionKeysAsync(
+        Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task DeleteAsync(
+    Task SaveAsync(
+        StaffMembership membership,
+        CancellationToken cancellationToken = default);
+
+    Task AssignRoleAsync(
+        Guid staffMembershipId,
+        Guid roleId,
+        CancellationToken cancellationToken = default);
+
+    Task SoftDeleteAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 }

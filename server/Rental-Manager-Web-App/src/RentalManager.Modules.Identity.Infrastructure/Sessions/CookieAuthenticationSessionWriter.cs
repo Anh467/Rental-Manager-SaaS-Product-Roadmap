@@ -56,6 +56,13 @@ public sealed class CookieAuthenticationSessionWriter(
                 organizationId.ToString()));
         }
 
+        if (session.StaffMembershipId is Guid staffMembershipId)
+        {
+            claims.Add(new Claim(
+                IdentityClaimNames.StaffMembershipId,
+                staffMembershipId.ToString()));
+        }
+
         var identity = new ClaimsIdentity(
             claims,
             IdentityAuthenticationSchemes.ApplicationCookie);

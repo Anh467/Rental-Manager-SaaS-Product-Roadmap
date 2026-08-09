@@ -304,6 +304,8 @@ public sealed class PlatformUserLifecycleTests
 
         public Guid? UserId => null;
 
+        public Guid? StaffMembershipId => null;
+
         public string? CorrelationId => "test-correlation";
 
         public bool HasOrganization => false;

@@ -135,7 +135,7 @@ public sealed class SqlPlatformUserStore(IIdentityConnectionFactory connectionFa
             new CommandDefinition(
                 """
                 SELECT COUNT(1)
-                FROM [org].[OrganizationUser]
+                FROM [org].[StaffMembership]
                 WHERE [UserId] = @UserId
                   AND [DeletedAt] IS NULL;
                 """,
