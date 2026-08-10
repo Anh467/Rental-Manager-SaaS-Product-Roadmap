@@ -32,7 +32,8 @@ public sealed class BootstrapAdminHostedService(
         }
 
         string provider = value.Provider!.Trim();
-        string subject = value.Subject!.Trim();
+        // OIDC subject is opaque — do not Trim() before lookup/provision.
+        string subject = value.Subject!;
         string email = value.Email!.Trim();
 
         if (!externalAuthenticationPolicy.IsProviderAllowed(provider))

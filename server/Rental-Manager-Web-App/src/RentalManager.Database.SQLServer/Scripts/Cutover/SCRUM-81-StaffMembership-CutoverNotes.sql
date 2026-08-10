@@ -21,6 +21,13 @@
 --   4. Keep OrganizationUser for one release; drop in a later explicit migration
 --      after cutover validation in production-like environments.
 --
+-- Cutover RLS rules
+--   ALTER SECURITY POLICY OFF/ON runs inside the same migration transaction so
+--   rollback restores ON. After failure, the script verifies is_enabled and
+--   forces ON outside any doomed transaction if needed. Never allow application
+--   traffic while OrganizationIsolationPolicy is OFF.
+--   Always reconcile StaffMembership and StaffRole (no membership-only fast path).
+--
 -- Status values (StaffMembership.Status TINYINT)
 --   1 = Pending, 2 = Active, 3 = Inactive.
 --   Cutover maps OrganizationUser.IsActive=1 → Active (2), else Inactive (3).

@@ -1,17 +1,19 @@
 import { createQueryKeys, type inferQueryKeys } from "@lukemorales/query-key-factory";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
+import { requireResponseData } from "@/api/client";
+
 import { getProperties, getProperty } from "./requests";
 import type { GetPropertiesRequest } from "./types";
 
 export const propertiesQueryStore = createQueryKeys("properties", {
   list: (query: GetPropertiesRequest) => ({
     queryKey: [{ query }],
-    queryFn: async ({ signal }) => (await getProperties({ query, signal })).data,
+    queryFn: async ({ signal }) => requireResponseData(await getProperties({ query, signal })),
   }),
   detail: (propertyId: string) => ({
     queryKey: [propertyId],
-    queryFn: async ({ signal }) => (await getProperty({ propertyId }, { signal })).data,
+    queryFn: async ({ signal }) => requireResponseData(await getProperty({ propertyId }, { signal })),
   }),
 });
 

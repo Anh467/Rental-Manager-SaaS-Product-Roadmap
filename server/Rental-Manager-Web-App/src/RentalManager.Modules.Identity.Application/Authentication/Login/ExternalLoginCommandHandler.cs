@@ -51,8 +51,11 @@ public sealed class ExternalLoginCommandHandler(
             throw new AuthenticationFailedException();
         }
 
+        // Provider names are deployment configuration keys (case-insensitive).
+        // OIDC `sub` is an opaque, case-sensitive identifier: never Trim() or
+        // otherwise mutate it before lookup/storage (OIDC Core Subject ID).
         string provider = resolved.Provider.Trim();
-        string subject = resolved.Subject.Trim();
+        string subject = resolved.Subject;
 
         if (provider.Length == 0)
         {
@@ -61,7 +64,7 @@ public sealed class ExternalLoginCommandHandler(
                 MessageCode.Error.ValidationFailed);
         }
 
-        if (subject.Length == 0)
+        if (!IsUsableOidcSubject(subject))
         {
             await sessionIssuer.PublishLoginFailedAsync(
                 provider,
@@ -220,5 +223,29 @@ public sealed class ExternalLoginCommandHandler(
                 [SecurityEventFields.Reason] = SecurityEventReasons.EmailAlreadyLinked
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Accepts the exact provider-issued subject. Presence is checked without
+    /// mutating the value: empty/null, oversize, or whitespace-only subjects are
+    /// rejected to match <c>CK_UserIdentity_Subject</c>, while leading/trailing
+    /// whitespace on an otherwise usable subject is preserved.
+    /// </summary>
+    private static bool IsUsableOidcSubject(string? subject)
+    {
+        if (string.IsNullOrEmpty(subject) || subject.Length > 256)
+        {
+            return false;
+        }
+
+        foreach (char character in subject)
+        {
+            if (!char.IsWhiteSpace(character))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

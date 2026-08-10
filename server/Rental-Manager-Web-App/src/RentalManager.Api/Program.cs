@@ -30,8 +30,10 @@ builder.Services
                     MessageCode.Error.ValidationFailed))
                 .ToArray();
 
+            int statusCode = ModelStateStatusResolver.Resolve(context);
+
             return new ApiErrorActionResult(
-                StatusCodes.Status400BadRequest,
+                statusCode,
                 MessageCode.Error.ValidationFailed,
                 fieldErrors);
         };

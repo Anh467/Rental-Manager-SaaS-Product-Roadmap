@@ -53,6 +53,59 @@ public sealed class ExternalLoginCommandHandlerTests
     }
 
     [Fact]
+    public async Task Preserves_oidc_subject_whitespace_exactly()
+    {
+        const string subjectWithPadding = " abc ";
+        AuthenticatedIdentity user = ActiveUser();
+        ExternalLoginHarness harness = ExternalLoginHarness.Create(
+            identity: new ExternalIdentityDescriptor(Provider, subjectWithPadding, Email, "User"));
+        harness.Users.Existing = new ExternalIdentityMapping(
+            Guid.CreateVersion7(),
+            Provider,
+            user);
+        harness.Memberships.Organizations =
+        [
+            new OrganizationOptionDto(Guid.CreateVersion7(), "Org A")
+        ];
+
+        LoginResult result = await harness.Handler.HandleAsync(
+            new ExternalLoginCommand(Provider, subjectWithPadding, Email, "User"));
+
+        Assert.Equal(LoginStatus.Authenticated, result.Status);
+        Assert.Equal(
+            (Provider, subjectWithPadding),
+            Assert.Single(harness.Users.FindCalls));
+        Assert.DoesNotContain(
+            harness.Users.FindCalls,
+            call => call.Subject == subjectWithPadding.Trim());
+        Assert.DoesNotContain(harness.SecurityEvents.Events, ContainsSecret);
+    }
+
+    [Fact]
+    public async Task Does_not_alias_subjects_that_differ_only_by_whitespace()
+    {
+        AuthenticatedIdentity user = ActiveUser();
+        ExternalLoginHarness harness = ExternalLoginHarness.Create(
+            identity: new ExternalIdentityDescriptor(Provider, "abc", Email, "User"));
+        harness.Users.Existing = new ExternalIdentityMapping(
+            Guid.CreateVersion7(),
+            Provider,
+            user);
+        harness.Memberships.Organizations =
+        [
+            new OrganizationOptionDto(Guid.CreateVersion7(), "Org A")
+        ];
+
+        await harness.Handler.HandleAsync(
+            new ExternalLoginCommand(Provider, "abc", Email, "User"));
+
+        Assert.Equal(("oidc", "abc"), Assert.Single(harness.Users.FindCalls));
+        Assert.DoesNotContain(
+            harness.Users.FindCalls,
+            call => call.Subject is " abc " or "abc ");
+    }
+
+    [Fact]
     public async Task Maps_existing_external_identity()
     {
         AuthenticatedIdentity user = ActiveUser();
@@ -317,6 +370,8 @@ internal sealed class FakeUserAccountStore : IUserAccountStore
 
     public List<ExternalUserProvisionRequest> ProvisionCalls { get; } = [];
 
+    public List<(string Provider, string Subject)> FindCalls { get; } = [];
+
     public int RecordLoginCalls { get; private set; }
 
     public Task<AuthenticatedIdentity?> FindActiveByIdAsync(
@@ -327,8 +382,11 @@ internal sealed class FakeUserAccountStore : IUserAccountStore
     public Task<ExternalIdentityMapping?> FindByExternalIdentityAsync(
         string provider,
         string subject,
-        CancellationToken cancellationToken = default) =>
-        Task.FromResult(Existing);
+        CancellationToken cancellationToken = default)
+    {
+        FindCalls.Add((provider, subject));
+        return Task.FromResult(Existing);
+    }
 
     public Task<bool> IsEmailInUseAsync(
         string email,

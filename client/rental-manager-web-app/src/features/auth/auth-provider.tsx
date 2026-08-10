@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
-import { clearCsrfToken, refreshCsrfToken } from "@/api/client";
+import { clearCsrfToken, refreshCsrfToken, requireResponseData } from "@/api/client";
 import {
   authQueries,
   getCsrf,
@@ -44,7 +44,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function ensureFreshCsrf() {
-  await refreshCsrfToken(async () => (await getCsrf()).data.requestToken);
+  await refreshCsrfToken(async () => requireResponseData(await getCsrf()).requestToken);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -53,16 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const completeLogin = useCallback(async (payload: LoginRequest = {}): Promise<AuthenticateResult> => {
     await ensureFreshCsrf();
-    const loginResponse = await login({ payload });
+    const loginData = requireResponseData(await login({ payload }));
 
-    if (isOrganizationSelectionRequired(loginResponse.data)) {
+    if (isOrganizationSelectionRequired(loginData)) {
       setPendingOrganizationSelection({
-        selectionTicket: loginResponse.data.selectionTicket,
-        organizations: loginResponse.data.organizations,
+        selectionTicket: loginData.selectionTicket,
+        organizations: loginData.organizations,
       });
       return {
         status: "organizationSelectionRequired",
-        organizations: loginResponse.data.organizations,
+        organizations: loginData.organizations,
       };
     }
 
@@ -83,14 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await ensureFreshCsrf();
-    const response = await selectOrganization({
+    const selected = requireResponseData(await selectOrganization({
       payload: {
         selectionTicket: pending.selectionTicket,
         organizationId,
       },
-    });
+    }));
 
-    if (isOrganizationSelectionRequired(response.data)) {
+    if (isOrganizationSelectionRequired(selected)) {
       throw new Error("Organization selection did not complete.");
     }
 

@@ -18,9 +18,21 @@ describe("isApiSuccessResponse", () => {
     expect(isApiSuccessResponse(value)).toBe(true);
   });
 
+  it("accepts an explicit null data payload", () => {
+    const value = {
+      success: true,
+      messageKey: "SCS-003",
+      data: null,
+      correlationId: "corr-null",
+    };
+    expect(isApiSuccessResponse(value)).toBe(true);
+    expect(parseSuccessResponse(value).data).toBeNull();
+  });
+
   it.each([
     ["missing messageKey", { success: true, data: {}, correlationId: "corr-1" }],
     ["non-success messageKey", { success: true, messageKey: "ERR-001", data: {}, correlationId: "corr-1" }],
+    ["unknown success key with valid prefix", { success: true, messageKey: "SCS-999", data: {}, correlationId: "corr-1" }],
     ["missing correlationId", { success: true, messageKey: "SCS-001", data: {} }],
     ["empty correlationId", { success: true, messageKey: "SCS-001", data: {}, correlationId: "" }],
     ["missing data", { success: true, messageKey: "SCS-001", correlationId: "corr-1" }],
@@ -39,9 +51,16 @@ describe("isApiErrorResponse", () => {
     expect(isApiErrorResponse(value)).toBe(true);
   });
 
+  it("accepts a deprecated error key for backward-compatible reads", () => {
+    const value = { success: false, messageKey: "ERR-034", correlationId: "corr-1" };
+    expect(isApiErrorResponse(value)).toBe(true);
+  });
+
   it.each([
     ["missing messageKey", { success: false, correlationId: "corr-1" }],
     ["non-error messageKey", { success: false, messageKey: "SCS-001", correlationId: "corr-1" }],
+    ["unknown error key with valid prefix", { success: false, messageKey: "ERR-999", correlationId: "corr-1" }],
+    ["malformed key", { success: false, messageKey: "ERROR-001", correlationId: "corr-1" }],
     ["missing correlationId", { success: false, messageKey: "ERR-001" }],
     ["empty correlationId", { success: false, messageKey: "ERR-001", correlationId: "" }],
     ["success flag true", { success: true, messageKey: "ERR-001", correlationId: "corr-1" }],

@@ -43,7 +43,7 @@ export type ApiFieldError = {
 export type ApiSuccessResponse<T> = {
   success: true;
   messageKey: SuccessMessageKey;
-  data: T;
+  data: T | null;
   parameters?: ApiMessageParameters;
   correlationId: string;
 };

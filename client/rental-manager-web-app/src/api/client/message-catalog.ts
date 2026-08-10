@@ -1,13 +1,11 @@
 /**
- * Single source of truth for the shared client/server message catalog
- * (Confluence 08.1: Message Catalog). Mirrors the backend catalog in
+ * Client mirror of the canonical backend message catalog in
  * `RentalManager.BuildingBlocks.Contracts.Messaging.MessageCatalog`.
  *
- * Keys are never renumbered or reused: retiring a message moves it from
- * "active" to "deprecated" instead of deleting it, so historical responses
- * and locale files stay meaningful. New code must only ever emit active
- * keys; deprecated keys exist here solely so the client can still render
- * old responses and so locale files keep full key parity with the catalog.
+ * Do not treat this file as an independent source of truth: CI
+ * `MessageCatalogParityTests` compares these arrays (and locale JSON) to the
+ * C# catalog and fails on missing/extra/typo keys. Keys are never renumbered
+ * or reused: retiring a message moves it from "active" to "deprecated".
  */
 
 export const ACTIVE_SUCCESS_MESSAGE_KEYS = [

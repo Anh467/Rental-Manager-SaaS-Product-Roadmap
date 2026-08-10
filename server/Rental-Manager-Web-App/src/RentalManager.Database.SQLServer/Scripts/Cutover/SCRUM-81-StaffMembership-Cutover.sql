@@ -8,24 +8,18 @@
 -- Residual [org].[OrganizationUser] is intentionally retained for one release.
 -- Runtime must not read or write it after this cutover.
 --
--- RLS: OrganizationUser / StaffMembership / StaffRole are filtered by
--- [org].[OrganizationIsolationPolicy]. SQL Server applies RLS to dbo/sysadmin
--- as well, so this elevated upgrade script must briefly disable that policy,
--- migrate while it can see every row, then ALWAYS re-enable it before exit.
+-- RLS: ALTER SECURITY POLICY is transactional. Disable, migrate, and re-enable
+-- inside ONE transaction so a rollback restores the prior ON state. After
+-- COMMIT/ROLLBACK, verify is_enabled and fail the deployment if RLS is OFF.
 
 SET NOCOUNT ON;
 SET XACT_ABORT ON;
 
-DECLARE @PolicyWasDisabled BIT = 0;
-
 BEGIN TRY
-    -- Disable outside the data transaction so a rollback cannot leave the
-    -- policy OFF, and so the migration can see every OrganizationUser row.
+    BEGIN TRANSACTION;
+
     ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
         WITH (STATE = OFF);
-    SET @PolicyWasDisabled = 1;
-
-    BEGIN TRANSACTION;
 
     DECLARE @SourceCount INT =
     (
@@ -33,48 +27,8 @@ BEGIN TRY
         FROM [org].[OrganizationUser]
     );
 
-    DECLARE @ExistingMembershipCount INT =
-    (
-        SELECT COUNT_BIG(1)
-        FROM [org].[StaffMembership]
-        WHERE [DeletedAt] IS NULL
-    );
-
-    -- Already cut over: nothing to do when StaffMembership already covers sources.
-    IF @SourceCount > 0
-       AND @ExistingMembershipCount >= @SourceCount
-       AND NOT EXISTS
-       (
-           SELECT 1
-           FROM [org].[OrganizationUser] AS source
-           WHERE NOT EXISTS
-           (
-               SELECT 1
-               FROM [org].[StaffMembership] AS membership
-               WHERE membership.[OrganizationId] = source.[OrganizationId]
-                 AND membership.[UserId] = source.[UserId]
-                 AND membership.[DeletedAt] IS NULL
-           )
-       )
-    BEGIN
-        COMMIT TRANSACTION;
-
-        BEGIN TRY
-            ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
-                WITH (STATE = ON);
-            SET @PolicyWasDisabled = 0;
-        END TRY
-        BEGIN CATCH
-            ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
-                WITH (STATE = ON);
-            SET @PolicyWasDisabled = 0;
-            THROW;
-        END CATCH;
-
-        RETURN;
-    END;
-
     -- Map each OrganizationUser to a StaffMembership (Active if IsActive else Inactive).
+    -- Always reconcile — never skip StaffRole repair when memberships already exist.
     ;WITH SourceRows AS
     (
         SELECT
@@ -134,7 +88,7 @@ BEGIN TRY
             NULL
         );
 
-    -- Map old single RoleId onto StaffRole.
+    -- Map old single RoleId onto StaffRole (idempotent; concurrency-safe via UQ).
     ;WITH SourceRoles AS
     (
         SELECT
@@ -270,19 +224,10 @@ BEGIN TRY
         THROW 50081, @Message, 1;
     END;
 
-    COMMIT TRANSACTION;
+    ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
+        WITH (STATE = ON);
 
-    BEGIN TRY
-        ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
-            WITH (STATE = ON);
-        SET @PolicyWasDisabled = 0;
-    END TRY
-    BEGIN CATCH
-        ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
-            WITH (STATE = ON);
-        SET @PolicyWasDisabled = 0;
-        THROW;
-    END CATCH;
+    COMMIT TRANSACTION;
 END TRY
 BEGIN CATCH
     IF @@TRANCOUNT > 0
@@ -290,23 +235,61 @@ BEGIN CATCH
         ROLLBACK TRANSACTION;
     END;
 
-    IF @PolicyWasDisabled = 1
+    -- After rollback the transactional STATE = OFF is undone. Still verify and
+    -- force ON outside any doomed transaction so deployment never continues
+    -- with RLS disabled.
+    DECLARE @PolicyEnabled BIT =
+    (
+        SELECT CAST(is_enabled AS BIT)
+        FROM sys.security_policies
+        WHERE name = N'OrganizationIsolationPolicy'
+          AND schema_id = SCHEMA_ID(N'org')
+    );
+
+    IF @PolicyEnabled = 0 OR @PolicyEnabled IS NULL
     BEGIN
         BEGIN TRY
             ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
                 WITH (STATE = ON);
         END TRY
         BEGIN CATCH
-            -- Prefer surfacing the original migration failure; still attempt
-            -- a second re-enable so runtime never stays with RLS off.
-            BEGIN TRY
-                ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
-                    WITH (STATE = ON);
-            END TRY
-            BEGIN CATCH
-            END CATCH;
+            THROW 50082,
+                N'SCRUM-81 cutover failed and OrganizationIsolationPolicy could not be re-enabled. Abort deployment; do not allow application traffic.',
+                1;
         END CATCH;
+
+        SET @PolicyEnabled =
+        (
+            SELECT CAST(is_enabled AS BIT)
+            FROM sys.security_policies
+            WHERE name = N'OrganizationIsolationPolicy'
+              AND schema_id = SCHEMA_ID(N'org')
+        );
+
+        IF @PolicyEnabled = 0 OR @PolicyEnabled IS NULL
+        BEGIN
+            THROW 50082,
+                N'SCRUM-81 cutover failed and OrganizationIsolationPolicy remains OFF. Abort deployment; do not allow application traffic.',
+                1;
+        END;
     END;
 
     THROW;
 END CATCH;
+
+-- Finalization outside the migration transaction: prove RLS is ON on this
+-- connection after success (or after CATCH re-enable + rethrow path that did
+-- not reach here). Fail deployment if verification cannot confirm ON.
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM sys.security_policies
+    WHERE name = N'OrganizationIsolationPolicy'
+      AND schema_id = SCHEMA_ID(N'org')
+      AND is_enabled = 1
+)
+BEGIN
+    THROW 50082,
+        N'SCRUM-81 cutover post-condition failed: OrganizationIsolationPolicy is not ON after migration.',
+        1;
+END;

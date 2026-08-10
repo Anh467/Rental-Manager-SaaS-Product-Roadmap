@@ -12,7 +12,20 @@ internal static class DacpacDeployer
 {
     private const string DacpacFileName = "RentalManager.Database.SQLServer.dacpac";
 
-    public static void Deploy(string connectionString, string databaseName)
+    public static void Deploy(string connectionString, string databaseName) =>
+        Deploy(connectionString, databaseName, createNewDatabase: true);
+
+    /// <summary>
+    /// Upgrades an existing database (e.g. representative legacy schema) to the
+    /// current DACPAC without recreating the database.
+    /// </summary>
+    public static void UpgradeExisting(string connectionString, string databaseName) =>
+        Deploy(connectionString, databaseName, createNewDatabase: false);
+
+    private static void Deploy(
+        string connectionString,
+        string databaseName,
+        bool createNewDatabase)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         ArgumentException.ThrowIfNullOrWhiteSpace(databaseName);
@@ -29,11 +42,9 @@ internal static class DacpacDeployer
             upgradeExisting: true,
             new DacDeployOptions
             {
-                CreateNewDatabase = true,
+                CreateNewDatabase = createNewDatabase,
                 BlockOnPossibleDataLoss = false,
                 IncludeCompositeObjects = true,
-                // The project has no cross-database reference, so an unresolved
-                // reference is a real defect rather than something to ignore.
                 AllowIncompatiblePlatform = true
             });
     }

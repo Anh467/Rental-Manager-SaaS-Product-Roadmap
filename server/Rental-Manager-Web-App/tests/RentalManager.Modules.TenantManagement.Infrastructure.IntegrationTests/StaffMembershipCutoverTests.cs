@@ -162,7 +162,7 @@ public sealed class StaffMembershipCutoverTests
             TestData.OrganizationA.AdministratorRoleId,
             now);
 
-        // Force the cutover MERGE to fail so CATCH must re-enable RLS.
+        // Force the cutover MERGE to fail so CATCH/ROLLBACK must leave RLS ON.
         await using (SqlConnection seed = await _fixture.OpenConnectionAsync())
         {
             await seed.ExecuteAsync(
@@ -185,6 +185,7 @@ public sealed class StaffMembershipCutoverTests
                     () => connection.ExecuteAsync(cutoverSql));
             }
 
+            // Prove policy state on a fresh connection after the failed session.
             Assert.True(await IsIsolationPolicyEnabledAsync());
         }
         finally
@@ -197,6 +198,157 @@ public sealed class StaffMembershipCutoverTests
                         DROP CONSTRAINT [CK_SCRUM81_TestForcedFailure];
                 """);
         }
+
+        Assert.True(await IsIsolationPolicyEnabledAsync());
+    }
+
+    [Fact]
+    public async Task Cutover_repairs_missing_staff_role_for_existing_membership()
+    {
+        Assert.True(await IsIsolationPolicyEnabledAsync());
+
+        Guid userId = Guid.CreateVersion7();
+        string email = $"cutover.repair.{userId:N}@rentalmanager.test";
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        await SeedUserAsync(userId, email, now);
+        await SeedOrganizationUserAsync(
+            TestData.OrganizationA.Id,
+            userId,
+            TestData.OrganizationA.AdministratorRoleId,
+            now);
+
+        Guid membershipId = Guid.CreateVersion7();
+
+        await using (SqlConnection connection =
+                         await _fixture.OpenConnectionAsync(TestData.OrganizationA.Id))
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO [org].[StaffMembership]
+                    ([Id], [OrganizationId], [UserId], [Status], [CreatedAt], [UpdatedAt], [DeletedAt])
+                VALUES
+                    (@MembershipId, @OrganizationId, @UserId, 2, @Now, @Now, NULL);
+                """,
+                new
+                {
+                    MembershipId = membershipId,
+                    OrganizationId = TestData.OrganizationA.Id,
+                    UserId = userId,
+                    Now = now
+                });
+        }
+
+        string cutoverSql = await File.ReadAllTextAsync(ResolveCutoverScriptPath());
+
+        await using (SqlConnection connection = await _fixture.OpenConnectionAsync())
+        {
+            await connection.ExecuteAsync(cutoverSql);
+            await connection.ExecuteAsync(cutoverSql);
+        }
+
+        Assert.True(await IsIsolationPolicyEnabledAsync());
+
+        await using SqlConnection verify =
+            await _fixture.OpenConnectionAsync(TestData.OrganizationA.Id);
+
+        int staffRoleCount = await verify.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT_BIG(1)
+            FROM [org].[StaffRole]
+            WHERE [StaffMembershipId] = @MembershipId
+              AND [RoleId] = @RoleId;
+            """,
+            new
+            {
+                MembershipId = membershipId,
+                RoleId = TestData.OrganizationA.AdministratorRoleId
+            });
+
+        Assert.Equal(1, staffRoleCount);
+    }
+
+    [Fact]
+    public async Task Cutover_policy_remains_on_after_transaction_rollback()
+    {
+        Assert.True(await IsIsolationPolicyEnabledAsync());
+
+        Guid userId = Guid.CreateVersion7();
+        string email = $"cutover.rollback.{userId:N}@rentalmanager.test";
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        await SeedUserAsync(userId, email, now);
+        await SeedOrganizationUserAsync(
+            TestData.OrganizationA.Id,
+            userId,
+            TestData.OrganizationA.AdministratorRoleId,
+            now);
+
+        await using (SqlConnection seed = await _fixture.OpenConnectionAsync())
+        {
+            await seed.ExecuteAsync(
+                """
+                ALTER TABLE [org].[StaffRole] WITH NOCHECK
+                    ADD CONSTRAINT [CK_SCRUM81_TestRollback]
+                    CHECK ([Id] <> [Id]);
+                """);
+        }
+
+        try
+        {
+            string cutoverSql = await File.ReadAllTextAsync(ResolveCutoverScriptPath());
+
+            await using (SqlConnection connection = await _fixture.OpenConnectionAsync())
+            {
+                await Assert.ThrowsAsync<SqlException>(
+                    () => connection.ExecuteAsync(cutoverSql));
+            }
+
+            Assert.True(await IsIsolationPolicyEnabledAsync());
+
+            await using SqlConnection verify = await _fixture.OpenConnectionAsync();
+            await verify.ExecuteAsync(
+                """
+                ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
+                    WITH (STATE = OFF);
+                """);
+
+            try
+            {
+                int membershipCount = await verify.ExecuteScalarAsync<int>(
+                    """
+                    SELECT COUNT_BIG(1)
+                    FROM [org].[StaffMembership]
+                    WHERE [UserId] = @UserId
+                      AND [DeletedAt] IS NULL;
+                    """,
+                    new { UserId = userId });
+
+                // Transactional rollback must not leave partial StaffMembership
+                // from the failed cutover attempt for this user.
+                Assert.Equal(0, membershipCount);
+            }
+            finally
+            {
+                await verify.ExecuteAsync(
+                    """
+                    ALTER SECURITY POLICY [org].[OrganizationIsolationPolicy]
+                        WITH (STATE = ON);
+                    """);
+            }
+        }
+        finally
+        {
+            await using SqlConnection cleanup = await _fixture.OpenConnectionAsync();
+            await cleanup.ExecuteAsync(
+                """
+                IF OBJECT_ID(N'[org].[CK_SCRUM81_TestRollback]', N'C') IS NOT NULL
+                    ALTER TABLE [org].[StaffRole]
+                        DROP CONSTRAINT [CK_SCRUM81_TestRollback];
+                """);
+        }
+
+        Assert.True(await IsIsolationPolicyEnabledAsync());
     }
 
     private async Task SeedUserAsync(Guid userId, string email, DateTimeOffset now)

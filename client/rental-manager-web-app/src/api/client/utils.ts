@@ -8,6 +8,7 @@ import type {
   ApiSuccessResponse,
   ErrorMessageKey,
 } from "./types";
+import { isActiveSuccessMessageKey, isKnownErrorMessageKey } from "./message-catalog";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -22,7 +23,7 @@ export function isApiSuccessResponse<T>(value: unknown): value is ApiSuccessResp
     isRecord(value) &&
     value.success === true &&
     typeof value.messageKey === "string" &&
-    value.messageKey.startsWith("SCS-") &&
+    isActiveSuccessMessageKey(value.messageKey) &&
     isNonEmptyString(value.correlationId) &&
     "data" in value
   );
@@ -33,7 +34,7 @@ export function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
     isRecord(value) &&
     value.success === false &&
     typeof value.messageKey === "string" &&
-    value.messageKey.startsWith("ERR-") &&
+    isKnownErrorMessageKey(value.messageKey) &&
     isNonEmptyString(value.correlationId)
   );
 }
@@ -125,14 +126,29 @@ export async function toApiError(error: unknown): Promise<ApiError> {
 
 /**
  * Strictly validates that a response body is the success envelope: `success
- * === true`, a `messageKey` that looks like a success code, a non-empty
- * `correlationId`, and a `data` property. Arbitrary JSON is never silently
+ * === true`, a catalog-active `messageKey`, a non-empty `correlationId`, and a
+ * `data` property (which may be null). Arbitrary JSON is never silently
  * accepted as a success response — an unrecognized shape is a contract
  * violation and is reported as `ERR-050`, not wrapped.
  */
 export function parseSuccessResponse<T>(value: unknown): ApiSuccessResponse<T> {
   if (isApiSuccessResponse<T>(value)) return value;
   throw createApiError(500, { messageKey: "ERR-050" });
+}
+
+/**
+ * Endpoints that contractually return a non-null `data` payload. A null data
+ * body is a contract violation (distinct from HTTP 204, which has no body).
+ */
+export function requireResponseData<T>(response: ApiSuccessResponse<T>): T {
+  if (response.data === null) {
+    throw createApiError(500, {
+      messageKey: "ERR-050",
+      correlationId: response.correlationId,
+    });
+  }
+
+  return response.data;
 }
 
 export function getPaginationQueryParams({

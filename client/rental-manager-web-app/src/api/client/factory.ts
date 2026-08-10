@@ -20,7 +20,7 @@ import type {
   ApiRequestOptions,
   ApiResponse,
 } from "./types";
-import { createApiError, isApiError, parseSuccessResponse, toApiError } from "./utils";
+import { createApiError, isApiError, parseSuccessResponse, requireResponseData, toApiError } from "./utils";
 
 type CsrfAxiosConfig = InternalAxiosRequestConfig & {
   __csrfRetried?: boolean;
@@ -53,7 +53,7 @@ export function createApiClient(clientOptions: ApiClientOptions): ApiClient {
   const fetchCsrfRequestToken = async () => {
     const response = await axiosInstance.get<unknown>("/api/v1/auth/csrf");
     const envelope = parseSuccessResponse<{ requestToken: string }>(response.data);
-    return envelope.data.requestToken;
+    return requireResponseData(envelope).requestToken;
   };
 
   axiosInstance.interceptors.request.use(async (config) => {

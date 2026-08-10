@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { mergeMessageParameters } from "@/api/client";
+import { mergeMessageParameters, requireResponseData } from "@/api/client";
 import { translateApiMessage } from "@/i18n/api-message";
 import { createRoom, deleteRoom, updateRoom } from "./requests";
 import { roomQueries, roomsQueryStore } from "./queries";
@@ -26,7 +26,7 @@ export function useCreateRoomMutation() {
         mergeMessageParameters({ object: "room" }, response.parameters),
       ));
       await queryClient.invalidateQueries({ queryKey: roomsQueryStore.list._def });
-      return response.data;
+      return requireResponseData(response);
     },
   });
 }
@@ -41,9 +41,10 @@ export function useUpdateRoomMutation(roomId: string) {
         response.messageKey ?? "SCS-002",
         mergeMessageParameters({ object: "room" }, response.parameters),
       ));
-      queryClient.setQueryData(roomsQueryStore.detail(roomId).queryKey, response.data);
+      const room = requireResponseData(response);
+      queryClient.setQueryData(roomsQueryStore.detail(roomId).queryKey, room);
       await queryClient.invalidateQueries({ queryKey: roomsQueryStore.list._def });
-      return response.data;
+      return room;
     },
   });
 }
