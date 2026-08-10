@@ -130,6 +130,9 @@ public sealed class NoRuntimeOrganizationUserReferencesTests
                             "StaffMembershipCutoverTests.cs",
                             StringComparison.OrdinalIgnoreCase) ||
                         fileName.Equals(
+                            "LegacySchemaUpgradeTests.cs",
+                            StringComparison.OrdinalIgnoreCase) ||
+                        fileName.Equals(
                             "StaffMembershipPermissionReaderTests.cs",
                             StringComparison.OrdinalIgnoreCase) ||
                         // Fixture cleanup for residual cutover rows only.
