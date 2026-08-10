@@ -41,15 +41,15 @@ public sealed class CookieAuthenticationTests
             AllowAutoRedirect = false
         });
 
+        FieldsApiFactory.AttachExternalIdentityHeaders(
+            client,
+            TestData.Users.AdministratorASubject);
+
         await FieldsApiFactory.AttachCsrfHeaderAsync(client);
 
-        HttpResponseMessage login = await client.PostAsJsonAsync(
+        HttpResponseMessage login = await client.PostAsync(
             "/api/v1/auth/login",
-            new
-            {
-                email = TestData.Users.AdministratorAEmail,
-                password = TestData.Password
-            });
+            content: null);
 
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
         Assert.Contains(
@@ -83,12 +83,99 @@ public sealed class CookieAuthenticationTests
         Assert.Equal("ERR-003", body.RootElement.GetProperty("messageKey").GetString());
     }
 
+    /// <summary>
+    /// The retired contract must not merely be ignored: an email and password in
+    /// the body can never establish a session.
+    /// </summary>
+    [Fact]
+    public async Task Email_and_password_body_cannot_sign_in()
+    {
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+        using HttpClient client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true,
+            AllowAutoRedirect = false
+        });
+
+        await FieldsApiFactory.AttachCsrfHeaderAsync(client);
+
+        HttpResponseMessage login = await client.PostAsJsonAsync(
+            "/api/v1/auth/login",
+            new
+            {
+                email = TestData.Users.AdministratorAEmail,
+                password = "any-password"
+            });
+
+        Assert.NotEqual(HttpStatusCode.OK, login.StatusCode);
+        Assert.DoesNotContain(
+            login.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? cookies)
+                ? cookies
+                : [],
+            cookie => cookie.Contains("rentalmanager.auth", StringComparison.OrdinalIgnoreCase));
+
+        HttpResponseMessage me = await client.GetAsync("/api/v1/auth/me");
+        Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+    }
+
+    [Fact]
+    public async Task Unknown_subject_is_rejected()
+    {
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+        using HttpClient client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true,
+            AllowAutoRedirect = false
+        });
+
+        // No email means first-login provisioning cannot proceed, so an unknown
+        // subject is refused instead of silently creating an account.
+        FieldsApiFactory.AttachExternalIdentityHeaders(client, "unknown-subject");
+        await FieldsApiFactory.AttachCsrfHeaderAsync(client);
+
+        HttpResponseMessage login = await client.PostAsync(
+            "/api/v1/auth/login",
+            content: null);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, login.StatusCode);
+
+        using var body = JsonDocument.Parse(await login.Content.ReadAsStringAsync());
+        Assert.Equal("ERR-001", body.RootElement.GetProperty("messageKey").GetString());
+    }
+
+    /// <summary>
+    /// The provider's subject is the identity key, so a subject differing only in
+    /// case is a different identity and must not resolve to the seeded user.
+    /// </summary>
+    [Fact]
+    public async Task Subject_comparison_is_case_sensitive()
+    {
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+        using HttpClient client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            HandleCookies = true,
+            AllowAutoRedirect = false
+        });
+
+        FieldsApiFactory.AttachExternalIdentityHeaders(
+            client,
+            TestData.Users.AdministratorASubject.ToUpperInvariant());
+
+        await FieldsApiFactory.AttachCsrfHeaderAsync(client);
+
+        HttpResponseMessage login = await client.PostAsync(
+            "/api/v1/auth/login",
+            content: null);
+
+        Assert.NotEqual(HttpStatusCode.OK, login.StatusCode);
+    }
+
     [Fact]
     public async Task Mutation_without_csrf_is_rejected()
     {
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
         using HttpClient client = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         client.DefaultRequestHeaders.Remove("X-CSRF-TOKEN");
@@ -110,11 +197,16 @@ public sealed class CookieAuthenticationTests
     {
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
         using HttpClient client = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         HttpResponseMessage logout = await client.PostAsync("/api/v1/auth/logout", content: null);
         Assert.Equal(HttpStatusCode.OK, logout.StatusCode);
+
+        using var logoutBody = JsonDocument.Parse(await logout.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "SCS-018",
+            logoutBody.RootElement.GetProperty("messageKey").GetString());
 
         HttpResponseMessage me = await client.GetAsync("/api/v1/auth/me");
         Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);

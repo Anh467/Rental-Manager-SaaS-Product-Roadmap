@@ -1,17 +1,19 @@
 import { createQueryKeys, type inferQueryKeys } from "@lukemorales/query-key-factory";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
+import { requireResponseData } from "@/api/client";
+
 import { getGlobalField, getGlobalFields } from "./requests";
 import type { GetGlobalFieldsRequest } from "./types";
 
 export const globalFieldsQueryStore = createQueryKeys("globalFields", {
   list: (query: GetGlobalFieldsRequest) => ({
     queryKey: [{ query }],
-    queryFn: async ({ signal }) => (await getGlobalFields({ query, signal })).data,
+    queryFn: async ({ signal }) => requireResponseData(await getGlobalFields({ query, signal })),
   }),
   detail: (fieldId: string) => ({
     queryKey: [fieldId],
-    queryFn: async ({ signal }) => (await getGlobalField({ fieldId }, { signal })).data,
+    queryFn: async ({ signal }) => requireResponseData(await getGlobalField({ fieldId }, { signal })),
   }),
 });
 

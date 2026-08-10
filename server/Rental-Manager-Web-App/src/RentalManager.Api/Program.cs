@@ -1,19 +1,21 @@
-using System.Text.Json;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
-using RentalManager.Api.Contracts;
+using RentalManager.Api.Http;
 using RentalManager.Api.Middlewares;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy;
 using RentalManager.Modules.Identity.Infrastructure;
+using RentalManager.Modules.Identity.Infrastructure.Authentication;
 using RentalManager.Modules.Identity.Infrastructure.Options;
-using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Infrastructure;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddSingleton<IApiExceptionMapper, ApiExceptionMapper>();
+builder.Services.AddSingleton<IApiErrorResponseWriter, ApiErrorResponseWriter>();
 
 builder.Services
     .AddControllers()
@@ -28,12 +30,12 @@ builder.Services
                     MessageCode.Error.ValidationFailed))
                 .ToArray();
 
-            return new BadRequestObjectResult(new ApiErrorResponse
-            {
-                MessageKey = MessageCode.Error.ValidationFailed,
-                FieldErrors = fieldErrors,
-                CorrelationId = context.HttpContext.TraceIdentifier
-            });
+            int statusCode = ModelStateStatusResolver.Resolve(context);
+
+            return new ApiErrorActionResult(
+                statusCode,
+                MessageCode.Error.ValidationFailed,
+                fieldErrors);
         };
     });
 builder.Services.AddOpenApi();
@@ -50,20 +52,14 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = async (context, cancellationToken) =>
     {
-        HttpContext httpContext = context.HttpContext;
-        httpContext.Response.ContentType = "application/json; charset=utf-8";
-        await httpContext.Response.WriteAsync(
-            JsonSerializer.Serialize(
-                new ApiErrorResponse
-                {
-                    MessageKey = MessageCode.Error.RateLimitExceeded,
-                    CorrelationId = httpContext.TraceIdentifier
-                },
-                new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                }),
-            cancellationToken);
+        IApiErrorResponseWriter writer = context.HttpContext.RequestServices
+            .GetRequiredService<IApiErrorResponseWriter>();
+
+        await writer.WriteAsync(
+            context.HttpContext,
+            StatusCodes.Status429TooManyRequests,
+            MessageCode.Error.RateLimitExceeded,
+            cancellationToken: cancellationToken);
     };
 
     options.AddPolicy("auth", httpContext =>
@@ -99,20 +95,24 @@ builder.Services.AddCors(options => options.AddPolicy("development", policy => p
     .AllowCredentials()));
 
 builder.Services.PostConfigure<CookieAuthenticationOptions>(
-    IdentityConstants.ApplicationScheme,
+    IdentityAuthenticationSchemes.ApplicationCookie,
     options =>
     {
         options.Events.OnRedirectToLogin = context =>
-            WriteAuthErrorAsync(
-                context.HttpContext,
-                StatusCodes.Status401Unauthorized,
-                MessageCode.Error.AuthenticationRequired);
+            context.HttpContext.RequestServices
+                .GetRequiredService<IApiErrorResponseWriter>()
+                .WriteAsync(
+                    context.HttpContext,
+                    StatusCodes.Status401Unauthorized,
+                    MessageCode.Error.AuthenticationRequired);
 
         options.Events.OnRedirectToAccessDenied = context =>
-            WriteAuthErrorAsync(
-                context.HttpContext,
-                StatusCodes.Status403Forbidden,
-                MessageCode.Error.PermissionDenied);
+            context.HttpContext.RequestServices
+                .GetRequiredService<IApiErrorResponseWriter>()
+                .WriteAsync(
+                    context.HttpContext,
+                    StatusCodes.Status403Forbidden,
+                    MessageCode.Error.PermissionDenied);
     });
 
 WebApplication app = builder.Build();
@@ -151,17 +151,6 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.Run();
-
-static Task WriteAuthErrorAsync(HttpContext context, int statusCode, string messageKey)
-{
-    context.Response.StatusCode = statusCode;
-    context.Response.ContentType = "application/json; charset=utf-8";
-    return context.Response.WriteAsync(JsonSerializer.Serialize(new ApiErrorResponse
-    {
-        MessageKey = messageKey,
-        CorrelationId = context.TraceIdentifier
-    }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
-}
 
 /// <summary>
 /// Named entry point so the integration test host can boot the real application.

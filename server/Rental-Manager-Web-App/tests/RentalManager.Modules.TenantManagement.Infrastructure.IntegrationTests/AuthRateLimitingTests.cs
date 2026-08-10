@@ -2,7 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using Xunit;
 
 namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests;
@@ -25,15 +25,15 @@ public sealed class AuthRateLimitingTests
 
         for (int i = 0; i < 2; i++)
         {
-            HttpResponseMessage allowed = await client.PostAsJsonAsync(
+            HttpResponseMessage allowed = await client.PostAsync(
                 "/api/v1/auth/login",
-                new { email = "nobody@example.com", password = "wrong-password" });
+                content: null);
             Assert.NotEqual(HttpStatusCode.TooManyRequests, allowed.StatusCode);
         }
 
-        HttpResponseMessage rejected = await client.PostAsJsonAsync(
+        HttpResponseMessage rejected = await client.PostAsync(
             "/api/v1/auth/login",
-            new { email = "nobody@example.com", password = "wrong-password" });
+            content: null);
 
         Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
 
@@ -50,13 +50,13 @@ public sealed class AuthRateLimitingTests
         using var factory = new RateLimitedApiFactory(_fixture.ConnectionString, permitLimit: 1);
         using HttpClient authenticated =
             await factory.CreateAuthenticatedClientAsync(
-                TestData.Users.AdministratorAEmail,
+                TestData.Users.AdministratorASubject,
                 TestData.OrganizationA.Id);
 
         using HttpClient anonymous = factory.CreateClient();
-        HttpResponseMessage limited = await anonymous.PostAsJsonAsync(
+        HttpResponseMessage limited = await anonymous.PostAsync(
             "/api/v1/auth/login",
-            new { email = "nobody@example.com", password = "wrong-password" });
+            content: null);
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
 
         HttpResponseMessage fields = await authenticated.GetAsync("/api/v1/fields");

@@ -43,4 +43,10 @@
     </ProjectReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Legacy\**\*.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

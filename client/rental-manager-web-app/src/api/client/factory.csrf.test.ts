@@ -4,6 +4,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { clearCsrfToken, getCachedCsrfToken } from "./csrf";
 import { createApiClient } from "./factory";
 
+function success(data: unknown) {
+  return { success: true, messageKey: "SCS-005", data, correlationId: "test-correlation-id" };
+}
+
+function failure(messageKey: string) {
+  return { success: false, messageKey, correlationId: "test-correlation-id" };
+}
+
 describe("createApiClient CSRF behavior", () => {
   afterEach(() => {
     clearCsrfToken();
@@ -13,21 +21,20 @@ describe("createApiClient CSRF behavior", () => {
     const client = createApiClient({ baseUrl: "", withCredentials: true });
     const mock = new MockAdapter(client.axios);
 
-    mock.onGet("/api/v1/auth/csrf").reply(200, {
-      success: true,
-      data: { requestToken: "csrf-abc" },
-    });
+    mock.onGet("/api/v1/auth/csrf").reply(200, success({ requestToken: "csrf-abc" }));
     mock.onGet("/api/v1/auth/me").reply((config) => {
       expect(config.headers?.["X-CSRF-TOKEN"]).toBeUndefined();
-      return [200, { success: true, data: { id: "u1" } }];
+      return [200, success({ id: "u1" })];
     });
     mock.onPost("/api/v1/auth/login").reply((config) => {
       expect(config.headers?.["X-CSRF-TOKEN"]).toBe("csrf-abc");
-      return [200, { success: true, data: { id: "u1" } }];
+      return [200, success({ id: "u1" })];
     });
 
     await client.get("/api/v1/auth/me");
-    await client.post("/api/v1/auth/login", { payload: { email: "a@b.c", password: "x" } });
+    await client.post("/api/v1/auth/login", {
+      payload: { provider: "oidc", subject: "test-subject" },
+    });
     expect(getCachedCsrfToken()).toBe("csrf-abc");
 
     mock.restore();
@@ -41,7 +48,7 @@ describe("createApiClient CSRF behavior", () => {
 
     mock.onGet("/api/v1/auth/csrf").reply(() => {
       csrfCalls += 1;
-      return [200, { success: true, data: { requestToken: `token-${csrfCalls}` } }];
+      return [200, success({ requestToken: `token-${csrfCalls}` })];
     });
 
     mock.onPost("/api/items").reply((config) => {
@@ -49,10 +56,10 @@ describe("createApiClient CSRF behavior", () => {
       const token = config.headers?.["X-CSRF-TOKEN"];
       if (loginCalls === 1) {
         expect(token).toBe("token-1");
-        return [400, { success: false, messageKey: "ERR-001" }];
+        return [400, failure("ERR-001")];
       }
       expect(token).toBe("token-2");
-      return [200, { success: true, data: { ok: true } }];
+      return [200, success({ ok: true })];
     });
 
     await expect(client.post("/api/items", { payload: { name: "x" } })).resolves.toMatchObject({
@@ -72,7 +79,7 @@ describe("createApiClient CSRF behavior", () => {
     mock.onGet("/api/v1/auth/me").reply((config) => {
       const header = config.headers?.Authorization ?? config.headers?.authorization;
       expect(header).toBeUndefined();
-      return [200, { success: true, data: { id: "u1" } }];
+      return [200, success({ id: "u1" })];
     });
 
     await client.get("/api/v1/auth/me");

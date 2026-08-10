@@ -73,6 +73,24 @@ jobs:
             --no-build \
             --nologo \
             --logger "trx;LogFileName=unit-tests.trx" 2>&1 | tee unit-tests.log
+          dotnet test \
+            tests/RentalManager.Modules.Identity.Application.UnitTests/RentalManager.Modules.Identity.Application.UnitTests.csproj \
+            --configuration Release \
+            --no-build \
+            --nologo \
+            --logger "trx;LogFileName=identity-unit-tests.trx" 2>&1 | tee identity-unit-tests.log
+          dotnet test \
+            tests/RentalManager.BuildingBlocks.Contracts.UnitTests/RentalManager.BuildingBlocks.Contracts.UnitTests.csproj \
+            --configuration Release \
+            --no-build \
+            --nologo \
+            --logger "trx;LogFileName=contracts-unit-tests.trx" 2>&1 | tee contracts-unit-tests.log
+          dotnet test \
+            tests/RentalManager.Api.UnitTests/RentalManager.Api.UnitTests.csproj \
+            --configuration Release \
+            --no-build \
+            --nologo \
+            --logger "trx;LogFileName=api-unit-tests.trx" 2>&1 | tee api-unit-tests.log
 
       - name: Run SQL integration tests
         shell: bash
@@ -93,7 +111,13 @@ jobs:
           path: |
             server/Rental-Manager-Web-App/backend-dapper-build.log
             server/Rental-Manager-Web-App/unit-tests.log
+            server/Rental-Manager-Web-App/identity-unit-tests.log
+            server/Rental-Manager-Web-App/contracts-unit-tests.log
+            server/Rental-Manager-Web-App/api-unit-tests.log
             server/Rental-Manager-Web-App/integration-tests.log
             server/Rental-Manager-Web-App/**/unit-tests.trx
+            server/Rental-Manager-Web-App/**/identity-unit-tests.trx
+            server/Rental-Manager-Web-App/**/contracts-unit-tests.trx
+            server/Rental-Manager-Web-App/**/api-unit-tests.trx
             server/Rental-Manager-Web-App/**/integration-tests.trx
           if-no-files-found: ignore

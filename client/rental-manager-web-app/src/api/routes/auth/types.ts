@@ -10,9 +10,12 @@ export type AuthUser = {
   permissions: string[];
 };
 
+/** Completes sign-in for a verified external identity (mock/dev exchange). */
 export type LoginRequest = {
-  email: string;
-  password: string;
+  provider?: string;
+  subject?: string;
+  email?: string;
+  displayName?: string;
 };
 
 export type OrganizationOption = {
@@ -46,4 +49,11 @@ export function isOrganizationSelectionRequired(
     && "status" in data
     && data.status === "organizationSelectionRequired"
   );
+}
+
+/** Browser navigation target that starts the configured OIDC challenge. */
+export function getExternalLoginStartUrl(returnUrl = "/login/callback"): string {
+  const base = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+  const path = `/api/v1/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+  return `${base}${path}`;
 }

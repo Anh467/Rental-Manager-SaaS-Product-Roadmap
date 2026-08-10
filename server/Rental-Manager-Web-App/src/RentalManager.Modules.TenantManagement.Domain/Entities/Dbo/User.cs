@@ -6,7 +6,7 @@ namespace RentalManager.Modules.TenantManagement.Domain.Entities.Dbo;
 
 /// <summary>
 /// Global identity. Organization membership is stored in
-/// <c>[org].[OrganizationUser]</c>, so one user may belong to many organizations.
+/// <c>[org].[StaffMembership]</c>, so one user may belong to many organizations.
 /// </summary>
 [Table(nameof(User), Schema = DatabaseConstant.Schema.DBO)]
 public class User : IEntityAudit<Guid>, IConcurrencyAware
@@ -25,11 +25,15 @@ public class User : IEntityAudit<Guid>, IConcurrencyAware
 
     public required string DisplayName { get; set; }
 
-    public required string PasswordHash { get; set; }
-
     /// <summary>
-    /// Legacy PBKDF2 salt. Cleared after Identity rehash.
+    /// Retired credential columns. Authentication is delegated to the configured
+    /// external provider through <c>[dbo].[UserIdentity]</c>, so the runtime
+    /// never reads or writes these; they exist only until the historical data is
+    /// dropped by an explicit migration.
     /// </summary>
+    public string? PasswordHash { get; set; }
+
+    /// <inheritdoc cref="PasswordHash"/>
     public string? PasswordSalt { get; set; }
 
     public required string SecurityStamp { get; set; }

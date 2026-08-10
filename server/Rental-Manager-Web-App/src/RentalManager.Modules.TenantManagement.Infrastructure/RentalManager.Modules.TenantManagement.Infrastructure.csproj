@@ -14,6 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RentalManager.BuildingBlocks.Contracts\RentalManager.BuildingBlocks.Contracts.csproj" />
     <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Domain\RentalManager.Modules.TenantManagement.Domain.csproj" />

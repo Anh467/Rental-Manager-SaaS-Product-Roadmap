@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentalManager.Modules.Identity.Infrastructure.Authorization;
-using RentalManager.Api.Contracts;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy.Cqrs;
 using RentalManager.Modules.TenantManagement.Application.GlobalFields;
 using RentalManager.Modules.TenantManagement.Application.GlobalFieldTypes.Queries;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
-using RentalManager.Modules.TenantManagement.Core.Constants;
 
 namespace RentalManager.Api.Controllers;
 

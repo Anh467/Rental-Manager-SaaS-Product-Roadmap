@@ -1,21 +1,18 @@
 using System.ComponentModel.DataAnnotations;
-using RentalManager.Modules.TenantManagement.Core.Constants;
-using RentalManager.Modules.TenantManagement.Core.Validation;
 
 namespace RentalManager.Modules.TenantManagement.Application.Models.Dtos;
 
+/// <summary>
+/// Semantic length/format rules live in <c>FieldValidator</c> so they map to
+/// HTTP 422. Keep this DTO free of DataAnnotations MaxLength/Required so ASP.NET
+/// ModelState is reserved for malformed JSON and binding failures (HTTP 400).
+/// </summary>
 public sealed record FieldOptionInput
 {
-    [Required]
-    [MaxLength(DefinitionConstants.InlineTextMaxLength)]
-    [DefinitionKey]
     public string? Key { get; init; }
 
-    [Required]
-    [MaxLength(DefinitionConstants.InlineTextMaxLength)]
     public string? Name { get; init; }
 
-    [MaxLength(DefinitionConstants.TextAreaMaxLength)]
     public string? Description { get; init; }
 
     public int DisplayOrder { get; init; }
@@ -25,16 +22,16 @@ public sealed record FieldOptionInput
 
 public sealed record CreateFieldRequest
 {
+    // Missing basic request fields stay ModelState → 400. Format/length/business
+    // rules are enforced in FieldValidator → 422.
     [Required]
-    [MaxLength(DefinitionConstants.InlineTextMaxLength)]
-    [DefinitionKey]
     public string? Key { get; init; }
 
-    [Required]
-    [MaxLength(DefinitionConstants.InlineTextMaxLength)]
+    // AllowEmptyStrings: whitespace-only names must reach FieldValidator (422)
+    // instead of short-circuiting as ModelState 400.
+    [Required(AllowEmptyStrings = true)]
     public string? Name { get; init; }
 
-    [MaxLength(DefinitionConstants.TextAreaMaxLength)]
     public string? Description { get; init; }
 
     public int FieldTypeId { get; init; }
@@ -44,21 +41,20 @@ public sealed record CreateFieldRequest
     public IReadOnlyList<FieldOptionInput>? Options { get; init; }
 }
 
+/// <summary>
+/// No DataAnnotations semantic constraints: Update validation is entirely in
+/// FieldValidator so whitespace/overlong/nested option failures are 422.
+/// </summary>
 public sealed record UpdateFieldRequest
 {
-    [Required]
-    [MaxLength(DefinitionConstants.InlineTextMaxLength)]
     public string? Name { get; init; }
 
-    [MaxLength(DefinitionConstants.TextAreaMaxLength)]
     public string? Description { get; init; }
 
     /// <summary>
     /// Optional and immutable. Present only so an attempt to change it can be
     /// rejected explicitly rather than silently ignored.
     /// </summary>
-    [MaxLength(DefinitionConstants.InlineTextMaxLength)]
-    [DefinitionKey]
     public string? Key { get; init; }
 
     /// <summary>Optional and immutable, for the same reason as <see cref="Key"/>.</summary>

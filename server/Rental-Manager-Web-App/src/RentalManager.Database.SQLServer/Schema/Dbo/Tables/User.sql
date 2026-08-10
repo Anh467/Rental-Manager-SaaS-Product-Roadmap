@@ -1,5 +1,5 @@
 -- Global identity. Membership of one or more organizations is held by
--- [org].[OrganizationUser], not by columns on this table.
+-- [org].[StaffMembership], not by columns on this table.
 -- Identity Core columns live on this table (no AspNetUsers).
 CREATE TABLE [dbo].[User]
 (
@@ -13,8 +13,11 @@ CREATE TABLE [dbo].[User]
     [EmailConfirmed] BIT NOT NULL
         CONSTRAINT [DF_User_EmailConfirmed] DEFAULT (1),
     [DisplayName] NVARCHAR(256) NOT NULL,
-    [PasswordHash] NVARCHAR(512) NOT NULL,
-    -- Retained for legacy PBKDF2 verify until Identity rehash clears it.
+    -- Authentication is delegated to the configured external provider through
+    -- [dbo].[UserIdentity]; the runtime neither reads nor writes these two
+    -- columns. They stay nullable so historical rows are preserved until the
+    -- retired credential data is dropped in a later, explicit migration.
+    [PasswordHash] NVARCHAR(512) NULL,
     [PasswordSalt] NVARCHAR(512) NULL,
     [SecurityStamp] NVARCHAR(36) NOT NULL
         CONSTRAINT [DF_User_SecurityStamp] DEFAULT (CONVERT(NVARCHAR(36), NEWID())),

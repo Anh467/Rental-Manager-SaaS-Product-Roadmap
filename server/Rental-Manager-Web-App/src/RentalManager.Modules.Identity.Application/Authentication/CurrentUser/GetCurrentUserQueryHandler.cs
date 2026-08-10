@@ -7,7 +7,7 @@ namespace RentalManager.Modules.Identity.Application.Authentication.CurrentUser;
 
 public sealed class GetCurrentUserQueryHandler(
     ICurrentIdentity currentIdentity,
-    ICredentialAuthenticator credentialAuthenticator,
+    IUserAccountStore users,
     AuthenticationProfileBuilder profileBuilder)
     : IQueryHandler<GetCurrentUserQuery, CurrentUserDto>
 {
@@ -25,9 +25,9 @@ public sealed class GetCurrentUserQueryHandler(
         }
 
         AuthenticatedIdentity? identity =
-            await credentialAuthenticator.FindByIdAsync(userId, cancellationToken);
+            await users.FindActiveByIdAsync(userId, cancellationToken);
 
-        if (identity is null || !identity.IsActive)
+        if (identity is null)
         {
             throw new AuthenticationFailedException();
         }
@@ -36,6 +36,7 @@ public sealed class GetCurrentUserQueryHandler(
             identity,
             currentIdentity.Scope,
             currentIdentity.ActiveOrganizationId,
+            currentIdentity.StaffMembershipId,
             cancellationToken);
 
         return profileBuilder.ToCurrentUser(profile);

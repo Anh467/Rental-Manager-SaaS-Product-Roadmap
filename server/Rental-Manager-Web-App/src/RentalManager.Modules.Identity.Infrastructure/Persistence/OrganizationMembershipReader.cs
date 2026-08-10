@@ -14,14 +14,9 @@ public sealed class OrganizationMembershipReader(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        await using SqlConnection connection =
-            await connectionFactory.OpenConnectionAsync(cancellationToken);
-
-        IEnumerable<MembershipRow> rows = await connection.QueryAsync<MembershipRow>(
-            new CommandDefinition(
-                IdentitySqlStatements.ListActiveOrganizations,
-                new { UserId = userId },
-                cancellationToken: cancellationToken));
+        IReadOnlyList<MembershipRow> rows = await ListMembershipRowsAsync(
+            userId,
+            cancellationToken);
 
         return rows
             .Select(row => new OrganizationOptionDto(row.OrganizationId, row.Name))
@@ -33,14 +28,46 @@ public sealed class OrganizationMembershipReader(
         Guid organizationId,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<OrganizationOptionDto> organizations =
-            await ListActiveOrganizationsAsync(userId, cancellationToken);
+        return await GetActiveStaffMembershipIdAsync(
+            userId,
+            organizationId,
+            cancellationToken) is not null;
+    }
 
-        return organizations.Any(organization => organization.Id == organizationId);
+    public async Task<Guid?> GetActiveStaffMembershipIdAsync(
+        Guid userId,
+        Guid organizationId,
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<MembershipRow> rows = await ListMembershipRowsAsync(
+            userId,
+            cancellationToken);
+
+        return rows
+            .FirstOrDefault(row => row.OrganizationId == organizationId)
+            ?.StaffMembershipId;
+    }
+
+    private async Task<IReadOnlyList<MembershipRow>> ListMembershipRowsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        await using SqlConnection connection =
+            await connectionFactory.OpenConnectionAsync(cancellationToken);
+
+        IEnumerable<MembershipRow> rows = await connection.QueryAsync<MembershipRow>(
+            new CommandDefinition(
+                IdentitySqlStatements.ListActiveOrganizations,
+                new { UserId = userId },
+                cancellationToken: cancellationToken));
+
+        return rows.ToArray();
     }
 
     private sealed class MembershipRow
     {
+        public Guid StaffMembershipId { get; init; }
+
         public Guid OrganizationId { get; init; }
 
         public string Name { get; init; } = string.Empty;

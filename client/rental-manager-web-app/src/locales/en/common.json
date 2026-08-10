@@ -119,12 +119,12 @@
   },
   "login": {
     "title": "Rental Manager",
-    "subtitle": "Sign in to continue.",
-    "email": "Email",
-    "password": "Password",
+    "subtitle": "Sign in with your identity provider to continue.",
     "submit": "Sign in",
     "submitting": "Signing in...",
-    "failed": "Unable to sign in. Check your credentials and try again."
+    "failed": "Unable to sign in. Try again or contact your administrator.",
+    "callbackTitle": "Finishing sign-in",
+    "callbackSubtitle": "Completing your session..."
   },
   "selectOrganization": {
     "title": "Choose an organization",

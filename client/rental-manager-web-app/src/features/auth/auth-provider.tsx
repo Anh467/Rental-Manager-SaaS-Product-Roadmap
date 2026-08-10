@@ -2,10 +2,11 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
-import { clearCsrfToken, refreshCsrfToken } from "@/api/client";
+import { clearCsrfToken, refreshCsrfToken, requireResponseData } from "@/api/client";
 import {
   authQueries,
   getCsrf,
+  getExternalLoginStartUrl,
   isOrganizationSelectionRequired,
   login,
   logout as logoutRequest,
@@ -32,7 +33,10 @@ type AuthContextValue = {
   permissions: readonly string[];
   scope: AuthUser["scope"] | null;
   isLoading: boolean;
-  login: (credentials: LoginRequest) => Promise<AuthenticateResult>;
+  /** Completes sign-in after an external principal is present (or mock provider/subject). */
+  completeLogin: (payload?: LoginRequest) => Promise<AuthenticateResult>;
+  /** Starts the browser OIDC redirect to GET /api/v1/auth/login. */
+  startExternalLogin: (returnUrl?: string) => void;
   completeOrganizationSelection: (organizationId: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
@@ -40,25 +44,25 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 async function ensureFreshCsrf() {
-  await refreshCsrfToken(async () => (await getCsrf()).data.requestToken);
+  await refreshCsrfToken(async () => requireResponseData(await getCsrf()).requestToken);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const meQuery = useMeQuery(true);
 
-  const authenticate = useCallback(async (credentials: LoginRequest): Promise<AuthenticateResult> => {
+  const completeLogin = useCallback(async (payload: LoginRequest = {}): Promise<AuthenticateResult> => {
     await ensureFreshCsrf();
-    const loginResponse = await login({ payload: credentials });
+    const loginData = requireResponseData(await login({ payload }));
 
-    if (isOrganizationSelectionRequired(loginResponse.data)) {
+    if (isOrganizationSelectionRequired(loginData)) {
       setPendingOrganizationSelection({
-        selectionTicket: loginResponse.data.selectionTicket,
-        organizations: loginResponse.data.organizations,
+        selectionTicket: loginData.selectionTicket,
+        organizations: loginData.organizations,
       });
       return {
         status: "organizationSelectionRequired",
-        organizations: loginResponse.data.organizations,
+        organizations: loginData.organizations,
       };
     }
 
@@ -68,6 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { status: "authenticated", user: nextUser };
   }, [queryClient]);
 
+  const startExternalLogin = useCallback((returnUrl = "/login/callback") => {
+    window.location.assign(getExternalLoginStartUrl(returnUrl));
+  }, []);
+
   const completeOrganizationSelection = useCallback(async (organizationId: string) => {
     const pending = getPendingOrganizationSelection();
     if (!pending?.selectionTicket) {
@@ -75,14 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await ensureFreshCsrf();
-    const response = await selectOrganization({
+    const selected = requireResponseData(await selectOrganization({
       payload: {
         selectionTicket: pending.selectionTicket,
         organizationId,
       },
-    });
+    }));
 
-    if (isOrganizationSelectionRequired(response.data)) {
+    if (isOrganizationSelectionRequired(selected)) {
       throw new Error("Organization selection did not complete.");
     }
 
@@ -108,10 +116,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     permissions: meQuery.data?.permissions ?? [],
     scope: meQuery.data?.scope ?? null,
     isLoading: meQuery.isPending,
-    login: authenticate,
+    completeLogin,
+    startExternalLogin,
     completeOrganizationSelection,
     logout,
-  }), [authenticate, completeOrganizationSelection, logout, meQuery.data, meQuery.isPending]);
+  }), [
+    completeLogin,
+    completeOrganizationSelection,
+    logout,
+    meQuery.data,
+    meQuery.isPending,
+    startExternalLogin,
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

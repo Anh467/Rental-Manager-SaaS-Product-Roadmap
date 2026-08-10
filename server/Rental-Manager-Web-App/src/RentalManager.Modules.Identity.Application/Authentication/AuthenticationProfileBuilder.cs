@@ -2,56 +2,31 @@ using RentalManager.BuildingBlocks.Tenancy.Services;
 using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.Identity.Application.Contracts;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
-using DboRolePermissionRepository =
-    RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo.IRolePermissionRepository;
 
 namespace RentalManager.Modules.Identity.Application.Authentication;
 
 public sealed class AuthenticationProfileBuilder(
     OrganizationContextAccessor organizationContextAccessor,
     IPermissionReader permissionReader,
-    IRoleRepository roles,
-    DboRolePermissionRepository globalRolePermissions)
+    IPlatformPermissionReader platformPermissionReader)
 {
     public async Task<AuthenticationResultDto> BuildAsync(
         AuthenticatedIdentity identity,
         string scope,
         Guid? organizationId,
+        Guid? staffMembershipId,
         CancellationToken cancellationToken)
     {
         organizationContextAccessor.SetUser(identity.UserId);
 
-        if (organizationId is Guid orgId)
+        if (organizationId is Guid orgId && staffMembershipId is Guid membershipId)
         {
-            organizationContextAccessor.SetOrganization(orgId);
+            organizationContextAccessor.SetOrganization(orgId, membershipId);
         }
 
         if (string.Equals(scope, IdentityClaimNames.ScopeGlobal, StringComparison.Ordinal))
         {
-            if (identity.GlobalRoleId is not Guid roleId)
-            {
-                throw new InvalidOperationException(
-                    "A global authentication profile requires a global role.");
-            }
-
-            var role = await roles.GetAsync(roleId, cancellationToken)
-                ?? throw new InvalidOperationException(
-                    "The global role assigned to the user was not found.");
-
-            IReadOnlySet<string> permissions =
-                await globalRolePermissions.GetPermissionKeysByRoleAsync(
-                    roleId,
-                    cancellationToken);
-
-            return new AuthenticationResultDto(
-                identity.UserId,
-                identity.DisplayName,
-                identity.Email,
-                IdentityClaimNames.ScopeGlobal,
-                null,
-                new RoleSummaryDto(role.Key, role.Name),
-                permissions.ToArray());
+            return await BuildGlobalAsync(identity, cancellationToken);
         }
 
         IReadOnlySet<string> orgPermissions =
@@ -63,6 +38,7 @@ public sealed class AuthenticationProfileBuilder(
             identity.UserId,
             identity.DisplayName,
             identity.Email,
+            identity.IsActive,
             IdentityClaimNames.ScopeOrganization,
             organizationId,
             null,
@@ -74,8 +50,44 @@ public sealed class AuthenticationProfileBuilder(
             authentication.Id,
             authentication.Name,
             authentication.Email,
+            authentication.IsActive,
             authentication.Scope,
             authentication.OrganizationId,
             authentication.Role,
             authentication.Permissions);
+
+    private async Task<AuthenticationResultDto> BuildGlobalAsync(
+        AuthenticatedIdentity identity,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlySet<string> permissions =
+            await platformPermissionReader.GetPermissionKeysAsync(
+                identity.UserId,
+                cancellationToken);
+
+        PlatformRoleSummary? platformRole =
+            await platformPermissionReader.GetPrimaryRoleAsync(
+                identity.UserId,
+                cancellationToken);
+
+        RoleSummaryDto? roleSummary = platformRole is null
+            ? null
+            : new RoleSummaryDto(platformRole.Key, platformRole.Name);
+
+        if (roleSummary is null && permissions.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "A global authentication profile requires an active platform role.");
+        }
+
+        return new AuthenticationResultDto(
+            identity.UserId,
+            identity.DisplayName,
+            identity.Email,
+            identity.IsActive,
+            IdentityClaimNames.ScopeGlobal,
+            null,
+            roleSummary,
+            permissions.ToArray());
+    }
 }

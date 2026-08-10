@@ -22,6 +22,9 @@ public sealed class CurrentIdentity(IHttpContextAccessor httpContextAccessor)
     public Guid? ActiveOrganizationId =>
         ReadGuid(IdentityClaimNames.ActiveOrganizationId);
 
+    public Guid? StaffMembershipId =>
+        ReadGuid(IdentityClaimNames.StaffMembershipId);
+
     private Guid? ReadGuid(string claimType)
     {
         string? raw = httpContextAccessor.HttpContext?.User.FindFirstValue(claimType);

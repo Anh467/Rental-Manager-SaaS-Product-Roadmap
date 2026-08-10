@@ -1,4 +1,4 @@
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 
 namespace RentalManager.Modules.TenantManagement.Core.Exceptions;
 

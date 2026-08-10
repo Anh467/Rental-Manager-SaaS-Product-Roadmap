@@ -1,4 +1,4 @@
-import { isAxiosError } from "axios";
+import { isAxiosError, type AxiosError } from "axios";
 
 import type {
   ApiError,
@@ -8,13 +8,25 @@ import type {
   ApiSuccessResponse,
   ErrorMessageKey,
 } from "./types";
+import { isActiveSuccessMessageKey, isKnownErrorMessageKey } from "./message-catalog";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
 export function isApiSuccessResponse<T>(value: unknown): value is ApiSuccessResponse<T> {
-  return isRecord(value) && value.success === true && "data" in value;
+  return (
+    isRecord(value) &&
+    value.success === true &&
+    typeof value.messageKey === "string" &&
+    isActiveSuccessMessageKey(value.messageKey) &&
+    isNonEmptyString(value.correlationId) &&
+    "data" in value
+  );
 }
 
 export function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
@@ -22,7 +34,8 @@ export function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
     isRecord(value) &&
     value.success === false &&
     typeof value.messageKey === "string" &&
-    value.messageKey.startsWith("ERR-")
+    isKnownErrorMessageKey(value.messageKey) &&
+    isNonEmptyString(value.correlationId)
   );
 }
 
@@ -65,12 +78,42 @@ export function createApiError(
   return error;
 }
 
-export function toApiError(error: unknown): ApiError {
+/**
+ * Reads the error body for an Axios error, converting a Blob/ArrayBuffer
+ * payload back into JSON when the server responded with a JSON error
+ * envelope. This matters for requests made with `responseType: "blob"` or
+ * `"arraybuffer"`, where Axios does not know that an *error* response has a
+ * different content type than the success response the caller expected.
+ */
+async function resolveErrorPayload(error: AxiosError): Promise<unknown> {
+  const data: unknown = error.response?.data;
+
+  if (typeof Blob !== "undefined" && data instanceof Blob) {
+    if (!data.type.toLowerCase().includes("json")) return undefined;
+    try {
+      return JSON.parse(await data.text());
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (typeof ArrayBuffer !== "undefined" && data instanceof ArrayBuffer) {
+    try {
+      return JSON.parse(new TextDecoder().decode(data));
+    } catch {
+      return undefined;
+    }
+  }
+
+  return data;
+}
+
+export async function toApiError(error: unknown): Promise<ApiError> {
   if (isApiError(error)) return error;
 
   if (isAxiosError(error)) {
     const status = error.response?.status ?? 0;
-    const payload = error.response?.data;
+    const payload = await resolveErrorPayload(error);
     return createApiError(
       status,
       isApiErrorResponse(payload) ? payload : undefined,
@@ -81,9 +124,31 @@ export function toApiError(error: unknown): ApiError {
   return createApiError(500, undefined, error);
 }
 
-export function normalizeSuccessResponse<T>(value: unknown): ApiSuccessResponse<T> {
+/**
+ * Strictly validates that a response body is the success envelope: `success
+ * === true`, a catalog-active `messageKey`, a non-empty `correlationId`, and a
+ * `data` property (which may be null). Arbitrary JSON is never silently
+ * accepted as a success response — an unrecognized shape is a contract
+ * violation and is reported as `ERR-050`, not wrapped.
+ */
+export function parseSuccessResponse<T>(value: unknown): ApiSuccessResponse<T> {
   if (isApiSuccessResponse<T>(value)) return value;
-  return { success: true, data: value as T };
+  throw createApiError(500, { messageKey: "ERR-050" });
+}
+
+/**
+ * Endpoints that contractually return a non-null `data` payload. A null data
+ * body is a contract violation (distinct from HTTP 204, which has no body).
+ */
+export function requireResponseData<T>(response: ApiSuccessResponse<T>): T {
+  if (response.data === null) {
+    throw createApiError(500, {
+      messageKey: "ERR-050",
+      correlationId: response.correlationId,
+    });
+  }
+
+  return response.data;
 }
 
 export function getPaginationQueryParams({

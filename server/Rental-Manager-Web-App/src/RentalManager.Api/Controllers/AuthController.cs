@@ -1,20 +1,33 @@
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
-using RentalManager.Api.Contracts;
+using RentalManager.BuildingBlocks.Contracts;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.BuildingBlocks.Tenancy.Cqrs;
+using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.Identity.Application.Authentication.CurrentUser;
 using RentalManager.Modules.Identity.Application.Authentication.Login;
 using RentalManager.Modules.Identity.Application.Authentication.Logout;
 using RentalManager.Modules.Identity.Application.Authentication.SelectOrganization;
 using RentalManager.Modules.Identity.Application.Contracts;
-using RentalManager.Modules.TenantManagement.Core.Constants;
 using RentalManager.Modules.TenantManagement.Core.Exceptions;
 
 namespace RentalManager.Api.Controllers;
 
-public sealed record LoginRequest(string? Email, string? Password);
+/// <summary>
+/// Completes a sign-in for an identity the request has already been verified
+/// as. The fields are only a hint for a Development deployment that has opted
+/// into request-supplied identities; a production deployment ignores them and
+/// uses the principal established by the provider.
+/// </summary>
+public sealed record ExternalLoginRequest(
+    string? Provider,
+    string? Subject,
+    string? Email,
+    string? DisplayName);
 
 public sealed record SelectOrganizationRequest(
     string? SelectionTicket,
@@ -30,12 +43,19 @@ public sealed record OrganizationSelectionResponse(
 [ApiController]
 [Route("api/v1/auth")]
 public sealed class AuthController(
-    ICommandHandler<LoginCommand, LoginResult> login,
+    ICommandHandler<ExternalLoginCommand, LoginResult> login,
     ICommandHandler<SelectOrganizationCommand, LoginResult> selectOrganization,
     ICommandHandler<LogoutCommand> logout,
     IQueryHandler<GetCurrentUserQuery, CurrentUserDto> getCurrentUser,
+    IExternalLoginChallengeFactory challengeFactory,
     IAntiforgery antiforgery) : ControllerBase
 {
+    /// <summary>
+    /// Safe, static identifier reported when no provider is configured; never a
+    /// provider name, authority URL or error detail.
+    /// </summary>
+    private const string IdentityProviderService = "identityProvider";
+
     [HttpGet("csrf")]
     [AllowAnonymous]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
@@ -50,17 +70,45 @@ public sealed class AuthController(
             correlationId: HttpContext.TraceIdentifier));
     }
 
+    /// <summary>
+    /// Starts a sign-in by challenging the configured provider. The browser is
+    /// sent to the provider and, after it redirects back, lands on a local path
+    /// where the SPA completes the sign-in.
+    /// </summary>
+    [HttpGet("login")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public IActionResult StartLogin([FromQuery] string? returnUrl)
+    {
+        if (!challengeFactory.IsConfigured)
+        {
+            throw new ExternalServiceUnavailableException(IdentityProviderService);
+        }
+
+        ExternalLoginChallenge challenge = challengeFactory.Create(returnUrl);
+
+        return Challenge(
+            new AuthenticationProperties { RedirectUri = challenge.RedirectUri },
+            challenge.Scheme);
+    }
+
+    /// <summary>
+    /// Completes a sign-in for the verified external identity on the request and
+    /// issues the application session.
+    /// </summary>
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting("auth")]
     public async Task<ActionResult<ApiResponse<object>>> LoginAsync(
-        [FromBody] LoginRequest request,
+        [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] ExternalLoginRequest? request,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(request);
-
         LoginResult result = await login.HandleAsync(
-            new LoginCommand(request.Email, request.Password),
+            new ExternalLoginCommand(
+                request?.Provider,
+                request?.Subject,
+                request?.Email,
+                request?.DisplayName),
             cancellationToken);
 
         return MapLoginResult(result);
@@ -93,7 +141,7 @@ public sealed class AuthController(
 
         return Ok(ApiResponse<object>.Create(
             null,
-            MessageCode.Success.SignedIn,
+            MessageCode.Success.SignedOut,
             correlationId: HttpContext.TraceIdentifier));
     }
 

@@ -2,34 +2,31 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using RentalManager.Modules.Identity.Application.Abstractions;
 using RentalManager.Modules.TenantManagement.Application.Abstractions.Authorization;
-using RentalManager.Modules.TenantManagement.Application.Abstractions.Persistence.Dbo;
 
 namespace RentalManager.Modules.Identity.Infrastructure.Authorization;
 
 /// <summary>
 /// Resolves the caller's permissions for the organization currently bound to the
-/// request. Missing identity or permission fails closed (403). Infrastructure
-/// failures propagate so they become 500 via the exception middleware.
+/// request, or the union of PlatformRole permissions for a global-scope session.
+/// Missing identity or permission fails closed (403). Infrastructure failures
+/// propagate so they become 500 via the exception middleware.
 /// </summary>
 public sealed class PermissionAuthorizationHandler :
     AuthorizationHandler<PermissionRequirement>
 {
     private readonly IPermissionReader _permissionReader;
-    private readonly IUserRepository _users;
-    private readonly IRolePermissionRepository _globalRolePermissions;
+    private readonly IPlatformPermissionReader _platformPermissionReader;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     private IReadOnlySet<string>? _cachedPermissions;
 
     public PermissionAuthorizationHandler(
         IPermissionReader permissionReader,
-        IUserRepository users,
-        IRolePermissionRepository globalRolePermissions,
+        IPlatformPermissionReader platformPermissionReader,
         IHttpContextAccessor httpContextAccessor)
     {
         _permissionReader = permissionReader;
-        _users = users;
-        _globalRolePermissions = globalRolePermissions;
+        _platformPermissionReader = platformPermissionReader;
         _httpContextAccessor = httpContextAccessor;
     }
 
@@ -57,14 +54,9 @@ public sealed class PermissionAuthorizationHandler :
                      IdentityClaimNames.ScopeGlobal,
                      StringComparison.Ordinal))
         {
-            var user = await _users.GetAsync(userId, cancellationToken);
-            if (user?.GlobalRoleId is not Guid roleId)
-            {
-                return;
-            }
-
-            _cachedPermissions ??= await _globalRolePermissions
-                .GetPermissionKeysByRoleAsync(roleId, cancellationToken);
+            _cachedPermissions ??= await _platformPermissionReader.GetPermissionKeysAsync(
+                userId,
+                cancellationToken);
         }
         else
         {

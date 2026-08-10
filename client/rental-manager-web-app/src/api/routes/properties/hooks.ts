@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { mergeMessageParameters } from "@/api/client";
+import { mergeMessageParameters, requireResponseData } from "@/api/client";
 import { translateApiMessage } from "@/i18n/api-message";
 import { createProperty, deleteProperty, updateProperty } from "./requests";
 import { propertiesQueryStore, propertyQueries } from "./queries";
@@ -26,7 +26,7 @@ export function useCreatePropertyMutation() {
         mergeMessageParameters({ object: "property" }, response.parameters),
       ));
       await queryClient.invalidateQueries({ queryKey: propertiesQueryStore.list._def });
-      return response.data;
+      return requireResponseData(response);
     },
   });
 }
@@ -41,9 +41,10 @@ export function useUpdatePropertyMutation(propertyId: string) {
         response.messageKey ?? "SCS-002",
         mergeMessageParameters({ object: "property" }, response.parameters),
       ));
-      queryClient.setQueryData(propertiesQueryStore.detail(propertyId).queryKey, response.data);
+      const property = requireResponseData(response);
+      queryClient.setQueryData(propertiesQueryStore.detail(propertyId).queryKey, property);
       await queryClient.invalidateQueries({ queryKey: propertiesQueryStore.list._def });
-      return response.data;
+      return property;
     },
   });
 }

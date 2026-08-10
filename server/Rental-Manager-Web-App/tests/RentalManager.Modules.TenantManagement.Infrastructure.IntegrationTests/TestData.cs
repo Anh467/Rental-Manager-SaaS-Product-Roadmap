@@ -6,7 +6,11 @@
 /// </summary>
 internal static class TestData
 {
-    public const string Password = "Integration_Test_Password_1!";
+    /// <summary>
+    /// The provider key the seeded identity mappings use. It matches the default
+    /// allow-list, so the tests exercise the same policy production does.
+    /// </summary>
+    public const string Provider = "oidc";
 
     public static class OrganizationA
     {
@@ -37,16 +41,31 @@ internal static class TestData
 
         public const string AdministratorAEmail = "admin.a@rentalmanager.test";
 
+        public const string AdministratorASubject = "administrator-a-subject";
+
         /// <summary>Only <c>field.view</c> in organization A.</summary>
         public static readonly Guid ViewerAId =
             Guid.Parse("11111111-0000-0000-0000-000000000002");
 
         public const string ViewerAEmail = "viewer.a@rentalmanager.test";
 
+        public const string ViewerASubject = "viewer-a-subject";
+
         /// <summary>Every field permission, but in organization B.</summary>
         public static readonly Guid AdministratorBId =
             Guid.Parse("11111111-0000-0000-0000-000000000003");
 
         public const string AdministratorBEmail = "admin.b@rentalmanager.test";
+
+        public const string AdministratorBSubject = "administrator-b-subject";
+
+        public static readonly Guid AdministratorAIdentityId =
+            Guid.Parse("22222222-0000-0000-0000-000000000001");
+
+        public static readonly Guid ViewerAIdentityId =
+            Guid.Parse("22222222-0000-0000-0000-000000000002");
+
+        public static readonly Guid AdministratorBIdentityId =
+            Guid.Parse("22222222-0000-0000-0000-000000000003");
     }
 }

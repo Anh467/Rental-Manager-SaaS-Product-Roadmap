@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { mergeMessageParameters } from "@/api/client";
+import { mergeMessageParameters, requireResponseData } from "@/api/client";
 import { translateApiMessage } from "@/i18n/api-message";
 import {
   changeGlobalFieldStatus,
@@ -39,7 +39,7 @@ export function useCreateGlobalFieldMutation() {
     onSuccess: async (response) => {
       toast.success(translateApiMessage(response.messageKey ?? "SCS-001", mergeMessageParameters({ object: "field" }, response.parameters)));
       await invalidate();
-      return response.data;
+      return requireResponseData(response);
     },
   });
 }
@@ -51,9 +51,10 @@ export function useUpdateGlobalFieldMutation(fieldId: string) {
     mutationFn: (payload: UpdateGlobalFieldRequest) => updateGlobalField({ fieldId }, { payload }),
     onSuccess: async (response) => {
       toast.success(translateApiMessage(response.messageKey ?? "SCS-002", mergeMessageParameters({ object: "field" }, response.parameters)));
-      queryClient.setQueryData(globalFieldsQueryStore.detail(fieldId).queryKey, response.data);
+      const field = requireResponseData(response);
+      queryClient.setQueryData(globalFieldsQueryStore.detail(fieldId).queryKey, field);
       await invalidate();
-      return response.data;
+      return field;
     },
   });
 }

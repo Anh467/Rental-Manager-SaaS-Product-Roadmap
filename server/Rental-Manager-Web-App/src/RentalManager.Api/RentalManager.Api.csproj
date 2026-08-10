@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RentalManager.BuildingBlocks.Contracts\RentalManager.BuildingBlocks.Contracts.csproj" />
     <ProjectReference Include="..\RentalManager.BuildingBlocks.Tenancy\RentalManager.BuildingBlocks.Tenancy.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.Identity.Infrastructure\RentalManager.Modules.Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\RentalManager.Modules.TenantManagement.Application\RentalManager.Modules.TenantManagement.Application.csproj" />
@@ -21,6 +22,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests" />
+    <InternalsVisibleTo Include="RentalManager.Api.UnitTests" />
   </ItemGroup>
 
 </Project>

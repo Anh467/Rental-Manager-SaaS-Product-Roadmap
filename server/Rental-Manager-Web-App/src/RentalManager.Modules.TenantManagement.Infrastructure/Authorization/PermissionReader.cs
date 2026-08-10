@@ -5,30 +5,25 @@ namespace RentalManager.Modules.TenantManagement.Infrastructure.Authorization;
 
 /// <summary>
 /// Resolves membership and permissions for the organization currently bound to
-/// the session. Membership comes from <c>[org].[OrganizationUser]</c>, so one
-/// user may belong to many organizations with a different role in each.
+/// the session. Membership comes from <c>[org].[StaffMembership]</c>; effective
+/// permissions are the union of active <c>[org].[StaffRole]</c> rows mapped to
+/// active organization roles.
 /// </summary>
 public sealed class PermissionReader : IPermissionReader
 {
-    private readonly IOrganizationUserRepository _organizationUsers;
-    private readonly IRolePermissionRepository _rolePermissions;
+    private readonly IStaffMembershipRepository _staffMemberships;
 
-    public PermissionReader(
-        IOrganizationUserRepository organizationUsers,
-        IRolePermissionRepository rolePermissions)
+    public PermissionReader(IStaffMembershipRepository staffMemberships)
     {
-        ArgumentNullException.ThrowIfNull(organizationUsers);
-        ArgumentNullException.ThrowIfNull(rolePermissions);
-
-        _organizationUsers = organizationUsers;
-        _rolePermissions = rolePermissions;
+        ArgumentNullException.ThrowIfNull(staffMemberships);
+        _staffMemberships = staffMemberships;
     }
 
     public async Task<bool> IsActiveMemberAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        return await _organizationUsers.GetActiveRoleIdAsync(
+        return await _staffMemberships.GetActiveStaffMembershipIdAsync(
             userId,
             cancellationToken) is not null;
     }
@@ -37,18 +32,9 @@ public sealed class PermissionReader : IPermissionReader
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        Guid? roleId = await _organizationUsers.GetActiveRoleIdAsync(
-            userId,
-            cancellationToken);
-
-        if (roleId is null)
-        {
-            return new HashSet<string>(StringComparer.Ordinal);
-        }
-
         IReadOnlyCollection<string> keys =
-            await _rolePermissions.GetPermissionKeysByRoleAsync(
-                roleId.Value,
+            await _staffMemberships.GetPermissionKeysAsync(
+                userId,
                 cancellationToken);
 
         return keys.ToHashSet(StringComparer.Ordinal);

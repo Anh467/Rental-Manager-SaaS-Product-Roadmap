@@ -1,6 +1,7 @@
 :r .\SeedDatas\FieldType.sql
 :r .\SeedDatas\Permission.sql
 :r .\SeedDatas\GlobalAdminRole.sql
+:r .\SeedDatas\PlatformRoles.sql
 
 -- EXECUTE AS USER WITHOUT LOGIN for the membership procedure works when the
 -- database owner is a sysadmin (typically sa). Prefer that over TRUSTWORTHY.

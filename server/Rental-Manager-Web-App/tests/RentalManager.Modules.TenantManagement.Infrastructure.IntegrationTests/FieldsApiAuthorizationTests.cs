@@ -1,9 +1,10 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using RentalManager.Modules.TenantManagement.Application.Models.Dtos;
-using RentalManager.Modules.TenantManagement.Core.Constants;
+using RentalManager.BuildingBlocks.Contracts.Messaging;
 using RentalManager.Modules.TenantManagement.Core.Enums;
 using Xunit;
 
@@ -42,7 +43,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient viewer = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.ViewerAEmail,
+            TestData.Users.ViewerASubject,
             TestData.OrganizationA.Id);
 
         HttpResponseMessage read = await viewer.GetAsync("/api/v1/fields");
@@ -66,7 +67,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         HttpResponseMessage created = await administrator.PostAsJsonAsync(
@@ -118,7 +119,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         FieldDto field = await ReadFieldAsync(
@@ -156,14 +157,14 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient fromA = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         FieldDto field = await ReadFieldAsync(
             await fromA.PostAsJsonAsync("/api/v1/fields", NewFieldRequest("room_number")));
 
         using HttpClient fromB = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorBEmail,
+            TestData.Users.AdministratorBSubject,
             TestData.OrganizationB.Id);
 
         HttpResponseMessage response = await fromB.GetAsync($"/api/v1/fields/{field.Id}");
@@ -215,7 +216,7 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         administrator.DefaultRequestHeaders.Add(
@@ -234,15 +235,79 @@ public sealed class FieldsApiAuthorizationTests
         using var factory = new FieldsApiFactory(_fixture.ConnectionString);
 
         using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
-            TestData.Users.AdministratorAEmail,
+            TestData.Users.AdministratorASubject,
             TestData.OrganizationA.Id);
 
         HttpResponseMessage response = await administrator.PostAsJsonAsync(
             "/api/v1/fields",
             new
             {
-                key = "  ",
-                name = "",
+                // Passes ASP.NET DataAnnotations (non-empty name, valid key) so
+                // model binding does not short-circuit as 400. FieldValidator then
+                // rejects the unknown field type and missing selection options.
+                key = "valid.key",
+                name = "Valid Name",
+                fieldTypeId = (int)EFieldType.Selection
+            });
+
+        // Semantically valid JSON that fails field/business validation is 422.
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+
+        ErrorEnvelope error =
+            await response.Content.ReadFromJsonAsync<ErrorEnvelope>(FieldsApiFactory.Json)
+            ?? throw new InvalidOperationException("Empty error body.");
+
+        Assert.False(error.Success);
+        Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
+        Assert.NotNull(error.FieldErrors);
+        Assert.Contains(
+            error.FieldErrors,
+            fieldError => fieldError.FieldKey == "options");
+    }
+
+    [Fact]
+    public async Task Malformed_json_is_reported_as_400()
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        using var content = new StringContent(
+            "{ key: not-json }",
+            Encoding.UTF8,
+            "application/json");
+
+        HttpResponseMessage response = await administrator.PostAsync("/api/v1/fields", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        ErrorEnvelope error =
+            await response.Content.ReadFromJsonAsync<ErrorEnvelope>(FieldsApiFactory.Json)
+            ?? throw new InvalidOperationException("Empty error body.");
+
+        Assert.False(error.Success);
+        Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
+        Assert.False(string.IsNullOrWhiteSpace(error.CorrelationId));
+    }
+
+    [Fact]
+    public async Task Missing_required_field_is_reported_as_400()
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        HttpResponseMessage response = await administrator.PostAsJsonAsync(
+            "/api/v1/fields",
+            new
+            {
+                name = "Has name",
                 fieldTypeId = (int)EFieldType.Text
             });
 
@@ -254,9 +319,246 @@ public sealed class FieldsApiAuthorizationTests
 
         Assert.False(error.Success);
         Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
-        Assert.NotNull(error.FieldErrors);
-        Assert.Contains(error.FieldErrors, fieldError => fieldError.FieldKey == "key");
-        Assert.Contains(error.FieldErrors, fieldError => fieldError.FieldKey == "name");
+        Assert.Contains(
+            error.FieldErrors ?? [],
+            fieldError => fieldError.FieldKey == "key");
+    }
+
+    [Fact]
+    public async Task Overlong_name_is_reported_as_422()
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        HttpResponseMessage response = await administrator.PostAsJsonAsync(
+            "/api/v1/fields",
+            new
+            {
+                key = "valid.key",
+                name = new string('x', 300),
+                fieldTypeId = (int)EFieldType.Text
+            });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+
+        ErrorEnvelope error =
+            await response.Content.ReadFromJsonAsync<ErrorEnvelope>(FieldsApiFactory.Json)
+            ?? throw new InvalidOperationException("Empty error body.");
+
+        Assert.False(error.Success);
+        Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
+        Assert.Contains(
+            error.FieldErrors ?? [],
+            fieldError => fieldError.FieldKey == "name");
+    }
+
+    [Fact]
+    public async Task Whitespace_only_name_is_reported_as_422()
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        HttpResponseMessage response = await administrator.PostAsJsonAsync(
+            "/api/v1/fields",
+            new
+            {
+                key = "valid.key",
+                name = "   ",
+                fieldTypeId = (int)EFieldType.Text
+            });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+
+        ErrorEnvelope error =
+            await response.Content.ReadFromJsonAsync<ErrorEnvelope>(FieldsApiFactory.Json)
+            ?? throw new InvalidOperationException("Empty error body.");
+
+        Assert.False(error.Success);
+        Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
+        Assert.Contains(
+            error.FieldErrors ?? [],
+            fieldError => fieldError.FieldKey == "name");
+    }
+
+    [Fact]
+    public async Task Wrong_json_token_type_for_numeric_property_is_400()
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        using var content = new StringContent(
+            """{"key":"valid.key","name":"Valid","fieldTypeId":{"nested":true}}""",
+            Encoding.UTF8,
+            "application/json");
+
+        HttpResponseMessage response = await administrator.PostAsync("/api/v1/fields", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertCanonicalValidationErrorAsync(response);
+    }
+
+    [Fact]
+    public async Task Empty_body_when_required_is_400()
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        using var content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
+        HttpResponseMessage response = await administrator.PostAsync("/api/v1/fields", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        await AssertCanonicalValidationErrorAsync(response);
+    }
+
+    [Fact]
+    public async Task Put_whitespace_only_name_is_reported_as_422()
+    {
+        FieldDto field = await CreateFieldForUpdateAsync("put.whitespace");
+
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        HttpResponseMessage response = await administrator.PutAsJsonAsync(
+            $"/api/v1/fields/{field.Id}",
+            new
+            {
+                name = "   ",
+                isActive = true,
+                rowVersion = field.RowVersion
+            });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        ErrorEnvelope error = await ReadErrorAsync(response);
+        Assert.Contains(
+            error.FieldErrors ?? [],
+            fieldError => fieldError.FieldKey == "name");
+    }
+
+    [Fact]
+    public async Task Put_overlong_name_is_reported_as_422()
+    {
+        FieldDto field = await CreateFieldForUpdateAsync("put.overlong");
+
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        HttpResponseMessage response = await administrator.PutAsJsonAsync(
+            $"/api/v1/fields/{field.Id}",
+            new
+            {
+                name = new string('x', 300),
+                isActive = true,
+                rowVersion = field.RowVersion
+            });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        ErrorEnvelope error = await ReadErrorAsync(response);
+        Assert.Contains(
+            error.FieldErrors ?? [],
+            fieldError => fieldError.FieldKey == "name");
+    }
+
+    [Fact]
+    public async Task Put_overlong_nested_option_name_is_reported_as_422()
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        HttpResponseMessage created = await administrator.PostAsJsonAsync(
+            "/api/v1/fields",
+            new
+            {
+                key = "put.option.overlong",
+                name = "Selection field",
+                fieldTypeId = (int)EFieldType.Selection,
+                options = new[]
+                {
+                    new { key = "opt_a", name = "Option A", displayOrder = 1, isActive = true }
+                }
+            });
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        FieldDto field = await ReadFieldAsync(created);
+
+        HttpResponseMessage response = await administrator.PutAsJsonAsync(
+            $"/api/v1/fields/{field.Id}",
+            new
+            {
+                name = "Selection field",
+                isActive = true,
+                rowVersion = field.RowVersion,
+                options = new[]
+                {
+                    new
+                    {
+                        key = "opt_a",
+                        name = new string('y', 300),
+                        displayOrder = 1,
+                        isActive = true
+                    }
+                }
+            });
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        ErrorEnvelope error = await ReadErrorAsync(response);
+        Assert.Contains(
+            error.FieldErrors ?? [],
+            fieldError => fieldError.FieldKey == "options");
+    }
+
+    private async Task<FieldDto> CreateFieldForUpdateAsync(string key)
+    {
+        await _fixture.ResetOrgDataAsync();
+        using var factory = new FieldsApiFactory(_fixture.ConnectionString);
+
+        using HttpClient administrator = await factory.CreateAuthenticatedClientAsync(
+            TestData.Users.AdministratorASubject,
+            TestData.OrganizationA.Id);
+
+        HttpResponseMessage created = await administrator.PostAsJsonAsync(
+            "/api/v1/fields",
+            NewFieldRequest(key));
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        return await ReadFieldAsync(created);
+    }
+
+    private static async Task AssertCanonicalValidationErrorAsync(HttpResponseMessage response)
+    {
+        ErrorEnvelope error = await ReadErrorAsync(response);
+        Assert.False(error.Success);
+        Assert.Equal(MessageCode.Error.ValidationFailed, error.MessageKey);
+        Assert.False(string.IsNullOrWhiteSpace(error.CorrelationId));
+    }
+
+    private static async Task<ErrorEnvelope> ReadErrorAsync(HttpResponseMessage response)
+    {
+        return await response.Content.ReadFromJsonAsync<ErrorEnvelope>(FieldsApiFactory.Json)
+            ?? throw new InvalidOperationException("Empty error body.");
     }
 
     private static async Task AssertStatusAsync(
@@ -308,6 +610,7 @@ public sealed class FieldsApiAuthorizationTests
     private sealed record ErrorEnvelope(
         bool Success,
         string MessageKey,
+        string? CorrelationId,
         IReadOnlyList<FieldErrorPayload>? FieldErrors);
 
     private sealed record FieldErrorPayload(string FieldKey, string MessageKey);

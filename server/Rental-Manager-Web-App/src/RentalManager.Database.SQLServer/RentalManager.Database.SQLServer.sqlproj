@@ -44,6 +44,7 @@
     <Folder Include="Schema\Security\Permissions\" />
     <Folder Include="Schemas\" />
     <Folder Include="Scripts\" />
+    <Folder Include="Scripts\Cutover\" />
     <Folder Include="Scripts\PostDeployment\" />
     <Folder Include="Scripts\PostDeployment\SeedDatas\" />
   </ItemGroup>
