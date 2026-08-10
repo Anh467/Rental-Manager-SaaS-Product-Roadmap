@@ -30,11 +30,13 @@ public sealed record CreateFieldRequest
     [DefinitionKey]
     public string? Key { get; init; }
 
-    [Required]
-    [MaxLength(DefinitionConstants.InlineTextMaxLength)]
+    // Length / whitespace-only checks live in FieldValidator so semantic
+    // failures map to 422 rather than ASP.NET ModelState 400.
+    // AllowEmptyStrings: .NET Required treats whitespace as invalid by default,
+    // which would short-circuit as ModelState 400 before FieldValidator runs.
+    [Required(AllowEmptyStrings = true)]
     public string? Name { get; init; }
 
-    [MaxLength(DefinitionConstants.TextAreaMaxLength)]
     public string? Description { get; init; }
 
     public int FieldTypeId { get; init; }

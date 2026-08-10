@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests" />
+    <InternalsVisibleTo Include="RentalManager.Api.UnitTests" />
   </ItemGroup>
 
 </Project>
