@@ -40,7 +40,13 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
-        ArgumentException.ThrowIfNullOrWhiteSpace(subject);
+        // OIDC sub is opaque: only reject null/empty here. Whitespace-only values
+        // are refused by CK_UserIdentity_Subject / login validation; do not Trim.
+        ArgumentNullException.ThrowIfNull(subject);
+        if (subject.Length == 0)
+        {
+            throw new ArgumentException("Subject must be non-empty.", nameof(subject));
+        }
 
         await using SqlConnection connection =
             await connectionFactory.OpenConnectionAsync(cancellationToken);
@@ -75,7 +81,12 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Provider);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Subject);
+        ArgumentNullException.ThrowIfNull(request.Subject);
+        if (request.Subject.Length == 0)
+        {
+            throw new ArgumentException("Subject must be non-empty.", nameof(request));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Email);
 
         string provider = NormalizeProvider(request.Provider);
@@ -240,9 +251,20 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
                 transaction,
                 cancellationToken: cancellationToken));
 
-        return row is null
-            ? null
-            : new ExternalIdentityMapping(row.UserIdentityId, row.Provider, row.ToIdentity());
+        if (row is null)
+        {
+            return null;
+        }
+
+        // SubjectExactKey already distinguishes padding/case/Unicode; still verify
+        // the stored opaque subject with ordinal equality before trusting the row.
+        if (!string.Equals(row.Subject, subject, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "UserIdentity exact-key lookup returned a subject that failed ordinal verification.");
+        }
+
+        return new ExternalIdentityMapping(row.UserIdentityId, row.Provider, row.ToIdentity());
     }
 
     /// <summary>
@@ -288,5 +310,7 @@ public sealed class SqlUserAccountStore(IIdentityConnectionFactory connectionFac
         public Guid UserIdentityId { get; init; }
 
         public string Provider { get; init; } = string.Empty;
+
+        public string Subject { get; init; } = string.Empty;
     }
 }

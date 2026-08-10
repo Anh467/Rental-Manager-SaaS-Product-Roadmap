@@ -2,7 +2,7 @@ namespace RentalManager.Modules.Identity.Infrastructure.Persistence;
 
 internal static class IdentitySqlStatements
 {
-    public const string UserIdentityUniqueIndexName = "UX_UserIdentity_Provider_Subject";
+    public const string UserIdentityUniqueIndexName = "UX_UserIdentity_Provider_SubjectExactKey";
 
     public const string UserEmailUniqueIndexName = "UX_User_NormalizedEmail";
 
@@ -39,23 +39,24 @@ internal static class IdentitySqlStatements
         """;
 
     /// <summary>
-    /// The subject comparison is forced to a binary collation so a provider
-    /// subject differing only in case is a different identity, whatever the
-    /// database's default collation happens to be. The user is returned even
-    /// when inactive, so the caller can answer with the inactive message instead
-    /// of a misleading "not found".
+    /// Lookup uses the persisted UTF-16LE byte key so subjects that differ only
+    /// by trailing/leading whitespace, case, or Unicode code points are distinct
+    /// despite SQL Server string padding. The stored Subject is returned so the
+    /// caller can verify ordinal equality before trusting the row. The user is
+    /// returned even when inactive so the caller can answer with the inactive
+    /// message instead of a misleading "not found".
     /// </summary>
     public const string FindMappingByProviderAndSubject = $"""
         SELECT
             [mapping].[Id] AS [UserIdentityId],
             [mapping].[Provider],
+            [mapping].[Subject],
             {JoinedUserColumns}
         FROM [dbo].[UserIdentity] AS [mapping]
         INNER JOIN [dbo].[User] AS [account]
             ON [account].[Id] = [mapping].[UserId]
         WHERE [mapping].[Provider] = @Provider
-          AND [mapping].[Subject] COLLATE Latin1_General_BIN2 =
-              @Subject COLLATE Latin1_General_BIN2
+          AND [mapping].[SubjectExactKey] = CONVERT(VARBINARY(512), CAST(@Subject AS NVARCHAR(256)))
           AND [account].[DeletedAt] IS NULL;
         """;
 

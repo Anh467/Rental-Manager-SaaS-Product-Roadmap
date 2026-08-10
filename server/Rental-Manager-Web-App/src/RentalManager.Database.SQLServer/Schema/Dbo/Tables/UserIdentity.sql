@@ -8,10 +8,13 @@ CREATE TABLE [dbo].[UserIdentity]
     -- Stable provider key configured per deployment, for example N'oidc'.
     -- Compared case-insensitively under the database collation.
     [Provider] NVARCHAR(64) NOT NULL,
-    -- OpenID Connect 'sub'. Binary collation because a subject is
-    -- case-sensitive and two subjects differing only in case are two
-    -- different identities.
+    -- OpenID Connect 'sub' stored exactly as issued (no trim/normalize).
+    -- BIN2 alone is not enough for trailing-space identity: SQL Server ANSI
+    -- padding can treat N'abc' and N'abc ' as equal. SubjectExactKey holds the
+    -- exact UTF-16LE byte sequence of Subject so uniqueness and lookup are
+    -- character-for-character.
     [Subject] NVARCHAR(256) COLLATE Latin1_General_BIN2 NOT NULL,
+    [SubjectExactKey] AS (CONVERT(VARBINARY(512), [Subject])) PERSISTED NOT NULL,
     [CreatedAt] DATETIMEOFFSET NOT NULL,
     [UpdatedAt] DATETIMEOFFSET NOT NULL,
     [LastLoginAt] DATETIMEOFFSET NULL,
@@ -31,10 +34,11 @@ CREATE TABLE [dbo].[UserIdentity]
 );
 GO
 
--- Concurrent first logins for the same subject race on this constraint, which
--- is what makes provisioning idempotent rather than duplicating the user.
-CREATE UNIQUE NONCLUSTERED INDEX [UX_UserIdentity_Provider_Subject]
-    ON [dbo].[UserIdentity] ([Provider], [Subject]);
+-- Concurrent first logins for the same exact subject race on this constraint,
+-- which is what makes provisioning idempotent rather than duplicating the user.
+-- Uniqueness is on the exact byte key, not Subject text equality.
+CREATE UNIQUE NONCLUSTERED INDEX [UX_UserIdentity_Provider_SubjectExactKey]
+    ON [dbo].[UserIdentity] ([Provider], [SubjectExactKey]);
 GO
 
 CREATE NONCLUSTERED INDEX [IX_UserIdentity_UserId]

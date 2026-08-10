@@ -6,23 +6,29 @@
 --
 -- Clean publish (empty / DACPAC model)
 --   1. [dbo].[UserIdentity] is created from Schema/Dbo/Tables/UserIdentity.sql.
---   2. [dbo].[User].[PasswordHash] and [PasswordSalt] are nullable in the model.
+--   2. Persisted [SubjectExactKey] = CONVERT(VARBINARY(512), [Subject]) is part
+--      of the model. Unique index UX_UserIdentity_Provider_SubjectExactKey
+--      protects exact (Provider, Subject) identity including trailing spaces.
+--   3. [dbo].[User].[PasswordHash] and [PasswordSalt] are nullable in the model.
 --      New users are provisioned with NULL credential columns.
 --
 -- Upgrade from a password-hashing deployment
 --   1. Publish / dacpac deploy so PasswordHash/PasswordSalt become NULLABLE and
---      UserIdentity is created. Existing hashes are retained until an explicit
---      later drop migration; the runtime no longer reads or writes them.
---   2. For each live user that must keep signing in, insert a UserIdentity row:
+--      UserIdentity is created (or altered). Existing Subject values keep their
+--      exact characters; SubjectExactKey is computed/persisted automatically for
+--      every existing row (idempotent; no separate backfill DML required).
+--   2. Drop UX_UserIdentity_Provider_Subject if an older build still has it; the
+--      model unique index is UX_UserIdentity_Provider_SubjectExactKey.
+--   3. For each live user that must keep signing in, insert a UserIdentity row:
 --        INSERT INTO [dbo].[UserIdentity]
 --            ([Id], [UserId], [Provider], [Subject], [CreatedAt], [UpdatedAt], [LastLoginAt])
 --        VALUES
 --            (@Id, @UserId, @Provider, @Subject, SYSUTCDATETIME(), SYSUTCDATETIME(), NULL);
 --      Provider is the deployment's Authentication:External provider key.
---      Subject is the IdP 'sub' claim (case-sensitive; BIN2 collation).
---   3. Do not auto-link by email. Email collisions with a different
+--      Subject is the IdP 'sub' claim stored exactly (no trim/Unicode normalize).
+--   4. Do not auto-link by email. Email collisions with a different
 --      (Provider, Subject) are rejected at runtime with ERR-041.
---   4. BootstrapAdmin now takes Provider/Subject/Email/DisplayName only.
+--   5. BootstrapAdmin now takes Provider/Subject/Email/DisplayName only.
 --
 -- Residual credential columns
 --   PasswordHash/PasswordSalt remain on [dbo].[User] as nullable retired
@@ -31,8 +37,9 @@
 --   validation.
 --
 -- Validation checklist
---   - UX_UserIdentity_Provider_Subject rejects duplicate (Provider, Subject).
---   - Subject comparisons are case-sensitive.
+--   - UX_UserIdentity_Provider_SubjectExactKey rejects duplicate exact subjects.
+--   - N'abc' and N'abc ' coexist as two identities (ANSI padding does not merge).
+--   - Subject comparisons distinguish case and near-identical Unicode.
 --   - First-login provisioning creates User + UserIdentity in one transaction.
 --   - Inactive users are rejected with ERR-009; email conflicts with ERR-041.
 GO

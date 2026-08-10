@@ -78,7 +78,7 @@ public sealed class FirstLoginConcurrencyTests
             SELECT COUNT_BIG(1)
             FROM [dbo].[UserIdentity]
             WHERE [Provider] = @Provider
-              AND [Subject] = @Subject;
+              AND [SubjectExactKey] = CONVERT(VARBINARY(512), CAST(@Subject AS NVARCHAR(256)));
             """,
             new { Provider = TestData.Provider, Subject = subject });
 
