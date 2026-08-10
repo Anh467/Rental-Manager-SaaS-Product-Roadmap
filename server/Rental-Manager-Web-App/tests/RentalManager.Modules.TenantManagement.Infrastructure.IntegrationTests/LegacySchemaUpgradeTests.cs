@@ -10,6 +10,7 @@ namespace RentalManager.Modules.TenantManagement.Infrastructure.IntegrationTests
 /// Platform*), publish the current DACPAC over it, run SCRUM-81 cutover, then
 /// verify data and RLS. This must not start from the target DACPAC schema.
 /// </summary>
+[Collection(SqlServerCollection.Name)]
 public sealed class LegacySchemaUpgradeTests
 {
     private const string UpgradeDatabaseName = "RentalManagerLegacyUpgradeTests";
@@ -59,7 +60,8 @@ public sealed class LegacySchemaUpgradeTests
 
         var dbBuilder = new SqlConnectionStringBuilder(masterConnectionString)
         {
-            InitialCatalog = UpgradeDatabaseName
+            InitialCatalog = UpgradeDatabaseName,
+            ConnectTimeout = 60
         };
         string connectionString = dbBuilder.ConnectionString;
 
@@ -108,8 +110,13 @@ public sealed class LegacySchemaUpgradeTests
             await using (SqlConnection cutover = new(connectionString))
             {
                 await cutover.OpenAsync();
-                await cutover.ExecuteAsync(cutoverSql);
-                await cutover.ExecuteAsync(cutoverSql);
+                // Policy alter + MERGE under an open transaction can be slow on
+                // cold CI SQL Server; do not use the 30s Dapper default.
+                var cutoverCommand = new CommandDefinition(
+                    cutoverSql,
+                    commandTimeout: 180);
+                await cutover.ExecuteAsync(cutoverCommand);
+                await cutover.ExecuteAsync(cutoverCommand);
             }
 
             Assert.True(await IsIsolationPolicyEnabledAsync(connectionString));

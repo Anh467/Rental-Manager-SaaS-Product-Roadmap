@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace RentalManager.Api.Http;
@@ -14,9 +13,6 @@ internal static class ModelStateStatusResolver
     public static int Resolve(ActionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-
-        IModelMetadataProvider? metadataProvider = context.HttpContext.RequestServices
-            .GetService(typeof(IModelMetadataProvider)) as IModelMetadataProvider;
 
         foreach ((string key, ModelStateEntry? entry) in context.ModelState)
         {
@@ -33,73 +29,35 @@ internal static class ModelStateStatusResolver
                 }
             }
 
+            // Top-level body binding failures use an empty key.
             if (string.IsNullOrEmpty(key))
             {
                 return StatusCodes.Status400BadRequest;
             }
 
-            ModelMetadata? metadata = FindPropertyMetadata(context, metadataProvider, key);
-
-            bool missingValue = entry.RawValue is null
-                && string.IsNullOrEmpty(entry.AttemptedValue);
-
-            if (missingValue)
+            // A supplied value that fails MaxLength / format / similar constraints
+            // is semantic → 422. Only absent/empty basic input stays 400.
+            if (!HasAttemptedValue(entry))
             {
                 return StatusCodes.Status400BadRequest;
-            }
-
-            if (metadata?.IsRequired == true)
-            {
-                if (entry.RawValue is null)
-                {
-                    return StatusCodes.Status400BadRequest;
-                }
-
-                if (entry.RawValue is string text && text.Length == 0)
-                {
-                    return StatusCodes.Status400BadRequest;
-                }
             }
         }
 
         return StatusCodes.Status422UnprocessableEntity;
     }
 
-    private static ModelMetadata? FindPropertyMetadata(
-        ActionContext context,
-        IModelMetadataProvider? metadataProvider,
-        string key)
+    private static bool HasAttemptedValue(ModelStateEntry entry)
     {
-        if (metadataProvider is null)
+        if (entry.RawValue is string text)
         {
-            return null;
+            return text.Length > 0;
         }
 
-        string propertyName = key.Contains('.', StringComparison.Ordinal)
-            ? key[(key.LastIndexOf('.') + 1)..]
-            : key;
-
-        foreach (ParameterDescriptor parameter in context.ActionDescriptor.Parameters)
+        if (entry.RawValue is not null)
         {
-            if (parameter.BindingInfo?.BindingSource != BindingSource.Body)
-            {
-                continue;
-            }
-
-            ModelMetadata root = metadataProvider.GetMetadataForType(parameter.ParameterType);
-            foreach (ModelMetadata property in root.Properties)
-            {
-                if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(
-                        property.BinderModelName,
-                        propertyName,
-                        StringComparison.OrdinalIgnoreCase))
-                {
-                    return property;
-                }
-            }
+            return true;
         }
 
-        return null;
+        return !string.IsNullOrEmpty(entry.AttemptedValue);
     }
 }
