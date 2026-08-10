@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using RentalManager.BuildingBlocks.Contracts.Messaging;
 using Xunit;
 
@@ -6,8 +5,8 @@ namespace RentalManager.BuildingBlocks.Contracts.UnitTests;
 
 /// <summary>
 /// Cross-stack parity: canonical <see cref="MessageCatalog"/> must match the
-/// frontend TypeScript catalog and both locale trees. The C# catalog remains
-/// the single source of truth; this test fails CI when TS/locales drift.
+/// frontend TypeScript catalog and both locale trees. Duplicate keys are
+/// detected on the original lists before any HashSet conversion.
 /// </summary>
 public sealed class MessageCatalogParityTests
 {
@@ -25,75 +24,108 @@ public sealed class MessageCatalogParityTests
 
         string source = File.ReadAllText(catalogPath);
 
-        HashSet<string> frontendActiveSuccess = ParseConstArray(source, "ACTIVE_SUCCESS_MESSAGE_KEYS");
-        HashSet<string> frontendDeprecatedSuccess = ParseConstArray(source, "DEPRECATED_SUCCESS_MESSAGE_KEYS");
-        HashSet<string> frontendActiveError = ParseConstArray(source, "ACTIVE_ERROR_MESSAGE_KEYS");
-        HashSet<string> frontendDeprecatedError = ParseConstArray(source, "DEPRECATED_ERROR_MESSAGE_KEYS");
+        IReadOnlyList<string> frontendActiveSuccess =
+            MessageCatalogParityValidator.ParseConstArrayKeys(source, "ACTIVE_SUCCESS_MESSAGE_KEYS");
+        IReadOnlyList<string> frontendDeprecatedSuccess =
+            MessageCatalogParityValidator.ParseConstArrayKeys(source, "DEPRECATED_SUCCESS_MESSAGE_KEYS");
+        IReadOnlyList<string> frontendActiveError =
+            MessageCatalogParityValidator.ParseConstArrayKeys(source, "ACTIVE_ERROR_MESSAGE_KEYS");
+        IReadOnlyList<string> frontendDeprecatedError =
+            MessageCatalogParityValidator.ParseConstArrayKeys(source, "DEPRECATED_ERROR_MESSAGE_KEYS");
 
-        HashSet<string> backendActiveSuccess = MessageCatalog.All
+        IReadOnlyList<string> backendActiveSuccess = MessageCatalog.All
             .Where(d => d.Kind == MessageKind.Success && d.Lifecycle == MessageLifecycle.Active)
             .Select(d => d.Key)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToList();
 
-        HashSet<string> backendDeprecatedSuccess = MessageCatalog.All
+        IReadOnlyList<string> backendDeprecatedSuccess = MessageCatalog.All
             .Where(d => d.Kind == MessageKind.Success && d.Lifecycle == MessageLifecycle.Deprecated)
             .Select(d => d.Key)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToList();
 
-        HashSet<string> backendActiveError = MessageCatalog.All
+        IReadOnlyList<string> backendActiveError = MessageCatalog.All
             .Where(d => d.Kind == MessageKind.Error && d.Lifecycle == MessageLifecycle.Active)
             .Select(d => d.Key)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToList();
 
-        HashSet<string> backendDeprecatedError = MessageCatalog.All
+        IReadOnlyList<string> backendDeprecatedError = MessageCatalog.All
             .Where(d => d.Kind == MessageKind.Error && d.Lifecycle == MessageLifecycle.Deprecated)
             .Select(d => d.Key)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToList();
 
-        AssertSetsEqual("active success", backendActiveSuccess, frontendActiveSuccess);
-        AssertSetsEqual("deprecated success", backendDeprecatedSuccess, frontendDeprecatedSuccess);
-        AssertSetsEqual("active error", backendActiveError, frontendActiveError);
-        AssertSetsEqual("deprecated error", backendDeprecatedError, frontendDeprecatedError);
+        MessageCatalogParityValidator.AssertNoDuplicates(
+            "canonical MessageCatalog",
+            MessageCatalog.All.Select(d => d.Key).ToList());
+
+        MessageCatalogParityValidator.AssertSetsEqual(
+            "active success",
+            backendActiveSuccess,
+            frontendActiveSuccess);
+        MessageCatalogParityValidator.AssertSetsEqual(
+            "deprecated success",
+            backendDeprecatedSuccess,
+            frontendDeprecatedSuccess);
+        MessageCatalogParityValidator.AssertSetsEqual(
+            "active error",
+            backendActiveError,
+            frontendActiveError);
+        MessageCatalogParityValidator.AssertSetsEqual(
+            "deprecated error",
+            backendDeprecatedError,
+            frontendDeprecatedError);
     }
 
     [Fact]
     public void Locale_files_match_backend_canonical_catalog()
     {
-        HashSet<string> successKeys = MessageCatalog.All
+        IReadOnlyList<string> successKeys = MessageCatalog.All
             .Where(d => d.Kind == MessageKind.Success)
             .Select(d => d.Key)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToList();
 
-        HashSet<string> errorKeys = MessageCatalog.All
+        IReadOnlyList<string> errorKeys = MessageCatalog.All
             .Where(d => d.Kind == MessageKind.Error)
             .Select(d => d.Key)
-            .ToHashSet(StringComparer.Ordinal);
+            .ToList();
+
+        MessageCatalogParityValidator.AssertNoDuplicates("canonical success keys", successKeys);
+        MessageCatalogParityValidator.AssertNoDuplicates("canonical error keys", errorKeys);
 
         foreach (string locale in new[] { "en", "vi" })
         {
-            AssertSetsEqual(
+            string successPath = ResolvePath(
+                Path.Combine(
+                    "client",
+                    "rental-manager-web-app",
+                    "src",
+                    "locales",
+                    locale,
+                    "success.json"));
+            string errorPath = ResolvePath(
+                Path.Combine(
+                    "client",
+                    "rental-manager-web-app",
+                    "src",
+                    "locales",
+                    locale,
+                    "error.json"));
+
+            IReadOnlyList<string> localeSuccess =
+                MessageCatalogParityValidator.ReadJsonObjectKeysPreservingDuplicates(successPath);
+            IReadOnlyList<string> localeError =
+                MessageCatalogParityValidator.ReadJsonObjectKeysPreservingDuplicates(errorPath);
+
+            MessageCatalogParityValidator.AssertNoDuplicates($"{locale}/success.json", localeSuccess);
+            MessageCatalogParityValidator.AssertNoDuplicates($"{locale}/error.json", localeError);
+
+            MessageCatalogParityValidator.AssertSetsEqual(
                 $"{locale}/success.json",
                 successKeys,
-                ReadJsonObjectKeys(ResolvePath(
-                    Path.Combine(
-                        "client",
-                        "rental-manager-web-app",
-                        "src",
-                        "locales",
-                        locale,
-                        "success.json"))));
-
-            AssertSetsEqual(
+                localeSuccess);
+            MessageCatalogParityValidator.AssertSetsEqual(
                 $"{locale}/error.json",
                 errorKeys,
-                ReadJsonObjectKeys(ResolvePath(
-                    Path.Combine(
-                        "client",
-                        "rental-manager-web-app",
-                        "src",
-                        "locales",
-                        locale,
-                        "error.json"))));
+                localeError);
         }
     }
 
@@ -108,39 +140,127 @@ public sealed class MessageCatalogParityTests
         Assert.False(MessageCatalog.TryGet(key, out _));
     }
 
-    private static HashSet<string> ParseConstArray(string source, string constName)
+    [Fact]
+    public void Fixture_duplicate_in_canonical_list_is_detected_before_set()
     {
-        Match match = Regex.Match(
-            source,
-            $@"export const {Regex.Escape(constName)}\s*=\s*\[(?<body>[\s\S]*?)\]\s*as const;",
-            RegexOptions.CultureInvariant);
+        var keys = new List<string> { "ERR-001", "ERR-002", "ERR-001" };
 
-        Assert.True(match.Success, $"Could not find {constName} in message-catalog.ts");
+        Exception error = Assert.ThrowsAny<Exception>(
+            () => MessageCatalogParityValidator.AssertNoDuplicates("canonical fixture", keys));
 
-        return Regex.Matches(match.Groups["body"].Value, "\"(?<key>[^\"]+)\"")
-            .Select(m => m.Groups["key"].Value)
-            .ToHashSet(StringComparer.Ordinal);
+        Assert.Contains("canonical fixture", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ERR-001", error.Message, StringComparison.Ordinal);
     }
 
-    private static HashSet<string> ReadJsonObjectKeys(string path)
+    [Fact]
+    public void Fixture_duplicate_in_locale_json_is_detected_before_object_mapping()
     {
-        using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
-        return document.RootElement.EnumerateObject()
-            .Select(property => property.Name)
-            .ToHashSet(StringComparer.Ordinal);
+        string path = MessageCatalogParityValidator.MaterializeFixture(
+            "duplicate-locale.json",
+            """
+            {
+              "ERR-001": "one",
+              "ERR-002": "two",
+              "ERR-001": "duplicate"
+            }
+            """);
+
+        IReadOnlyList<string> keys =
+            MessageCatalogParityValidator.ReadJsonObjectKeysPreservingDuplicates(path);
+
+        Assert.Equal(3, keys.Count);
+
+        Exception error = Assert.ThrowsAny<Exception>(
+            () => MessageCatalogParityValidator.AssertNoDuplicates("fixture/duplicate-locale.json", keys));
+
+        Assert.Contains("fixture/duplicate-locale.json", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ERR-001", error.Message, StringComparison.Ordinal);
     }
 
-    private static void AssertSetsEqual(
-        string label,
-        IReadOnlySet<string> expected,
-        IReadOnlySet<string> actual)
+    [Fact]
+    public void Fixture_duplicate_in_frontend_catalog_is_detected_before_set()
     {
-        string[] missing = expected.Except(actual, StringComparer.Ordinal).OrderBy(k => k).ToArray();
-        string[] extra = actual.Except(expected, StringComparer.Ordinal).OrderBy(k => k).ToArray();
+        const string source = """
+            export const ACTIVE_ERROR_MESSAGE_KEYS = [
+              "ERR-001",
+              "ERR-002",
+              "ERR-001",
+            ] as const;
+            """;
 
-        Assert.True(
-            missing.Length == 0 && extra.Length == 0,
-            $"{label} catalog drift. missing=[{string.Join(", ", missing)}] extra=[{string.Join(", ", extra)}]");
+        IReadOnlyList<string> keys =
+            MessageCatalogParityValidator.ParseConstArrayKeys(source, "ACTIVE_ERROR_MESSAGE_KEYS");
+
+        Exception error = Assert.ThrowsAny<Exception>(
+            () => MessageCatalogParityValidator.AssertNoDuplicates(
+                "fixture/message-catalog.ts ACTIVE_ERROR_MESSAGE_KEYS",
+                keys));
+
+        Assert.Contains("fixture/message-catalog.ts", error.Message, StringComparison.Ordinal);
+        Assert.Contains("ERR-001", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Fixture_missing_key_fails_parity()
+    {
+        Exception error = Assert.ThrowsAny<Exception>(
+            () => MessageCatalogParityValidator.AssertSetsEqual(
+                "fixture/missing",
+                ["ERR-001", "ERR-002"],
+                ["ERR-001"]));
+
+        Assert.Contains("missing=[ERR-002]", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Fixture_extra_key_fails_parity()
+    {
+        Exception error = Assert.ThrowsAny<Exception>(
+            () => MessageCatalogParityValidator.AssertSetsEqual(
+                "fixture/extra",
+                ["ERR-001"],
+                ["ERR-001", "ERR-999"]));
+
+        Assert.Contains("extra=[ERR-999]", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Fixture_unknown_prefixed_key_is_rejected()
+    {
+        Exception error = Assert.ThrowsAny<Exception>(
+            () => MessageCatalogParityValidator.AssertUnknownPrefixedKeysRejected(
+                "fixture/unknown",
+                knownKeys: ["ERR-001", "SCS-001"],
+                candidateKeys: ["ERR-001", "ERR-999", "SCS-001"]));
+
+        Assert.Contains("ERR-999", error.Message, StringComparison.Ordinal);
+        Assert.Contains("fixture/unknown", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Fixture_fully_valid_catalog_passes()
+    {
+        string path = MessageCatalogParityValidator.MaterializeFixture(
+            "valid-locale.json",
+            """
+            {
+              "ERR-001": "one",
+              "ERR-002": "two"
+            }
+            """);
+
+        IReadOnlyList<string> localeKeys =
+            MessageCatalogParityValidator.ReadJsonObjectKeysPreservingDuplicates(path);
+
+        MessageCatalogParityValidator.AssertNoDuplicates("fixture/valid-locale.json", localeKeys);
+        MessageCatalogParityValidator.AssertSetsEqual(
+            "fixture/valid",
+            ["ERR-001", "ERR-002"],
+            localeKeys);
+        MessageCatalogParityValidator.AssertUnknownPrefixedKeysRejected(
+            "fixture/valid",
+            knownKeys: ["ERR-001", "ERR-002"],
+            candidateKeys: localeKeys);
     }
 
     private static string ResolvePath(params string[] relativeSegments)
